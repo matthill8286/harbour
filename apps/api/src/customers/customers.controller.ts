@@ -1,0 +1,40 @@
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles } from '../auth/roles.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthUser } from '../auth/auth.types';
+import { CustomersService } from './customers.service';
+import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+
+@Controller('customers')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN', 'STAFF')
+export class CustomersController {
+  constructor(private readonly customers: CustomersService) {}
+
+  @Get()
+  list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
+    return this.customers.list(user, search);
+  }
+
+  @Get(':id')
+  get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.customers.get(user, id);
+  }
+
+  @Post()
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateCustomerDto) {
+    return this.customers.create(user, dto);
+  }
+
+  @Patch(':id')
+  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateCustomerDto) {
+    return this.customers.update(user, id, dto);
+  }
+
+  @Post(':id/invite')
+  invite(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.customers.invite(user, id);
+  }
+}
