@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { PublicUser } from '@vip/shared';
-import { api, getToken, setToken, type LoginResponse } from './api';
+import { api, ApiError, getToken, setToken, type LoginResponse } from './api';
 
 type AuthState = {
   user: PublicUser | null;
@@ -44,9 +44,15 @@ export const useAuth = create<AuthState>((set) => ({
     try {
       const user = await api<PublicUser>('/auth/me');
       set({ user, ready: true });
-    } catch {
-      setToken(null);
-      set({ user: null, ready: true });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        setToken(null);
+        set({ user: null, ready: true });
+        return;
+      }
+      window.setTimeout(() => {
+        void useAuth.getState().hydrate();
+      }, 1000);
     }
   },
 }));
