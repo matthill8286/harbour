@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Card, EmptyState, PageHeader, fieldClass, primaryBtn } from '../components/ui';
 
@@ -53,9 +54,9 @@ export function CustomersPage() {
             <li key={customer.id} className="rounded-2xl bg-paper p-4">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
-                  <p className="font-semibold">
+                  <Link to={`/customers/${customer.id}`} className="font-semibold hover:text-harbour">
                     {customer.firstName} {customer.lastName}
-                  </p>
+                  </Link>
                   <p className="text-sm text-ink/60">
                     {customer.email ?? 'No email'}
                     {customer.phone ? ` · ${customer.phone}` : ''} · {customer._count.importJobs}{' '}
@@ -70,6 +71,9 @@ export function CustomersPage() {
                       : 'No portal'}
                 </span>
               </div>
+              <Link to={`/customers/${customer.id}`} className="mt-2 inline-block text-sm font-semibold text-harbour">
+                Open record
+              </Link>
             </li>
           ))}
         </ul>

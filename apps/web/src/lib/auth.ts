@@ -6,6 +6,7 @@ type AuthState = {
   user: PublicUser | null;
   ready: boolean;
   login: (email: string, password: string) => Promise<PublicUser>;
+  acceptInvite: (token: string, password: string) => Promise<PublicUser>;
   logout: () => void;
   hydrate: () => Promise<void>;
 };
@@ -17,6 +18,15 @@ export const useAuth = create<AuthState>((set) => ({
     const result = await api<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    });
+    setToken(result.accessToken);
+    set({ user: result.user, ready: true });
+    return result.user;
+  },
+  acceptInvite: async (token, password) => {
+    const result = await api<LoginResponse>(`/auth/invites/${encodeURIComponent(token)}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
     });
     setToken(result.accessToken);
     set({ user: result.user, ready: true });
