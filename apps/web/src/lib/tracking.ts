@@ -13,6 +13,7 @@ export type TrackingVehicle = {
     assignedAt: string;
     id: string;
     serialNumber: string;
+    provider: string;
     batteryLevel: number | null;
     lastSeenAt: string | null;
     status: string;
@@ -24,6 +25,7 @@ export type JobTracking = TrackingVehicle & {
   availableTrackers?: Array<{
     id: string;
     serialNumber: string;
+    provider: string;
     status: string;
     batteryLevel: number | null;
   }>;
