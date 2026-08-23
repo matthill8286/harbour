@@ -1,0 +1,497 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+  CUSTOMER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CostCategory {
+  TRANSPORT
+  REGISTRATION
+  IMPORT
+  DOCUMENTATION
+  REPAIRS
+  STORAGE
+  ADMINISTRATIVE
+  OTHER
+}
+
+enum ChargeCategory {
+  TRANSPORT
+  IMPORT_SERVICE
+  REGISTRATION_SERVICE
+  OTHER
+}
+
+enum PhotoCategory {
+  BEFORE_COLLECTION
+  COLLECTION
+  DAMAGE
+  MILEAGE
+  VIN
+  REGISTRATION
+  ARRIVAL
+  FINAL
+  OTHER
+}
+
+enum DocumentType {
+  V5C
+  PURCHASE_INVOICE
+  TRANSPORT
+  IMPORT
+  REGISTRATION
+  CUSTOMS
+  CUSTOMER
+  INSPECTION
+  OTHER
+}
+
+enum NoteVisibility {
+  INTERNAL
+  CUSTOMER
+}
+
+enum JourneyType {
+  ROAD
+  FERRY
+  OTHER
+}
+
+enum JourneyStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TrackerStatus {
+  AVAILABLE
+  ASSIGNED
+  OFFLINE
+  RETIRED
+}
+
+enum RegistrationKind {
+  UK
+  TEMPORARY
+  CYPRUS
+  OTHER
+}
+
+model Organisation {
+  id        String   @id @default(cuid())
+  name      String
+  legalName String?
+  slug      String   @unique
+  country   String   @default("CY")
+  currency  String   @default("EUR")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  customers        Customer[]
+  vehicles         Vehicle[]
+  importJobs       ImportJob[]
+  trackers         Tracker[]
+  workflowStatuses WorkflowStatus[]
+  locationEvents   LocationEvent[]
+  notes            Note[]
+  auditLogs        AuditLog[]
+  portalInvites    PortalInvite[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  email          String       @unique
+  passwordHash   String?
+  name           String
+  role           UserRole
+  customerId     String?
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  assignedTasks         Task[]              @relation("TaskAssignee")
+  notes                 Note[]
+  documents             Document[]
+  photos                Photo[]
+  statusChanges         JobStatusHistory[]
+  auditLogs             AuditLog[]
+  portalInvites         PortalInvite[]
+  createdPortalInvites  PortalInvite[]      @relation("PortalInviteCreator")
+
+  @@index([organisationId])
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  firstName      String
+  lastName       String
+  email          String?
+  phone          String?
+  address        String?
+  notes          String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  users         User[]
+  importJobs    ImportJob[]
+  jobNotes      Note[]
+  portalInvites PortalInvite[]
+
+  @@index([organisationId])
+  @@index([organisationId, email])
+}
+
+/// Permanent identity of the physical vehicle. Registrations can change.
+model Vehicle {
+  id                     String       @id @default(cuid())
+  organisationId         String
+  organisation           Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  vin                    String?
+  make                   String?
+  model                  String?
+  variant                String?
+  year                   Int?
+  mileage                Int?
+  fuelType               String?
+  colour                 String?
+  engineSize             String?
+  bodyType               String?
+  countryOfRegistration  String?
+  ukRegistration         String?
+  temporaryRegistration  String?
+  cyprusRegistration     String?
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
+
+  importJobs         ImportJob[]
+  registrations      VehicleRegistration[]
+  trackerAssignments TrackerAssignment[]
+  locationEvents     LocationEvent[]
+  notes              Note[]
+
+  @@index([organisationId])
+  @@index([vin])
+  @@index([ukRegistration])
+  @@index([cyprusRegistration])
+}
+
+model VehicleRegistration {
+  id         String           @id @default(cuid())
+  vehicleId  String
+  vehicle    Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  kind       RegistrationKind
+  number     String
+  country    String?
+  issuedAt   DateTime         @default(now())
+  endedAt    DateTime?
+
+  @@index([vehicleId])
+}
+
+model WorkflowStatus {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  code           String
+  label          String
+  sortOrder      Int
+  isTerminal     Boolean      @default(false)
+
+  @@unique([organisationId, code])
+}
+
+model ImportJob {
+  id                   String       @id @default(cuid())
+  organisationId       String
+  organisation         Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  customerId           String
+  customer             Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  vehicleId            String
+  vehicle              Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
+  reference            String
+  status               String       @default("NEW")
+  originCountry        String       @default("GB")
+  destinationCountry   String       @default("CY")
+  registrationCountry  String?
+  expectedDeliveryDate DateTime?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  statusHistory      JobStatusHistory[]
+  journeys           Journey[]
+  documents          Document[]
+  photos             Photo[]
+  tasks              Task[]
+  costs              Cost[]
+  charges            CustomerCharge[]
+  notes              Note[]
+  trackerAssignments TrackerAssignment[]
+  locationEvents     LocationEvent[]
+
+  @@unique([organisationId, reference])
+  @@index([organisationId, status])
+  @@index([customerId])
+  @@index([vehicleId])
+}
+
+model JobStatusHistory {
+  id          String    @id @default(cuid())
+  importJobId String
+  importJob   ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  fromStatus  String?
+  toStatus    String
+  changedById String?
+  changedBy   User?     @relation(fields: [changedById], references: [id], onDelete: SetNull)
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  @@index([importJobId, createdAt])
+}
+
+model Journey {
+  id          String         @id @default(cuid())
+  importJobId String
+  importJob   ImportJob      @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  type        JourneyType    @default(ROAD)
+  origin      String
+  destination String
+  status      JourneyStatus  @default(PLANNED)
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([importJobId])
+}
+
+model Tracker {
+  id             String        @id @default(cuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  serialNumber   String
+  provider       String        @default("generic")
+  status         TrackerStatus @default(AVAILABLE)
+  batteryLevel   Int?
+  lastSeenAt     DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  assignments    TrackerAssignment[]
+  locationEvents LocationEvent[]
+
+  @@unique([organisationId, serialNumber])
+}
+
+model TrackerAssignment {
+  id          String     @id @default(cuid())
+  trackerId   String
+  tracker     Tracker    @relation(fields: [trackerId], references: [id], onDelete: Cascade)
+  vehicleId   String
+  vehicle     Vehicle    @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  importJobId String?
+  importJob   ImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  assignedAt  DateTime   @default(now())
+  removedAt   DateTime?
+
+  @@index([trackerId])
+  @@index([vehicleId])
+  @@index([importJobId])
+}
+
+/// GPS points are independent of the current tracker assignment.
+model LocationEvent {
+  id             String        @id @default(cuid())
+  organisationId String
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  trackerId      String?
+  tracker        Tracker?      @relation(fields: [trackerId], references: [id], onDelete: SetNull)
+  vehicleId      String?
+  vehicle        Vehicle?      @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  importJobId    String?
+  importJob      ImportJob?    @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  latitude       Decimal       @db.Decimal(10, 7)
+  longitude      Decimal       @db.Decimal(10, 7)
+  accuracy       Decimal?      @db.Decimal(8, 2)
+  speed          Decimal?      @db.Decimal(8, 2)
+  heading        Decimal?      @db.Decimal(6, 2)
+  recordedAt     DateTime
+  receivedAt     DateTime      @default(now())
+
+  @@index([importJobId, recordedAt])
+  @@index([vehicleId, recordedAt])
+  @@index([organisationId, recordedAt])
+}
+
+model Document {
+  id              String       @id @default(cuid())
+  importJobId     String
+  importJob       ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  type            DocumentType @default(OTHER)
+  name            String
+  mimeType        String
+  storageKey      String
+  sizeBytes       Int
+  uploadedById    String?
+  uploadedBy      User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  customerVisible Boolean      @default(false)
+  createdAt       DateTime     @default(now())
+
+  @@index([importJobId])
+}
+
+model Photo {
+  id              String        @id @default(cuid())
+  importJobId     String
+  importJob       ImportJob     @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  category        PhotoCategory @default(OTHER)
+  filename        String
+  mimeType        String
+  storageKey      String
+  sizeBytes       Int
+  uploadedById    String?
+  uploadedBy      User?         @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  customerVisible Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+
+  @@index([importJobId])
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  importJobId String
+  importJob   ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  assignedToId String?
+  assignedTo  User?        @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  notes       Note[]
+
+  @@index([importJobId])
+  @@index([status, dueDate])
+}
+
+model Cost {
+  id               String       @id @default(cuid())
+  importJobId      String
+  importJob        ImportJob    @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  category         CostCategory
+  description      String
+  amount           Decimal      @db.Decimal(12, 2)
+  currency         String       @default("EUR")
+  supplier         String?
+  invoiceReference String?
+  incurredOn       DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+
+  @@index([importJobId])
+}
+
+model CustomerCharge {
+  id          String         @id @default(cuid())
+  importJobId String
+  importJob   ImportJob      @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  category    ChargeCategory
+  description String
+  amount      Decimal        @db.Decimal(12, 2)
+  currency    String         @default("EUR")
+  incurredOn  DateTime       @default(now())
+  createdAt   DateTime       @default(now())
+
+  @@index([importJobId])
+}
+
+model Note {
+  id             String         @id @default(cuid())
+  organisationId String
+  organisation   Organisation   @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  importJobId    String?
+  importJob      ImportJob?     @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  vehicleId      String?
+  vehicle        Vehicle?       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  customerId     String?
+  customer       Customer?      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  taskId         String?
+  task           Task?          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId       String
+  author         User           @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  body           String
+  visibility     NoteVisibility @default(INTERNAL)
+  createdAt      DateTime       @default(now())
+
+  @@index([importJobId])
+  @@index([vehicleId])
+  @@index([customerId])
+  @@index([taskId])
+}
+
+model PortalInvite {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdById    String?
+  createdBy      User?        @relation("PortalInviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([customerId, createdAt])
+  @@index([userId])
+  @@index([organisationId])
+}
+
+model AuditLog {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  actorId        String?
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action         String
+  entityType     String
+  entityId       String?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  @@index([organisationId, createdAt])
+  @@index([entityType, entityId])
+}
