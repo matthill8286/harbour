@@ -9,6 +9,10 @@ import { JobsPage } from './pages/JobsPage';
 import { JobNewPage } from './pages/JobNewPage';
 import { JobDetailPage } from './pages/JobDetailPage';
 import { CustomersPage } from './pages/CustomersPage';
+import { CustomerDetailPage } from './pages/CustomerDetailPage';
+import { InvitePage } from './pages/InvitePage';
+import { PortalPage } from './pages/PortalPage';
+import { PortalJobPage } from './pages/PortalJobPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LoadingScreen } from './components/ui';
@@ -24,17 +28,19 @@ function Guard({
   if (!ready) return <LoadingScreen label="Opening Harbour…" />;
   if (!user) return <Navigate to="/login" replace />;
   if (!allow(user)) {
-    return <Navigate to={user.role === 'CUSTOMER' ? '/waiting' : '/'} replace />;
+    return <Navigate to={user.role === 'CUSTOMER' ? '/portal' : '/'} replace />;
   }
   return children;
 }
 
 const staff = (user: PublicUser) => user.role === 'ADMIN' || user.role === 'STAFF';
+const customer = (user: PublicUser) => user.role === 'CUSTOMER';
 
 export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
       <Route
         element={
           <Guard allow={() => true}>
@@ -51,19 +57,73 @@ export default function App() {
           }
         />
         <Route
-          path="/waiting"
+          path="/jobs"
           element={
-            <p className="rounded-2xl bg-paper p-6 text-ink/80">
-              Your importer will send a portal invite when this desk is ready for customers.
-            </p>
+            <Guard allow={staff}>
+              <JobsPage />
+            </Guard>
           }
         />
-        <Route path="/jobs" element={<Guard allow={staff}><JobsPage /></Guard>} />
-        <Route path="/jobs/new" element={<Guard allow={staff}><JobNewPage /></Guard>} />
-        <Route path="/jobs/:id" element={<Guard allow={staff}><JobDetailPage /></Guard>} />
-        <Route path="/tracking" element={<Guard allow={staff}><TrackingPage /></Guard>} />
-        <Route path="/customers" element={<Guard allow={staff}><CustomersPage /></Guard>} />
-        <Route path="*" element={<NotFoundPage />} />
+        <Route
+          path="/jobs/new"
+          element={
+            <Guard allow={staff}>
+              <JobNewPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/jobs/:id"
+          element={
+            <Guard allow={staff}>
+              <JobDetailPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/tracking"
+          element={
+            <Guard allow={staff}>
+              <TrackingPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/customers"
+          element={
+            <Guard allow={staff}>
+              <CustomersPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/customers/:id"
+          element={
+            <Guard allow={staff}>
+              <CustomerDetailPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/portal"
+          element={
+            <Guard allow={customer}>
+              <PortalPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/portal/:id"
+          element={
+            <Guard allow={customer}>
+              <PortalJobPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="*"
+          element={<NotFoundPage />}
+        />
       </Route>
     </Routes>
   );

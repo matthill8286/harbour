@@ -12,7 +12,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
 
   if (ready && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={user.role === 'CUSTOMER' ? '/portal' : '/'} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -21,7 +21,7 @@ export function LoginPage() {
     setError(null);
     try {
       const signedIn = await login(email, password);
-      navigate('/');
+      navigate(signedIn.role === 'CUSTOMER' ? '/portal' : '/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in');
     } finally {
