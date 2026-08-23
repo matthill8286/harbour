@@ -8,6 +8,7 @@ import { CustomersModule } from './customers/customers.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { ImportJobsModule } from './import-jobs/import-jobs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PortalModule } from './portal/portal.module';
 import { TrackersModule } from './trackers/trackers.module';
 import { TrackingModule } from './tracking/tracking.module';
 
@@ -22,6 +23,7 @@ import { TrackingModule } from './tracking/tracking.module';
     VehiclesModule,
     ImportJobsModule,
     DashboardModule,
+    PortalModule,
     TrackersModule,
     TrackingModule,
   ],
