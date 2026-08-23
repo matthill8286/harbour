@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", serif;
+  --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #0b1f33;
+  --color-harbour: #1c6b6a;
+  --color-signal: #e0a100;
+  --color-sand: #f4ead7;
+  --color-paper: #fffaf2;
+  --color-mist: #d7e4e3;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--color-sand);
+  color: var(--color-ink);
+}
+
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+}
+
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+  font-family: var(--font-sans);
+  background: var(--color-mist);
+}
+
+.harbour-vehicle-marker {
+  background: none;
+  border: none;
+}
+
+.harbour-vehicle-dot {
+  display: block;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: var(--color-harbour);
+  box-shadow: 0 0 0 3px #fffaf2, 0 8px 16px rgb(11 31 51 / 0.28);
+}
+
+.harbour-vehicle-dot::after {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 11px;
+  width: 6px;
+  height: 12px;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  background: #fffaf2;
+}
