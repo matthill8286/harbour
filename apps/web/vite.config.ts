@@ -13,7 +13,18 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:3001',
+      '/api': {
+        target: 'http://127.0.0.1:3001',
+        changeOrigin: true,
+        configure(proxy) {
+          proxy.on('error', (_error, _req, res) => {
+            if (res && !res.headersSent && 'writeHead' in res) {
+              res.writeHead(503, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ message: 'API is starting. Retry in a moment.' }));
+            }
+          });
+        },
+      },
     },
   },
 });
