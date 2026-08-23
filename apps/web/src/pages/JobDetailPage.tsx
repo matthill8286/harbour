@@ -13,6 +13,7 @@ import { api, ApiError } from '../lib/api';
 import { formatCategory, formatDate, formatDateTime, money } from '../lib/format';
 import { JobTrackingPanel } from '../components/JobTrackingPanel';
 import { JobFilesPanel, JobJourneys } from '../components/JobFilesPanel';
+import { JobActivity } from '../components/JobActivity';
 import { JourneyStepper } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
@@ -263,6 +264,7 @@ export function JobDetailPage() {
         </ol>
       </Card>
 
+      <JobActivity jobId={job.id} />
 
       <Card>
         <h2 className="display text-2xl">Tasks</h2>
