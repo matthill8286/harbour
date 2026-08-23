@@ -11,6 +11,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PortalModule } from './portal/portal.module';
 import { TrackersModule } from './trackers/trackers.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { HealthController } from './health.controller';
 
 @Module({
   imports: [
@@ -27,5 +28,6 @@ import { TrackingModule } from './tracking/tracking.module';
     TrackersModule,
     TrackingModule,
   ],
+  controllers: [HealthController],
 })
 export class AppModule {}
