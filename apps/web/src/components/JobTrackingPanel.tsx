@@ -27,6 +27,10 @@ export function JobTrackingPanel({ jobId }: { jobId: string }) {
     mutationFn: () => api(`/import-jobs/${jobId}/tracking/advance`, { method: 'POST' }),
     onSuccess: () => void invalidate(),
   });
+  const sync = useMutation({
+    mutationFn: () => api(`/trackers/${tracking!.tracker!.id}/sync`, { method: 'POST' }),
+    onSuccess: () => void invalidate(),
+  });
   const assign = useMutation({
     mutationFn: () =>
       api(`/trackers/jobs/${jobId}/assign`, {
@@ -74,7 +78,7 @@ export function JobTrackingPanel({ jobId }: { jobId: string }) {
             {current?.speed != null ? ` · ${Math.round(current.speed)} km/h` : ''}
           </p>
         </div>
-        {tracking.tracker ? (
+        {tracking.tracker && tracking.tracker.provider === 'generic' ? (
           <button
             type="button"
             className="rounded-full bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
@@ -84,12 +88,23 @@ export function JobTrackingPanel({ jobId }: { jobId: string }) {
             {advance.isPending ? 'Pinging…' : 'Advance GPS'}
           </button>
         ) : null}
+        {tracking.tracker?.provider === 'flespi' ? (
+          <button
+            type="button"
+            className="rounded-full bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
+            disabled={sync.isPending}
+            onClick={() => sync.mutate()}
+          >
+            {sync.isPending ? 'Pulling…' : 'Pull from Flespi'}
+          </button>
+        ) : null}
       </div>
       <JourneyMap map={tracking.map} trail={tracking.trail} markers={markers} />
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
         {tracking.tracker ? (
           <p>
             Tracker <span className="font-semibold">{tracking.tracker.serialNumber}</span>
+            {tracking.tracker.provider === 'flespi' ? ' · Teltonika / Flespi' : ''}
             {tracking.tracker.batteryLevel != null ? ` · ${tracking.tracker.batteryLevel}% battery` : ''}
           </p>
         ) : (
@@ -124,6 +139,7 @@ export function JobTrackingPanel({ jobId }: { jobId: string }) {
               {(tracking.availableTrackers ?? []).map((tracker) => (
                 <option key={tracker.id} value={tracker.id}>
                   {tracker.serialNumber}
+                  {tracker.provider === 'flespi' ? ' · Flespi' : ''}
                   {tracker.batteryLevel != null ? ` (${tracker.batteryLevel}%)` : ''}
                 </option>
               ))}
