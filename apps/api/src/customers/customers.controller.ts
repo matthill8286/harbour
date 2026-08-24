@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -9,16 +10,18 @@ import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 
 @Controller('customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('ADMIN', 'STAFF')
+@Roles(...STAFF_ROLES)
 export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
   @Get()
+  @Roles(...STAFF_READ_ROLES)
   list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
     return this.customers.list(user, search);
   }
 
   @Get(':id')
+  @Roles(...STAFF_READ_ROLES)
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.customers.get(user, id);
   }

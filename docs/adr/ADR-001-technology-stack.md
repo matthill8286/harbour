@@ -12,4 +12,4 @@ See conversation record. Summary of the accepted stack:
 - Database: PostgreSQL + PostGIS
 - Storage: S3-compatible object storage (local filesystem in development)
 - External services isolated behind adapters: maps, ANPR, vehicle data, GPS, notifications
-- Architecture: modular monolith, multi-tenant-ready via Organisation
+- Architecture: modular monolith, multi-tenant SaaS (see ADR-003)

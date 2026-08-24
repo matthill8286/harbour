@@ -11,6 +11,73 @@ import {
 
 const prisma = new PrismaClient();
 
+async function upsertMember(input: {
+  organisationId: string;
+  email: string;
+  passwordHash: string;
+  name: string;
+  role: UserRole;
+  customerId?: string;
+}) {
+  const user = await prisma.user.upsert({
+    where: { email: input.email },
+    update: { passwordHash: input.passwordHash, name: input.name },
+    create: {
+      email: input.email,
+      passwordHash: input.passwordHash,
+      name: input.name,
+    },
+  });
+  await prisma.organisationMembership.upsert({
+    where: {
+      organisationId_userId: { organisationId: input.organisationId, userId: user.id },
+    },
+    update: {
+      role: input.role,
+      status: 'ACTIVE',
+      customerId: input.customerId ?? null,
+    },
+    create: {
+      organisationId: input.organisationId,
+      userId: user.id,
+      role: input.role,
+      status: 'ACTIVE',
+      customerId: input.customerId,
+    },
+  });
+  return user;
+}
+
+async function seedOrganisationPlatform(
+  organisationId: string,
+  input: { brandName: string; plan: 'STARTER' | 'BUSINESS'; status: 'TRIAL' | 'ACTIVE' },
+) {
+  await prisma.organisationSettings.upsert({
+    where: { organisationId },
+    update: { brandName: input.brandName },
+    create: { organisationId, brandName: input.brandName },
+  });
+  await prisma.subscription.upsert({
+    where: { organisationId },
+    update: { plan: input.plan, status: input.status },
+    create: {
+      organisationId,
+      plan: input.plan,
+      status: input.status,
+      billingCycle: 'MONTHLY',
+      startedAt: new Date('2026-08-01'),
+      renewalAt: new Date('2026-09-01'),
+    },
+  });
+  for (const flag of ['GPS_TRACKING', 'CUSTOMER_PORTAL'] as const) {
+    await prisma.organisationFeature.upsert({
+      where: { organisationId_flag: { organisationId, flag } },
+      update: { enabled: true },
+      create: { organisationId, flag, enabled: true },
+    });
+  }
+}
+
 async function main() {
   const passwordHash = await hash('ChangeMe!Admin1');
   const staffHash = await hash('ChangeMe!Staff1');
@@ -22,6 +89,8 @@ async function main() {
       legalName: 'Demo Imports Ltd',
       country: 'CY',
       currency: 'EUR',
+      timezone: 'Europe/Nicosia',
+      status: 'ACTIVE',
     },
     create: {
       name: 'Demo Imports Ltd',
@@ -29,7 +98,40 @@ async function main() {
       slug: 'demo-imports',
       country: 'CY',
       currency: 'EUR',
+      timezone: 'Europe/Nicosia',
+      status: 'ACTIVE',
     },
+  });
+
+  await seedOrganisationPlatform(organisation.id, {
+    brandName: 'Demo Imports',
+    plan: 'BUSINESS',
+    status: 'ACTIVE',
+  });
+
+  const secondOrg = await prisma.organisation.upsert({
+    where: { slug: 'cyprus-auto-logistics' },
+    update: { status: 'ACTIVE', timezone: 'Europe/Nicosia' },
+    create: {
+      name: 'Cyprus Auto Logistics',
+      legalName: 'Cyprus Auto Logistics Ltd',
+      slug: 'cyprus-auto-logistics',
+      country: 'CY',
+      currency: 'EUR',
+      timezone: 'Europe/Nicosia',
+    },
+  });
+  await seedOrganisationPlatform(secondOrg.id, {
+    brandName: 'Cyprus Auto Logistics',
+    plan: 'STARTER',
+    status: 'TRIAL',
+  });
+  await upsertMember({
+    organisationId: secondOrg.id,
+    email: 'owner@cyprus-auto.local',
+    passwordHash,
+    name: 'Chris Owner',
+    role: UserRole.OWNER,
   });
 
   await prisma.workflowStatus.deleteMany({
@@ -46,28 +148,20 @@ async function main() {
     })),
   });
 
-  const admin = await prisma.user.upsert({
-    where: { email: 'admin@demo-imports.local' },
-    update: { passwordHash, organisationId: organisation.id, role: UserRole.ADMIN },
-    create: {
-      organisationId: organisation.id,
-      email: 'admin@demo-imports.local',
-      passwordHash,
-      name: 'Alex Admin',
-      role: UserRole.ADMIN,
-    },
+  const admin = await upsertMember({
+    organisationId: organisation.id,
+    email: 'admin@demo-imports.local',
+    passwordHash,
+    name: 'Alex Admin',
+    role: UserRole.OWNER,
   });
 
-  await prisma.user.upsert({
-    where: { email: 'staff@demo-imports.local' },
-    update: { passwordHash: staffHash, organisationId: organisation.id, role: UserRole.STAFF },
-    create: {
-      organisationId: organisation.id,
-      email: 'staff@demo-imports.local',
-      passwordHash: staffHash,
-      name: 'Sam Staff',
-      role: UserRole.STAFF,
-    },
+  await upsertMember({
+    organisationId: organisation.id,
+    email: 'staff@demo-imports.local',
+    passwordHash: staffHash,
+    name: 'Sam Staff',
+    role: UserRole.STAFF,
   });
 
   const john = await prisma.customer.upsert({
@@ -85,22 +179,13 @@ async function main() {
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: 'customer@example.com' },
-    update: {
-      passwordHash: customerHash,
-      organisationId: organisation.id,
-      role: UserRole.CUSTOMER,
-      customerId: john.id,
-    },
-    create: {
-      organisationId: organisation.id,
-      email: 'customer@example.com',
-      passwordHash: customerHash,
-      name: 'John Smith',
-      role: UserRole.CUSTOMER,
-      customerId: john.id,
-    },
+  await upsertMember({
+    organisationId: organisation.id,
+    email: 'customer@example.com',
+    passwordHash: customerHash,
+    name: 'John Smith',
+    role: UserRole.CUSTOMER,
+    customerId: john.id,
   });
 
   const maria = await prisma.customer.upsert({
@@ -184,6 +269,7 @@ async function main() {
 
     await prisma.vehicleRegistration.create({
       data: {
+        organisationId: organisation.id,
         vehicleId: bmw.id,
         kind: 'UK',
         number: 'KN19 XPL',
@@ -191,11 +277,12 @@ async function main() {
       },
     });
 
-    await seedJobTimeline(job.id, admin.id);
+    await seedJobTimeline(organisation.id, job.id, admin.id);
 
     await prisma.journey.createMany({
       data: [
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           type: 'ROAD',
           origin: 'United Kingdom',
@@ -205,6 +292,7 @@ async function main() {
           completedAt: new Date('2026-08-24T18:15:00Z'),
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           type: 'ROAD',
           origin: 'Bulgaria',
@@ -213,6 +301,7 @@ async function main() {
           startedAt: new Date('2026-08-29T08:00:00Z'),
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           type: 'FERRY',
           origin: 'Greece',
@@ -244,6 +333,7 @@ async function main() {
     await prisma.task.createMany({
       data: [
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           title: 'Arrange Greece transport',
           status: 'COMPLETED',
@@ -251,6 +341,7 @@ async function main() {
           completedAt: new Date('2026-08-28T17:00:00Z'),
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           title: 'Book Cyprus shipping',
           status: 'IN_PROGRESS',
@@ -258,6 +349,7 @@ async function main() {
           dueDate: new Date('2026-09-02'),
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           title: 'Upload final photos',
           status: 'TODO',
@@ -270,6 +362,7 @@ async function main() {
     await prisma.cost.createMany({
       data: [
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           category: 'TRANSPORT',
           description: 'UK to Bulgaria transport',
@@ -279,6 +372,7 @@ async function main() {
           invoiceReference: 'EH-88421',
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           category: 'REGISTRATION',
           description: 'Bulgarian registration fees',
@@ -291,6 +385,7 @@ async function main() {
     await prisma.customerCharge.createMany({
       data: [
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           category: 'TRANSPORT',
           description: 'Transport service',
@@ -298,6 +393,7 @@ async function main() {
           currency: 'EUR',
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           category: 'REGISTRATION_SERVICE',
           description: 'Registration service',
@@ -305,6 +401,7 @@ async function main() {
           currency: 'EUR',
         },
         {
+          organisationId: organisation.id,
           importJobId: job.id,
           category: 'IMPORT_SERVICE',
           description: 'Import management',
@@ -327,6 +424,7 @@ async function main() {
 
     await prisma.trackerAssignment.create({
       data: {
+        organisationId: organisation.id,
         trackerId: tracker.id,
         vehicleId: bmw.id,
         importJobId: job.id,
@@ -339,7 +437,7 @@ async function main() {
       where: { id: existingJob.id },
       data: { status: 'IN_TRANSIT_TO_GREECE', completedAt: null },
     });
-    await seedJobTimeline(existingJob.id, admin.id);
+    await seedJobTimeline(organisation.id, existingJob.id, admin.id);
     const assignment = await prisma.trackerAssignment.findFirst({
       where: { importJobId: existingJob.id, removedAt: null },
     });
@@ -376,6 +474,7 @@ async function main() {
         expectedDeliveryDate: new Date('2026-10-01'),
         tasks: {
           create: {
+            organisationId: organisation.id,
             title: 'Collect vehicle',
             status: 'TODO',
             priority: 'HIGH',
@@ -401,8 +500,27 @@ async function main() {
       organisationId_reference: { organisationId: organisation.id, reference: 'CY-2026-00388' },
     },
   });
-  if (bmwJob) await seedPortalFiles(bmwJob.id, admin.id, 'bmw', 'KN19 XPL collection');
-  if (mariaJob) await seedPortalFiles(mariaJob.id, admin.id, 'rr', 'LF21 TRK collection');
+  if (bmwJob) await seedPortalFiles(organisation.id, bmwJob.id, admin.id, 'bmw', 'KN19 XPL collection');
+  if (mariaJob) await seedPortalFiles(organisation.id, mariaJob.id, admin.id, 'rr', 'LF21 TRK collection');
+
+  const jobCount = await prisma.importJob.count({ where: { organisationId: organisation.id } });
+  const periodStart = new Date(Date.UTC(2026, 7, 1));
+  await prisma.usageRecord.upsert({
+    where: {
+      organisationId_metric_periodStart: {
+        organisationId: organisation.id,
+        metric: 'IMPORT_JOBS',
+        periodStart,
+      },
+    },
+    update: { quantity: jobCount },
+    create: {
+      organisationId: organisation.id,
+      metric: 'IMPORT_JOBS',
+      periodStart,
+      quantity: jobCount,
+    },
+  });
 
   await prisma.tracker.upsert({
     where: {
@@ -422,9 +540,11 @@ async function main() {
   });
 
   console.log('Seed complete.');
-  console.log('  Admin:    admin@demo-imports.local / ChangeMe!Admin1');
+  console.log('  Founding tenant: Demo Imports Ltd');
+  console.log('  Owner:    admin@demo-imports.local / ChangeMe!Admin1');
   console.log('  Staff:    staff@demo-imports.local / ChangeMe!Staff1');
   console.log('  Customer: customer@example.com / ChangeMe!Customer1');
+  console.log('  Second tenant owner: owner@cyprus-auto.local / ChangeMe!Admin1');
 }
 
 const SEED_PNG = Buffer.from(
@@ -449,20 +569,28 @@ trailer<</Root 1 0 R>>
   );
 }
 
-async function seedPortalFiles(importJobId: string, uploadedById: string, slug: string, label: string) {
-  const photoKey = `seed/${slug}-collection.png`;
-  const docKey = `seed/${slug}-collection.pdf`;
+async function seedPortalFiles(
+  organisationId: string,
+  importJobId: string,
+  uploadedById: string,
+  slug: string,
+  label: string,
+) {
+  const photoKey = `${organisationId}/jobs/${importJobId}/photos/seed-${slug}-collection.png`;
+  const docKey = `${organisationId}/jobs/${importJobId}/documents/seed-${slug}-collection.pdf`;
   const root = process.env.STORAGE_LOCAL_DIR ?? './uploads';
-  await mkdir(join(root, 'seed'), { recursive: true });
+  await mkdir(join(root, organisationId, 'jobs', importJobId, 'photos'), { recursive: true });
+  await mkdir(join(root, organisationId, 'jobs', importJobId, 'documents'), { recursive: true });
   const pdf = seedPdf(label);
   await writeFile(join(root, photoKey), SEED_PNG);
   await writeFile(join(root, docKey), pdf);
 
   await prisma.photo.upsert({
     where: { id: `seed-photo-${slug}` },
-    update: { importJobId, customerVisible: true, storageKey: photoKey },
+    update: { importJobId, organisationId, customerVisible: true, storageKey: photoKey },
     create: {
       id: `seed-photo-${slug}`,
+      organisationId,
       importJobId,
       category: 'COLLECTION',
       filename: `${slug}-collection.png`,
@@ -476,9 +604,10 @@ async function seedPortalFiles(importJobId: string, uploadedById: string, slug: 
 
   await prisma.document.upsert({
     where: { id: `seed-doc-${slug}` },
-    update: { importJobId, customerVisible: true, storageKey: docKey, sizeBytes: pdf.length },
+    update: { importJobId, organisationId, customerVisible: true, storageKey: docKey, sizeBytes: pdf.length },
     create: {
       id: `seed-doc-${slug}`,
+      organisationId,
       importJobId,
       type: 'CUSTOMER',
       name: 'Collection update.pdf',
@@ -491,11 +620,12 @@ async function seedPortalFiles(importJobId: string, uploadedById: string, slug: 
   });
 }
 
-async function seedJobTimeline(importJobId: string, changedById: string) {
+async function seedJobTimeline(organisationId: string, importJobId: string, changedById: string) {
   await prisma.jobStatusHistory.deleteMany({ where: { importJobId } });
   await prisma.jobStatusHistory.createMany({
     data: [
       {
+        organisationId,
         importJobId,
         fromStatus: null,
         toStatus: 'NEW',
@@ -504,6 +634,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-20T08:00:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'NEW',
         toStatus: 'CONFIRMED',
@@ -512,6 +643,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-20T10:15:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'CONFIRMED',
         toStatus: 'READY_FOR_COLLECTION',
@@ -520,6 +652,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-22T14:00:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'READY_FOR_COLLECTION',
         toStatus: 'COLLECTED',
@@ -528,6 +661,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-23T09:32:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'COLLECTED',
         toStatus: 'IN_TRANSIT_UK',
@@ -536,6 +670,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-23T12:10:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'IN_TRANSIT_UK',
         toStatus: 'ARRIVED_REGISTRATION_COUNTRY',
@@ -544,6 +679,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-24T18:15:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'ARRIVED_REGISTRATION_COUNTRY',
         toStatus: 'REGISTRATION_IN_PROGRESS',
@@ -552,6 +688,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-26T11:20:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'REGISTRATION_IN_PROGRESS',
         toStatus: 'REGISTERED',
@@ -560,6 +697,7 @@ async function seedJobTimeline(importJobId: string, changedById: string) {
         createdAt: new Date('2026-08-28T16:40:00Z'),
       },
       {
+        organisationId,
         importJobId,
         fromStatus: 'REGISTERED',
         toStatus: 'IN_TRANSIT_TO_GREECE',

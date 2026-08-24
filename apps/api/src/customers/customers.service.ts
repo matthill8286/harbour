@@ -42,7 +42,11 @@ export class CustomersService {
       },
       include: {
         _count: { select: { importJobs: true } },
-        users: { where: { role: 'CUSTOMER' }, select: portalUserSelect, take: 1 },
+        memberships: {
+          where: { role: 'CUSTOMER' },
+          select: { user: { select: portalUserSelect } },
+          take: 1,
+        },
         portalInvites: {
           where: { acceptedAt: null, expiresAt: { gt: new Date() } },
           select: pendingInviteSelect,
@@ -63,7 +67,11 @@ export class CustomersService {
           include: { vehicle: { select: { make: true, model: true, ukRegistration: true } } },
           orderBy: { createdAt: 'desc' },
         },
-        users: { where: { role: 'CUSTOMER' }, select: portalUserSelect, take: 1 },
+        memberships: {
+          where: { role: 'CUSTOMER' },
+          select: { user: { select: portalUserSelect } },
+          take: 1,
+        },
         portalInvites: {
           where: { acceptedAt: null, expiresAt: { gt: new Date() } },
           select: pendingInviteSelect,
@@ -96,16 +104,17 @@ export class CustomersService {
     await this.requireCustomer(user, id);
     const email = dto.email?.toLowerCase();
     if (email) {
-      const portalUser = await this.prisma.user.findFirst({
-        where: { customerId: id, role: 'CUSTOMER' },
+      const membership = await this.prisma.organisationMembership.findFirst({
+        where: { customerId: id, organisationId: user.organisationId, role: 'CUSTOMER' },
+        include: { user: true },
       });
-      if (portalUser && portalUser.email !== email) {
+      if (membership && membership.user.email !== email) {
         const taken = await this.prisma.user.findUnique({ where: { email } });
-        if (taken && taken.id !== portalUser.id) {
+        if (taken && taken.id !== membership.userId) {
           throw new ConflictException('That email already belongs to another account');
         }
         await this.prisma.user.update({
-          where: { id: portalUser.id },
+          where: { id: membership.userId },
           data: { email },
         });
       }
@@ -131,8 +140,15 @@ export class CustomersService {
       throw new BadRequestException('Add an email address before inviting this customer');
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing && (existing.organisationId !== user.organisationId || existing.role !== 'CUSTOMER' || existing.customerId !== customer.id)) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email },
+      include: { memberships: true },
+    });
+    const existingHere = existing?.memberships.find((item) => item.organisationId === user.organisationId);
+    if (
+      existingHere &&
+      (existingHere.role !== 'CUSTOMER' || existingHere.customerId !== customer.id)
+    ) {
       throw new ConflictException('That email already belongs to another account');
     }
 
@@ -140,13 +156,28 @@ export class CustomersService {
       existing ??
       (await this.prisma.user.create({
         data: {
-          organisationId: user.organisationId,
           email,
           name: `${customer.firstName} ${customer.lastName}`.trim(),
-          role: 'CUSTOMER',
-          customerId: customer.id,
         },
       }));
+
+    await this.prisma.organisationMembership.upsert({
+      where: {
+        organisationId_userId: { organisationId: user.organisationId, userId: portalUser.id },
+      },
+      update: {
+        role: 'CUSTOMER',
+        customerId: customer.id,
+        status: portalUser.passwordHash ? 'ACTIVE' : 'INVITED',
+      },
+      create: {
+        organisationId: user.organisationId,
+        userId: portalUser.id,
+        role: 'CUSTOMER',
+        status: 'INVITED',
+        customerId: customer.id,
+      },
+    });
 
     await this.prisma.portalInvite.updateMany({
       where: { customerId: customer.id, acceptedAt: null },
@@ -199,16 +230,18 @@ export class CustomersService {
 
   private present<
     T extends {
-      users: Array<{ id: string; email: string; passwordHash: string | null }>;
+      memberships: Array<{ user: { id: string; email: string; passwordHash: string | null } }>;
       portalInvites: Array<{ createdAt: Date; expiresAt: Date }>;
     },
   >(customer: T) {
-    const { users, portalInvites, ...rest } = customer;
-    const user = users[0] ?? null;
+    const { memberships, portalInvites, ...rest } = customer;
+    const portalAccount = memberships[0]?.user ?? null;
     return {
       ...rest,
       portal: describePortalAccess({
-        user: user ? { id: user.id, email: user.email, hasPassword: Boolean(user.passwordHash) } : null,
+        user: portalAccount
+          ? { id: portalAccount.id, email: portalAccount.email, hasPassword: Boolean(portalAccount.passwordHash) }
+          : null,
         pendingInvite: portalInvites[0] ?? null,
       }),
     };

@@ -73,6 +73,7 @@ export class VehiclesService {
         registrations: dto.ukRegistration
           ? {
               create: {
+                organisationId: user.organisationId,
                 kind: 'UK',
                 number: dto.ukRegistration,
                 country: dto.countryOfRegistration ?? 'GB',

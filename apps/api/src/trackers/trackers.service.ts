@@ -31,8 +31,8 @@ export class TrackersService {
     return this.prisma.tracker.create({
       data: {
         organisationId: user.organisationId,
-        serialNumber: dto.serialNumber,
-        provider: dto.provider ?? 'generic',
+        serialNumber: dto.serialNumber.trim(),
+        provider: (dto.provider ?? 'generic').trim().toLowerCase() || 'generic',
       },
     });
   }
@@ -71,6 +71,7 @@ export class TrackersService {
     }
     const assignment = await this.prisma.trackerAssignment.create({
       data: {
+        organisationId: user.organisationId,
         trackerId: tracker.id,
         vehicleId: job.vehicleId,
         importJobId: job.id,
@@ -92,7 +93,7 @@ export class TrackersService {
 
   async unassign(user: AuthUser, assignmentId: string) {
     const assignment = await this.prisma.trackerAssignment.findFirst({
-      where: { id: assignmentId, tracker: { organisationId: user.organisationId } },
+      where: { id: assignmentId, organisationId: user.organisationId },
     });
     if (!assignment) {
       throw new NotFoundException('Assignment not found');

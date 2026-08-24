@@ -3,10 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { pickActiveMembership } from '../tenancy/membership';
+import { buildAuthUser } from './auth-user';
 import type { AuthUser } from './auth.types';
 
-type JwtPayload = {
+export type JwtPayload = {
   sub: string;
+  membershipId?: string;
 };
 
 @Injectable()
@@ -25,19 +28,24 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload): Promise<AuthUser> {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: { organisation: true },
+      include: {
+        memberships: { include: { organisation: true } },
+      },
     });
     if (!user) {
       throw new UnauthorizedException();
     }
-    return {
+    const membership = payload.membershipId
+      ? user.memberships.find((item) => item.id === payload.membershipId)
+      : pickActiveMembership(user.memberships);
+    if (!membership || membership.status !== 'ACTIVE' || membership.organisation.status !== 'ACTIVE') {
+      throw new UnauthorizedException();
+    }
+    return buildAuthUser({
       id: user.id,
-      organisationId: user.organisationId,
-      organisationName: user.organisation.name,
       email: user.email,
       name: user.name,
-      role: user.role,
-      customerId: user.customerId,
-    };
+      membership,
+    });
   }
 }
