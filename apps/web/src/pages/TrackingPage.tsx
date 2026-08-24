@@ -31,7 +31,7 @@ export function TrackingPage() {
       <PageHeader
         eyebrow="Live fleet"
         title="Map"
-        description="GPS updates while a tracker is assigned. Demo units can walk the corridor from the job; Teltonika units arrive via Flespi."
+        description="GPS updates while a tracker is assigned. Register TAT140 IMEIs under Trackers, then assign or replace them on the job. Demo units walk the corridor; live Teltonika units arrive via Flespi."
       />
       {isLoading || !data ? (
         <LoadingScreen label="Loading map…" />
@@ -40,7 +40,7 @@ export function TrackingPage() {
           map={data.map}
           trails={vehicles.map((item) => item.trail)}
           markers={markers}
-          heightClassName="h-[28rem] md:h-[36rem]"
+          heightClassName="harbour-map-lg"
         />
       )}
       {data && vehicles.length === 0 ? (

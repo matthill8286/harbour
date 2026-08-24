@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet';
 import * as L from 'leaflet';
@@ -36,20 +36,37 @@ function vehicleIcon(heading?: number | null) {
 function FitBounds({ points }: { points: Array<[number, number]> }) {
   const map = useMap();
   const fitted = useRef(false);
+  const prevCount = useRef(0);
   useEffect(() => {
     if (points.length === 0) return;
     const last = points[points.length - 1];
-    if (fitted.current) {
-      map.panTo(last);
-      return;
-    }
-    fitted.current = true;
+    const trimmed = prevCount.current > 0 && points.length < prevCount.current;
+    prevCount.current = points.length;
     if (points.length === 1) {
       map.setView(last, 7);
+      fitted.current = true;
       return;
     }
-    map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 8 });
+    if (!fitted.current || trimmed) {
+      map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 8 });
+      fitted.current = true;
+    } else {
+      map.panTo(last);
+    }
+    // maxZoom can clip a long corridor so the current marker sits off-screen.
+    if (!map.getBounds().contains(last)) {
+      map.setView(last, Math.min(map.getZoom(), 6));
+    }
   }, [map, points]);
+  return null;
+}
+
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => map.invalidateSize());
+    return () => window.cancelAnimationFrame(frame);
+  }, [map]);
   return null;
 }
 
@@ -58,9 +75,15 @@ export function JourneyMap({
   trail = [],
   trails = [],
   markers,
-  heightClassName = 'h-[22rem] md:h-[28rem]',
+  heightClassName = 'harbour-map',
   showPlannedRoute = false,
 }: JourneyMapProps) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    setReady(true);
+    return () => setReady(false);
+  }, []);
+
   const trailLines = trails.length > 0 ? trails : trail.length > 0 ? [trail] : [];
   const current = markers[0];
   const planned = useMemo(() => {
@@ -69,9 +92,10 @@ export function JourneyMap({
     return UK_TO_CYPRUS_ROUTE.slice(index);
   }, [current, showPlannedRoute]);
 
-  const trailLatLngs = trailLines.map((line) =>
-    line.map((point) => [point.latitude, point.longitude] as [number, number]),
-  );
+  const trailLatLngs = useMemo(() => {
+    const lines = trails.length > 0 ? trails : trail.length > 0 ? [trail] : [];
+    return lines.map((line) => line.map((point) => [point.latitude, point.longitude] as [number, number]));
+  }, [trail, trails]);
   const plannedLatLngs = planned.map((point) => [point.latitude, point.longitude] as [number, number]);
   const fitPoints = useMemo(
     () => [
@@ -81,62 +105,69 @@ export function JourneyMap({
     [markers, trailLatLngs],
   );
 
+  const shellClass = `relative z-0 overflow-hidden rounded-2xl ${heightClassName}`;
+
   if (markers.length === 0 && trailLines.every((line) => line.length === 0)) {
     return (
-      <div
-        className={`flex items-center justify-center rounded-2xl bg-mist/50 text-sm text-ink/50 ${heightClassName}`}
-      >
+      <div className={`flex items-center justify-center bg-mist/50 text-sm text-ink/50 ${shellClass}`}>
         No GPS yet. Assign a tracker to start the trail.
       </div>
     );
   }
 
   return (
-    <div className={`relative z-0 overflow-hidden rounded-2xl ${heightClassName}`}>
-      <MapContainer
-        center={fitPoints[0] ?? [45.2, 16.4]}
-        zoom={5}
-        scrollWheelZoom
-        className="h-full w-full"
-      >
-        <TileLayer url={map.tileUrl} attribution={map.attribution} maxZoom={map.maxZoom} />
-        {plannedLatLngs.length > 1 ? (
-          <Polyline
-            positions={plannedLatLngs}
-            pathOptions={{ color: '#0b1f33', weight: 2, opacity: 0.28, dashArray: '8 10' }}
-          />
-        ) : null}
-        {trailLatLngs.map((line, index) =>
-          line.length > 1 ? (
+    <div className={shellClass}>
+      {ready ? (
+        <MapContainer
+          center={fitPoints[0] ?? [45.2, 16.4]}
+          zoom={5}
+          scrollWheelZoom
+          className="h-full w-full"
+          style={{ height: '100%', width: '100%' }}
+          placeholder={<div className="h-full w-full bg-mist/40" />}
+        >
+          <TileLayer url={map.tileUrl} attribution={map.attribution} maxZoom={map.maxZoom} />
+          {plannedLatLngs.length > 1 ? (
             <Polyline
-              key={`trail-${index}`}
-              positions={line}
-              pathOptions={{ color: '#1c6b6a', weight: 4, opacity: 0.9 }}
+              positions={plannedLatLngs}
+              pathOptions={{ color: '#0b1f33', weight: 2, opacity: 0.28, dashArray: '8 10' }}
             />
-          ) : null,
-        )}
-        {markers.map((marker) => (
-          <Marker
-            key={marker.id}
-            position={[marker.latitude, marker.longitude]}
-            icon={vehicleIcon(marker.heading)}
-          >
-            <Popup>
-              <div className="min-w-40 text-sm">
-                {marker.href ? (
-                  <Link to={marker.href} className="font-semibold text-harbour">
-                    {marker.label}
-                  </Link>
-                ) : (
-                  <p className="font-semibold">{marker.label}</p>
-                )}
-                {marker.sublabel ? <p className="text-ink/60">{marker.sublabel}</p> : null}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-        <FitBounds points={fitPoints} />
-      </MapContainer>
+          ) : null}
+          {trailLatLngs.map((line, index) =>
+            line.length > 1 ? (
+              <Polyline
+                key={`trail-${index}`}
+                positions={line}
+                pathOptions={{ color: '#1c6b6a', weight: 4, opacity: 0.9 }}
+              />
+            ) : null,
+          )}
+          {markers.map((marker) => (
+            <Marker
+              key={marker.id}
+              position={[marker.latitude, marker.longitude]}
+              icon={vehicleIcon(marker.heading)}
+            >
+              <Popup>
+                <div className="min-w-40 text-sm">
+                  {marker.href ? (
+                    <Link to={marker.href} className="font-semibold text-harbour">
+                      {marker.label}
+                    </Link>
+                  ) : (
+                    <p className="font-semibold">{marker.label}</p>
+                  )}
+                  {marker.sublabel ? <p className="text-ink/60">{marker.sublabel}</p> : null}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+          <FitBounds points={fitPoints} />
+          <InvalidateSize />
+        </MapContainer>
+      ) : (
+        <div className="h-full w-full bg-mist/40" />
+      )}
     </div>
   );
 }
