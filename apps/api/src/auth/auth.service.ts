@@ -2,7 +2,9 @@ import { BadRequestException, GoneException, Injectable, NotFoundException, Unau
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
+import { pickActiveMembership } from '../tenancy/membership';
 import type { AuthUser } from './auth.types';
+import { buildAuthUser } from './auth-user';
 import { LoginDto } from './dto/login.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { hashInviteToken } from './invite-token';
@@ -19,7 +21,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { organisation: true },
+      include: { memberships: { include: { organisation: true } } },
     });
     if (!user?.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
@@ -28,7 +30,11 @@ export class AuthService {
     if (!valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
-    return this.issueSession(user);
+    const membership = pickActiveMembership(user.memberships);
+    if (!membership) {
+      throw new UnauthorizedException('No active organisation for this account');
+    }
+    return this.issueSession(user, membership);
   }
 
   async previewInvite(token: string) {
@@ -55,47 +61,55 @@ export class AuthService {
         where: { userId: invite.userId, acceptedAt: null, id: { not: invite.id } },
         data: { expiresAt: acceptedAt },
       });
+      await tx.organisationMembership.updateMany({
+        where: {
+          userId: invite.userId,
+          organisationId: invite.organisationId,
+          role: 'CUSTOMER',
+        },
+        data: { status: 'ACTIVE' },
+      });
       return tx.user.update({
         where: { id: invite.userId },
         data: {
           passwordHash,
           name: `${invite.customer.firstName} ${invite.customer.lastName}`.trim(),
         },
-        include: { organisation: true },
+        include: { memberships: { include: { organisation: true } } },
       });
     });
-    void this.audit.record(this.toAuthUser(user), {
+    const membership = user.memberships.find(
+      (item) => item.organisationId === invite.organisationId && item.role === 'CUSTOMER',
+    );
+    if (!membership) {
+      throw new UnauthorizedException('No customer membership for this invite');
+    }
+    void this.audit.record(buildAuthUser({ id: user.id, email: user.email, name: user.name, membership }), {
       action: 'PORTAL_ACCESS_ACCEPTED',
       entityType: 'Customer',
       entityId: invite.customerId,
       metadata: { customerId: invite.customerId },
     });
-    return this.issueSession(user);
+    return this.issueSession(user, membership);
   }
 
-  toAuthUser(user: {
-    id: string;
-    organisationId: string;
-    organisation: { name: string };
-    email: string;
-    name: string;
-    role: AuthUser['role'];
-    customerId: string | null;
-  }): AuthUser {
-    return {
+  private async issueSession(
+    user: { id: string; email: string; name: string },
+    membership: {
+      id: string;
+      organisationId: string;
+      role: AuthUser['role'];
+      customerId: string | null;
+      organisation: { name: string };
+    },
+  ) {
+    const authUser = buildAuthUser({
       id: user.id,
-      organisationId: user.organisationId,
-      organisationName: user.organisation.name,
       email: user.email,
       name: user.name,
-      role: user.role,
-      customerId: user.customerId,
-    };
-  }
-
-  private async issueSession(user: Parameters<AuthService['toAuthUser']>[0] & { id: string }) {
-    const authUser = this.toAuthUser(user);
-    const accessToken = await this.jwt.signAsync({ sub: user.id });
+      membership,
+    });
+    const accessToken = await this.jwt.signAsync({ sub: user.id, membershipId: membership.id });
     return { accessToken, user: authUser };
   }
 
@@ -119,6 +133,9 @@ export class AuthService {
     }
     if (invite.expiresAt.getTime() <= Date.now()) {
       throw new GoneException('This invite has expired. Ask your importer for a new link.');
+    }
+    if (invite.organisation.status !== 'ACTIVE') {
+      throw new UnauthorizedException('This organisation is not active');
     }
     return invite;
   }

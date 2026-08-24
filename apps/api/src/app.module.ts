@@ -11,12 +11,14 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PortalModule } from './portal/portal.module';
 import { TrackersModule } from './trackers/trackers.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { TenancyModule } from './tenancy/tenancy.module';
 import { HealthController } from './health.controller';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env', '../../.env'] }),
     PrismaModule,
+    TenancyModule,
     AuditModule,
     IntegrationsModule,
     AuthModule,

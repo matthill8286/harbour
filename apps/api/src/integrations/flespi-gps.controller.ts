@@ -5,11 +5,11 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
 @Controller('integrations/gps/flespi')
 @UseGuards(FlespiWebhookGuard)
 export class FlespiGpsController {
-  constructor(private readonly ingest: FlespiIngestService) {}
+  constructor(private readonly flespi: FlespiIngestService) {}
 
   @Post()
   @HttpCode(200)
   ingest(@Body() body: unknown) {
-    return this.ingest.ingestBody(body);
+    return this.flespi.ingestBody(body);
   }
 }

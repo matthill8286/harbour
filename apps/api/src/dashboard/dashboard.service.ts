@@ -22,7 +22,7 @@ export class DashboardService {
       }),
       this.prisma.task.findMany({
         where: {
-          importJob: { organisationId: user.organisationId },
+          organisationId: user.organisationId,
           status: { notIn: ['COMPLETED', 'CANCELLED'] },
           dueDate: { lt: new Date() },
         },

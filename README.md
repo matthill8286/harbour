@@ -1,6 +1,8 @@
 # Harbour — Vehicle Import Platform
 
-TypeScript modular monolith for a Cyprus vehicle-import desk.
+Multi-tenant SaaS for vehicle import, registration and transportation desks.
+
+The first business is a **tenant** of the platform, not the owner of the software. See [ADR-003](docs/adr/ADR-003-multi-tenant-saas.md).
 
 The **Import Job** is the operational entity. The **Vehicle** is the physical asset. Customers never see internal costs, suppliers, or private notes.
 
@@ -8,7 +10,7 @@ The **Import Job** is the operational entity. The **Vehicle** is the physical as
 
 - React + Vite + Tailwind + Zustand + TanStack Query
 - NestJS REST API
-- PostgreSQL + Prisma (PostGIS-ready)
+- PostgreSQL + Prisma (PostGIS-ready), shared schema with `organisationId` isolation
 - Shared domain types in `packages/shared`
 
 ## Run locally
@@ -24,6 +26,14 @@ pnpm --filter @vip/api prisma:seed
 pnpm dev
 ```
 
+If Prisma cannot add required columns to tables that already have rows:
+
+```bash
+pnpm --filter @vip/api prisma:reset
+```
+
+That drops the local database, reapplies the schema, and reseeds. Do not pass `--accept-data-loss` to `prisma:seed`.
+
 You can also start the apps separately so a database issue cannot stop the UI:
 
 ```bash
@@ -33,11 +43,15 @@ pnpm dev:web
 
 ## Demo logins
 
+Founding tenant: **Demo Imports Ltd**
+
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | admin@demo-imports.local | ChangeMe!Admin1 |
+| Owner | admin@demo-imports.local | ChangeMe!Admin1 |
 | Staff | staff@demo-imports.local | ChangeMe!Staff1 |
 | Customer | customer@example.com | ChangeMe!Customer1 |
+
+A second tenant (`cyprus-auto-logistics`) is seeded with `owner@cyprus-auto.local` / `ChangeMe!Admin1` so organisation isolation can be exercised.
 
 Seeded job `CY-2026-00421` is a BMW M5 Competition travelling UK → Bulgaria → Greece → Cyprus.
 
@@ -48,6 +62,6 @@ Demo jobs use a simulated corridor. Real units:
 1. Create a Flespi account and a **Teltonika** channel. Point the TAT140-QJIB0 at that host/port ([quick start](https://flespi.com/kb/quick-start-guide-physical-tracker)).
 2. Create an HTTP stream to `https://<your-api>/api/integrations/gps/flespi` with header `X-Harbour-Gps-Secret: <secret>` ([stream docs](https://flespi.com/kb/how-to-get-data-in-your-platform-via-flespi-http-stream)).
 3. Set `FLESPI_WEBHOOK_SECRET` (required for ingest) and optionally `FLESPI_TOKEN` (staff “Pull from Flespi”).
-4. In Harbour, create a tracker with `serialNumber` = IMEI and `provider` = `flespi`, then assign it to the import job.
+4. In Harbour, open **Trackers**, register the IMEI with provider Teltonika / Flespi, then **Assign** or **Replace** it on the import job. Do not leave demo tracker `TRK-001` on a job that should use a live TAT140.
 
 The customer portal never receives the IMEI. Unassigned pings only update last-seen/battery; job trails start after assign.

@@ -52,26 +52,26 @@ export class PortalService {
     await this.loadCustomerJob(user, jobId);
     if (kind === 'document') {
       const document = await this.prisma.document.findFirst({
-        where: { id: fileId, importJobId: jobId, customerVisible: true },
+        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId, customerVisible: true },
       });
       if (!document) {
         throw new NotFoundException('Document not found');
       }
       return {
-        buffer: await this.storage.read(document.storageKey),
+        buffer: await this.storage.read(document.storageKey, user.organisationId),
         mimeType: document.mimeType,
         name: document.name,
         inline: false,
       };
     }
     const photo = await this.prisma.photo.findFirst({
-      where: { id: fileId, importJobId: jobId, customerVisible: true },
+      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId, customerVisible: true },
     });
     if (!photo) {
       throw new NotFoundException('Photo not found');
     }
     return {
-      buffer: await this.storage.read(photo.storageKey),
+      buffer: await this.storage.read(photo.storageKey, user.organisationId),
       mimeType: photo.mimeType,
       name: photo.filename,
       inline: true,

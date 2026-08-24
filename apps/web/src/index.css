@@ -37,12 +37,38 @@ button {
   font-family: inherit;
 }
 
+.harbour-map {
+  height: 22rem;
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .harbour-map {
+    height: 28rem;
+  }
+}
+
+.harbour-map-lg {
+  height: 28rem;
+}
+
+@media (min-width: 768px) {
+  .harbour-map-lg {
+    height: 36rem;
+  }
+}
+
 .leaflet-container {
   height: 100%;
   width: 100%;
+  min-height: inherit;
   z-index: 0;
   font-family: var(--font-sans);
   background: var(--color-mist);
+}
+
+.leaflet-container img.leaflet-tile {
+  mix-blend-mode: normal;
 }
 
 .harbour-vehicle-marker {

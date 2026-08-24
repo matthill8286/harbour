@@ -1,5 +1,46 @@
-export const USER_ROLES = ['ADMIN', 'STAFF', 'CUSTOMER'] as const;
+export const USER_ROLES = ['OWNER', 'ADMIN', 'STAFF', 'VIEWER', 'CUSTOMER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
+
+/** Internal desk roles that can mutate operational records. */
+export const STAFF_ROLES = ['OWNER', 'ADMIN', 'STAFF'] as const satisfies readonly UserRole[];
+
+/** Internal desk roles including read-only viewers. */
+export const STAFF_READ_ROLES = ['OWNER', 'ADMIN', 'STAFF', 'VIEWER'] as const satisfies readonly UserRole[];
+
+export function isStaffRole(role: UserRole): boolean {
+  return role !== 'CUSTOMER';
+}
+
+export function isPortalRole(role: UserRole): boolean {
+  return role === 'CUSTOMER';
+}
+
+export function canWriteStaff(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'STAFF';
+}
+
+export const ORGANISATION_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
+export type OrganisationStatus = (typeof ORGANISATION_STATUSES)[number];
+
+export const MEMBERSHIP_STATUSES = ['ACTIVE', 'INVITED', 'DISABLED'] as const;
+export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
+
+export const SUBSCRIPTION_PLANS = ['STARTER', 'BUSINESS', 'PROFESSIONAL', 'ENTERPRISE'] as const;
+export type SubscriptionPlan = (typeof SUBSCRIPTION_PLANS)[number];
+
+export const SUBSCRIPTION_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export const FEATURE_FLAGS = [
+  'GPS_TRACKING',
+  'CUSTOMER_PORTAL',
+  'WHATSAPP',
+  'ADVANCED_REPORTING',
+  'SUPPLIER_PORTAL',
+  'API_ACCESS',
+  'WHITE_LABEL',
+] as const;
+export type FeatureFlag = (typeof FEATURE_FLAGS)[number];
 
 export const JOB_STATUSES = [
   'NEW',
@@ -255,6 +296,7 @@ export type RegistrationKind = (typeof REGISTRATION_KINDS)[number];
 
 export type PublicUser = {
   id: string;
+  membershipId: string;
   organisationId: string;
   organisationName: string;
   email: string;
