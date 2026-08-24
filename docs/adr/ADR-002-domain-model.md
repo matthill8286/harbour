@@ -13,7 +13,7 @@ The business does not generally purchase and resell vehicles. It manages import,
 Customer ──< ImportJob >── Vehicle
 ```
 
-Every business-owned record belongs to an Organisation.
+Every business-owned record belongs to an Organisation. Tenancy, membership, and isolation are specified in ADR-003.
 
 GPS trackers are portable and reusable. Location events are stored independently so journey history survives tracker reassignment.
 
