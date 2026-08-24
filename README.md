@@ -40,3 +40,14 @@ pnpm dev:web
 | Customer | customer@example.com | ChangeMe!Customer1 |
 
 Seeded job `CY-2026-00421` is a BMW M5 Competition travelling UK → Bulgaria → Greece → Cyprus.
+
+## Live GPS (Teltonika TAT140 + Flespi)
+
+Demo jobs use a simulated corridor. Real units:
+
+1. Create a Flespi account and a **Teltonika** channel. Point the TAT140-QJIB0 at that host/port ([quick start](https://flespi.com/kb/quick-start-guide-physical-tracker)).
+2. Create an HTTP stream to `https://<your-api>/api/integrations/gps/flespi` with header `X-Harbour-Gps-Secret: <secret>` ([stream docs](https://flespi.com/kb/how-to-get-data-in-your-platform-via-flespi-http-stream)).
+3. Set `FLESPI_WEBHOOK_SECRET` (required for ingest) and optionally `FLESPI_TOKEN` (staff “Pull from Flespi”).
+4. In Harbour, create a tracker with `serialNumber` = IMEI and `provider` = `flespi`, then assign it to the import job.
+
+The customer portal never receives the IMEI. Unassigned pings only update last-seen/battery; job trails start after assign.

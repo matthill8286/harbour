@@ -31,7 +31,7 @@ export function TrackingPage() {
       <PageHeader
         eyebrow="Live fleet"
         title="Map"
-        description="GPS updates while a tracker is assigned. Advance a ping from the job to walk the corridor."
+        description="GPS updates while a tracker is assigned. Demo units can walk the corridor from the job; Teltonika units arrive via Flespi."
       />
       {isLoading || !data ? (
         <LoadingScreen label="Loading map…" />
