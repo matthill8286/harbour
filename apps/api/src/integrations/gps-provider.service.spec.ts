@@ -38,4 +38,24 @@ describe('GpsProviderService.nextPoint', () => {
     expect(points[points.length - 1].label).toBe('Limassol');
     expect(gps.pointsTowardAnchor('ARRIVED_CYPRUS', points[points.length - 1])).toEqual([]);
   });
+
+  it('does not invent more points when the last ping is already past the UK anchor', () => {
+    const limassol = { latitude: 34.7071, longitude: 33.0226 };
+    expect(gps.pointsTowardAnchor('READY_FOR_COLLECTION', limassol)).toEqual([]);
+    expect(gps.isPastAnchor('READY_FOR_COLLECTION', limassol)).toBe(true);
+    expect(gps.isPastAnchor('ARRIVED_CYPRUS', limassol)).toBe(false);
+  });
+
+  it('keeps only the UK prefix when a corridor trail is aligned back to collection', () => {
+    const london = gps.route[0];
+    const trail = [london, gps.route[12], gps.route[gps.route.length - 1]];
+    expect(gps.keptTrailLength('READY_FOR_COLLECTION', trail)).toBe(1);
+    expect(gps.keptTrailLength('IN_TRANSIT_UK', trail)).toBe(2);
+    expect(gps.keptTrailLength('ARRIVED_CYPRUS', trail)).toBe(3);
+  });
+
+  it('keeps nothing when every ping is already past the status anchor', () => {
+    const limassol = gps.route[gps.route.length - 1];
+    expect(gps.keptTrailLength('READY_FOR_COLLECTION', [limassol])).toBe(0);
+  });
 });

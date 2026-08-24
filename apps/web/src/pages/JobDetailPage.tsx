@@ -17,6 +17,7 @@ import { JobActivity } from '../components/JobActivity';
 import { JourneyStepper } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
+import { toLocationPoint } from '../lib/tracking';
 
 type JobDetail = {
   id: string;
@@ -58,6 +59,15 @@ type JobDetail = {
     customerVisible: boolean;
     createdAt: string;
   }[];
+  locationEvents?: Array<{
+    id?: string;
+    latitude: string | number;
+    longitude: string | number;
+    accuracy?: string | number | null;
+    speed?: string | number | null;
+    heading?: string | number | null;
+    recordedAt: string;
+  }>;
 };
 
 export function JobDetailPage() {
@@ -240,7 +250,10 @@ export function JobDetailPage() {
         </div>
       </section>
 
-      <JobTrackingPanel jobId={job.id} />
+      <JobTrackingPanel
+        jobId={job.id}
+        lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null}
+      />
       <JobJourneys jobId={job.id} journeys={job.journeys ?? []} />
       <JobFilesPanel jobId={job.id} photos={job.photos ?? []} documents={job.documents ?? []} />
 
