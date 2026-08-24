@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import type { LocationEvent } from '@prisma/client';
 import {
   bearingDegrees,
@@ -8,6 +8,7 @@ import {
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { GpsProviderService } from '../integrations/gps-provider.service';
+import { isSimulatedGpsProvider } from '../integrations/gps-providers';
 import { MapsService } from '../integrations/maps.service';
 import type { AuthUser } from '../auth/auth.types';
 
@@ -95,6 +96,7 @@ export class TrackingService {
       availableTrackers: availableTrackers.map((tracker) => ({
         id: tracker.id,
         serialNumber: tracker.serialNumber,
+        provider: tracker.provider,
         status: tracker.status,
         batteryLevel: tracker.batteryLevel,
       })),
@@ -105,7 +107,11 @@ export class TrackingService {
     const job = await this.prisma.importJob.findFirst({
       where: { id: jobId, organisationId: user.organisationId },
       include: {
-        trackerAssignments: { where: { removedAt: null }, include: { tracker: true }, take: 1 },
+        trackerAssignments: {
+          where: { removedAt: null },
+          include: { tracker: true },
+          take: 1,
+        },
         locationEvents: { orderBy: { recordedAt: 'desc' }, take: 1 },
       },
     });
@@ -115,6 +121,9 @@ export class TrackingService {
     const assignment = job.trackerAssignments[0];
     if (!assignment) {
       throw new NotFoundException('No tracker assigned to this job');
+    }
+    if (!isSimulatedGpsProvider(assignment.tracker.provider)) {
+      throw new BadRequestException('Live GPS units cannot use demo Advance GPS');
     }
     const last = job.locationEvents[0];
     const next = this.gps.nextPoint(
@@ -192,11 +201,12 @@ export class TrackingService {
     const job = await this.prisma.importJob.findFirst({
       where: { id: jobId, organisationId },
       include: {
-        trackerAssignments: { where: { removedAt: null }, take: 1 },
+        trackerAssignments: { where: { removedAt: null }, include: { tracker: true }, take: 1 },
         locationEvents: { orderBy: { recordedAt: 'desc' }, take: 1 },
       },
     });
     if (!job?.trackerAssignments[0]) return;
+    if (!isSimulatedGpsProvider(job.trackerAssignments[0].tracker.provider)) return;
     const last = job.locationEvents[0];
     const points = this.gps.pointsTowardAnchor(
       status,
@@ -237,6 +247,7 @@ export class TrackingService {
         tracker: {
           id: string;
           serialNumber: string;
+          provider: string;
           batteryLevel: number | null;
           lastSeenAt: Date | null;
           status: string;
@@ -264,6 +275,7 @@ export class TrackingService {
             assignedAt: assignment.assignedAt,
             id: assignment.tracker.id,
             serialNumber: assignment.tracker.serialNumber,
+            provider: assignment.tracker.provider,
             batteryLevel: assignment.tracker.batteryLevel,
             lastSeenAt: assignment.tracker.lastSeenAt,
             status: assignment.tracker.status,

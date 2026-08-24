@@ -6,12 +6,16 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { TrackersService } from './trackers.service';
 import { AssignTrackerDto, CreateLocationDto, CreateTrackerDto } from './dto/tracker.dto';
+import { FlespiIngestService } from '../integrations/flespi-ingest.service';
 
 @Controller('trackers')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN', 'STAFF')
 export class TrackersController {
-  constructor(private readonly trackers: TrackersService) {}
+  constructor(
+    private readonly trackers: TrackersService,
+    private readonly flespi: FlespiIngestService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthUser) {
@@ -35,6 +39,11 @@ export class TrackersController {
   @Post('assignments/:assignmentId/unassign')
   unassign(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
     return this.trackers.unassign(user, assignmentId);
+  }
+
+  @Post(':id/sync')
+  sync(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.flespi.syncTracker(user.organisationId, id);
   }
 
   @Post(':id/locations')
