@@ -16,6 +16,7 @@ import { StorageService } from '../integrations/storage.service';
 import { NotificationsService } from '../integrations/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { TrackingService } from '../tracking/tracking.service';
+import { UsageService } from '../tenancy/usage.service';
 import type { AuthUser } from '../auth/auth.types';
 import {
   ChangeStatusDto,
@@ -33,7 +34,6 @@ const publicUserSelect = {
   id: true,
   name: true,
   email: true,
-  role: true,
 } satisfies Prisma.UserSelect;
 
 const jobListInclude = {
@@ -68,6 +68,7 @@ export class ImportJobsService {
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly tracking: TrackingService,
+    private readonly usage: UsageService,
   ) {}
 
   list(user: AuthUser, query?: { status?: string; search?: string }) {
@@ -147,6 +148,7 @@ export class ImportJobsService {
           registrations: dto.ukRegistration
             ? {
                 create: {
+                  organisationId: user.organisationId,
                   kind: 'UK',
                   number: dto.ukRegistration,
                   country: dto.countryOfRegistration ?? 'GB',
@@ -181,6 +183,7 @@ export class ImportJobsService {
         startedAt: new Date(),
         statusHistory: {
           create: {
+            organisationId: user.organisationId,
             fromStatus: null,
             toStatus: 'NEW',
             changedById: user.id,
@@ -190,6 +193,7 @@ export class ImportJobsService {
       },
       include: jobDetailInclude,
     });
+    void this.usage.incrementImportJobs(user.organisationId, job.createdAt);
     void this.audit.record(user, {
       action: 'JOB_CREATED',
       entityType: 'ImportJob',
@@ -244,6 +248,7 @@ export class ImportJobsService {
         completedAt: to === 'COMPLETED' || to === 'CANCELLED' ? createdAt : null,
         statusHistory: {
           create: {
+            organisationId: user.organisationId,
             fromStatus: from,
             toStatus: to,
             changedById: user.id,
@@ -274,6 +279,7 @@ export class ImportJobsService {
     await this.get(user, jobId);
     return this.prisma.task.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         title: dto.title,
         description: dto.description,
@@ -309,6 +315,7 @@ export class ImportJobsService {
     await this.get(user, jobId);
     return this.prisma.cost.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         category: dto.category,
         description: dto.description,
@@ -325,6 +332,7 @@ export class ImportJobsService {
     await this.get(user, jobId);
     return this.prisma.customerCharge.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         category: dto.category,
         description: dto.description,
@@ -369,6 +377,7 @@ export class ImportJobsService {
     await this.get(user, jobId);
     return this.prisma.journey.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         type: dto.type ?? 'ROAD',
         origin: dto.origin,
@@ -388,9 +397,14 @@ export class ImportJobsService {
     type?: string,
   ) {
     const job = await this.get(user, jobId);
-    const storageKey = await this.storage.save(file.buffer, file.originalname);
+    const storageKey = await this.storage.save(file.buffer, file.originalname, {
+      organisationId: user.organisationId,
+      importJobId: jobId,
+      kind: 'documents',
+    });
     const document = await this.prisma.document.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         type: (type as never) ?? 'OTHER',
         name: file.originalname,
@@ -426,9 +440,14 @@ export class ImportJobsService {
     category?: string,
   ) {
     const job = await this.get(user, jobId);
-    const storageKey = await this.storage.save(file.buffer, file.originalname);
+    const storageKey = await this.storage.save(file.buffer, file.originalname, {
+      organisationId: user.organisationId,
+      importJobId: jobId,
+      kind: 'photos',
+    });
     const photo = await this.prisma.photo.create({
       data: {
+        organisationId: user.organisationId,
         importJobId: jobId,
         category: (category as never) ?? 'OTHER',
         filename: file.originalname,
@@ -466,7 +485,7 @@ export class ImportJobsService {
     const job = await this.get(user, jobId);
     if (kind === 'document') {
       const existing = await this.prisma.document.findFirst({
-        where: { id: fileId, importJobId: jobId },
+        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
       });
       if (!existing) {
         throw new NotFoundException('Document not found');
@@ -479,7 +498,7 @@ export class ImportJobsService {
       return this.withoutStorageKey(document);
     }
     const existing = await this.prisma.photo.findFirst({
-      where: { id: fileId, importJobId: jobId },
+      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
     });
     if (!existing) {
       throw new NotFoundException('Photo not found');
@@ -506,18 +525,26 @@ export class ImportJobsService {
   async readStoredFile(user: AuthUser, jobId: string, kind: 'document' | 'photo', fileId: string) {
     await this.get(user, jobId);
     if (kind === 'document') {
-      const doc = await this.prisma.document.findFirst({ where: { id: fileId, importJobId: jobId } });
+      const doc = await this.prisma.document.findFirst({
+        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+      });
       if (!doc) {
         throw new NotFoundException('Document not found');
       }
-      return { buffer: await this.storage.read(doc.storageKey), mimeType: doc.mimeType, name: doc.name };
+      return {
+        buffer: await this.storage.read(doc.storageKey, user.organisationId),
+        mimeType: doc.mimeType,
+        name: doc.name,
+      };
     }
-    const photo = await this.prisma.photo.findFirst({ where: { id: fileId, importJobId: jobId } });
+    const photo = await this.prisma.photo.findFirst({
+      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+    });
     if (!photo) {
       throw new NotFoundException('Photo not found');
     }
     return {
-      buffer: await this.storage.read(photo.storageKey),
+      buffer: await this.storage.read(photo.storageKey, user.organisationId),
       mimeType: photo.mimeType,
       name: photo.filename,
     };

@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MapPinned, Ship, Users } from 'lucide-react';
+import { LayoutDashboard, MapPinned, Radio, Ship, Users } from 'lucide-react';
+import { isStaffRole } from '@vip/shared';
 import { useAuth } from '../lib/auth';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -7,13 +8,14 @@ const staffLinks = [
   { to: '/', label: 'Board', icon: LayoutDashboard },
   { to: '/jobs', label: 'Jobs', icon: Ship },
   { to: '/tracking', label: 'Map', icon: MapPinned },
+  { to: '/trackers', label: 'Trackers', icon: Radio },
   { to: '/customers', label: 'Customers', icon: Users },
 ];
 
 export function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const isStaff = user?.role === 'ADMIN' || user?.role === 'STAFF';
+  const isStaff = user ? isStaffRole(user.role) : false;
   const links = isStaff
     ? staffLinks
     : [{ to: '/portal', label: 'My vehicle', icon: Ship }];
@@ -73,7 +75,7 @@ export function AppShell() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-paper md:hidden">
-        <ul className={`grid ${links.length === 1 ? 'grid-cols-1' : 'grid-cols-4'}`}>
+        <ul className={`grid ${links.length === 1 ? 'grid-cols-1' : links.length === 5 ? 'grid-cols-5' : 'grid-cols-4'}`}>
           {links.map((link) => (
             <li key={link.to}>
               <NavLink

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import type { PublicUser } from '@vip/shared';
+import { isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
 import { useAuth } from './lib/auth';
 import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
@@ -14,6 +14,7 @@ import { InvitePage } from './pages/InvitePage';
 import { PortalPage } from './pages/PortalPage';
 import { PortalJobPage } from './pages/PortalJobPage';
 import { TrackingPage } from './pages/TrackingPage';
+import { TrackersPage } from './pages/TrackersPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LoadingScreen } from './components/ui';
 
@@ -28,13 +29,13 @@ function Guard({
   if (!ready) return <LoadingScreen label="Opening Harbour…" />;
   if (!user) return <Navigate to="/login" replace />;
   if (!allow(user)) {
-    return <Navigate to={user.role === 'CUSTOMER' ? '/portal' : '/'} replace />;
+    return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
   }
   return children;
 }
 
-const staff = (user: PublicUser) => user.role === 'ADMIN' || user.role === 'STAFF';
-const customer = (user: PublicUser) => user.role === 'CUSTOMER';
+const staff = (user: PublicUser) => isStaffRole(user.role);
+const customer = (user: PublicUser) => isPortalRole(user.role);
 
 export default function App() {
   return (
@@ -85,6 +86,14 @@ export default function App() {
           element={
             <Guard allow={staff}>
               <TrackingPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/trackers"
+          element={
+            <Guard allow={staff}>
+              <TrackersPage />
             </Guard>
           }
         />
