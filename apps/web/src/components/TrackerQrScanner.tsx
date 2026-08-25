@@ -50,60 +50,103 @@ function TrackerQrScannerDialog({
 }) {
   const reactId = useId();
   const regionId = `tracker-qr-${reactId.replace(/:/g, '')}`;
-  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const callbacksRef = useRef({ onClose, onImei, onError });
   const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(true);
+
+  callbacksRef.current = { onClose, onImei, onError };
 
   useEffect(() => {
-    const scanner = new Html5Qrcode(regionId, {
-      verbose: false,
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.QR_CODE,
-        Html5QrcodeSupportedFormats.CODE_128,
-      ],
-    });
-    scannerRef.current = scanner;
-    let cancelled = false;
+    let disposed = false;
+    let scanner: Html5Qrcode | null = null;
 
-    void scanner
-      .start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 260, height: 260 }, aspectRatio: 1 },
-        (text) => {
-          const imei = parseTrackerImeiFromScan(text);
-          if (!imei) {
-            const message = 'That code did not contain a valid IMEI. Point at the TAT140 sticker QR.';
-            setError(message);
-            onError?.(message);
-            return;
-          }
-          void scanner.stop().finally(() => {
-            if (!cancelled) {
-              onImei(imei);
-              onClose();
-            }
-          });
-        },
-        () => {},
-      )
-      .catch((err: unknown) => {
-        const message =
-          err instanceof Error ? err.message : 'Could not open the camera. Check browser permissions.';
-        setError(message);
-        onError?.(message);
+    async function startScanner() {
+      // React StrictMode mounts twice in dev — wait for the first cleanup cycle.
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      if (disposed) return;
+
+      const container = document.getElementById(regionId);
+      if (!container || container.childElementCount > 0) {
+        if (!disposed) setStarting(false);
+        return;
+      }
+
+      scanner = new Html5Qrcode(regionId, {
+        verbose: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.QR_CODE,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
       });
 
-    return () => {
-      cancelled = true;
-      const active = scannerRef.current;
-      scannerRef.current = null;
-      if (active?.isScanning) {
-        void active.stop().catch(() => {});
+      try {
+        await scanner.start(
+          { facingMode: 'environment' },
+          {
+            fps: 10,
+            qrbox: (viewfinderWidth, viewfinderHeight) => {
+              const edge = Math.min(viewfinderWidth, viewfinderHeight, 280) * 0.72;
+              return { width: edge, height: edge };
+            },
+          },
+          (text) => {
+            const imei = parseTrackerImeiFromScan(text);
+            if (!imei) {
+              const message =
+                'That code did not contain a valid IMEI. Point at the TAT140 sticker QR.';
+              setError(message);
+              callbacksRef.current.onError?.(message);
+              return;
+            }
+            void scanner?.stop().finally(() => {
+              scanner?.clear();
+              if (!disposed) {
+                callbacksRef.current.onImei(imei);
+                callbacksRef.current.onClose();
+              }
+            });
+          },
+          () => {},
+        );
+        if (!disposed) setStarting(false);
+      } catch (err: unknown) {
+        if (disposed) return;
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Could not open the camera. Check browser permissions.';
+        setError(message);
+        callbacksRef.current.onError?.(message);
+        setStarting(false);
       }
+    }
+
+    void startScanner();
+
+    return () => {
+      disposed = true;
+      void (async () => {
+        try {
+          if (scanner?.isScanning) await scanner.stop();
+        } catch {
+          // Camera may already be released.
+        }
+        try {
+          scanner?.clear();
+        } catch {
+          // Container may already be cleared.
+        }
+      })();
     };
-  }, [onClose, onError, onImei, regionId]);
+  }, [regionId]);
 
   return (
-    <div className="tracker-qr-overlay" role="dialog" aria-modal="true" aria-label="Scan tracker QR code">
+    <div
+      className="tracker-qr-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Scan tracker QR code"
+    >
       <div className="tracker-qr-panel rounded-2xl bg-paper p-4 shadow-xl">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
@@ -116,7 +159,14 @@ function TrackerQrScannerDialog({
             Cancel
           </button>
         </div>
-        <div id={regionId} className="tracker-qr-viewfinder overflow-hidden rounded-xl" />
+        <div className="relative">
+          <div id={regionId} className="tracker-qr-viewfinder overflow-hidden rounded-xl" />
+          {starting ? (
+            <p className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-ink/35 text-sm font-semibold text-paper">
+              Opening camera…
+            </p>
+          ) : null}
+        </div>
         {error ? (
           <div className="mt-3">
             <ErrorBanner message={error} />

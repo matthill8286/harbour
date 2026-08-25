@@ -8,7 +8,10 @@ describe('requireUpload', () => {
   });
 
   it('returns the uploaded file', () => {
-    const file = { originalname: 'v5c.pdf', mimetype: 'application/pdf' } as Express.Multer.File;
+    const file = {
+      originalname: 'v5c.pdf',
+      mimetype: 'application/pdf',
+    } as Express.Multer.File;
     expect(requireUpload(file)).toBe(file);
   });
 });

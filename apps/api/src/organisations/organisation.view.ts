@@ -29,6 +29,8 @@ export function presentOrganisation(org: {
           billingCycle: org.subscription.billingCycle,
         }
       : null,
-    features: Object.fromEntries(org.features.map((item) => [item.flag, item.enabled])),
+    features: Object.fromEntries(
+      org.features.map((item) => [item.flag, item.enabled]),
+    ),
   };
 }

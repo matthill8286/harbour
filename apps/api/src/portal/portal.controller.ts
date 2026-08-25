@@ -28,7 +28,12 @@ export class PortalController {
     @Param('id') id: string,
     @Param('fileId') fileId: string,
   ) {
-    const file = await this.portal.readVisibleFile(user, id, 'document', fileId);
+    const file = await this.portal.readVisibleFile(
+      user,
+      id,
+      'document',
+      fileId,
+    );
     return this.portal.toStream(file);
   }
 

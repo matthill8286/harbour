@@ -21,7 +21,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>('JWT_SECRET', 'replace-with-a-long-random-secret'),
+      secretOrKey: config.get<string>(
+        'JWT_SECRET',
+        'replace-with-a-long-random-secret',
+      ),
     });
   }
 
@@ -29,7 +32,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
-        memberships: { include: { organisation: { include: { settings: true } } } },
+        memberships: {
+          include: { organisation: { include: { settings: true } } },
+        },
       },
     });
     if (!user) {
@@ -38,7 +43,11 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const membership = payload.membershipId
       ? user.memberships.find((item) => item.id === payload.membershipId)
       : pickActiveMembership(user.memberships);
-    if (!membership || membership.status !== 'ACTIVE' || membership.organisation.status !== 'ACTIVE') {
+    if (
+      !membership ||
+      membership.status !== 'ACTIVE' ||
+      membership.organisation.status !== 'ACTIVE'
+    ) {
       throw new UnauthorizedException();
     }
     return buildAuthUser({

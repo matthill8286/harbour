@@ -1,4 +1,9 @@
-import { createInviteToken, hashInviteToken, INVITE_TTL_MS, inviteExpiresAt } from './invite-token';
+import {
+  createInviteToken,
+  hashInviteToken,
+  INVITE_TTL_MS,
+  inviteExpiresAt,
+} from './invite-token';
 
 describe('invite tokens', () => {
   it('never stores the raw token', () => {
@@ -11,6 +16,8 @@ describe('invite tokens', () => {
 
   it('expires after seven days', () => {
     const from = new Date('2026-08-23T12:00:00.000Z');
-    expect(inviteExpiresAt(from).getTime() - from.getTime()).toBe(INVITE_TTL_MS);
+    expect(inviteExpiresAt(from).getTime() - from.getTime()).toBe(
+      INVITE_TTL_MS,
+    );
   });
 });

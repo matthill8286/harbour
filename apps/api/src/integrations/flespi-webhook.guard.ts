@@ -14,7 +14,8 @@ export class FlespiWebhookGuard implements CanActivate {
   constructor(private readonly config: ConfigService) {}
 
   canActivate(context: ExecutionContext) {
-    const expected = this.config.get<string>('FLESPI_WEBHOOK_SECRET')?.trim() ?? '';
+    const expected =
+      this.config.get<string>('FLESPI_WEBHOOK_SECRET')?.trim() ?? '';
     if (!expected) {
       throw new ServiceUnavailableException('Flespi webhook is not configured');
     }

@@ -6,7 +6,11 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { TrackersService } from './trackers.service';
-import { AssignTrackerDto, CreateLocationDto, CreateTrackerDto } from './dto/tracker.dto';
+import {
+  AssignTrackerDto,
+  CreateLocationDto,
+  CreateTrackerDto,
+} from './dto/tracker.dto';
 import { FlespiIngestService } from '../integrations/flespi-ingest.service';
 
 @Controller('trackers')
@@ -39,7 +43,10 @@ export class TrackersController {
   }
 
   @Post('assignments/:assignmentId/unassign')
-  unassign(@CurrentUser() user: AuthUser, @Param('assignmentId') assignmentId: string) {
+  unassign(
+    @CurrentUser() user: AuthUser,
+    @Param('assignmentId') assignmentId: string,
+  ) {
     return this.trackers.unassign(user, assignmentId);
   }
 

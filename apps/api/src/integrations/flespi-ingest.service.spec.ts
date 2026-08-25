@@ -11,7 +11,10 @@ const ping = {
 };
 
 function createService(prisma: object) {
-  return new FlespiIngestService(prisma as never, { configured: () => false } as never);
+  return new FlespiIngestService(
+    prisma as never,
+    { configured: () => false } as never,
+  );
 }
 
 describe('FlespiIngestService', () => {
@@ -35,7 +38,12 @@ describe('FlespiIngestService', () => {
       },
     };
     const result = await createService(prisma).ingestBody([ping]);
-    expect(result).toEqual({ received: 1, accepted: 1, skipped: 0, unknown: 0 });
+    expect(result).toEqual({
+      received: 1,
+      accepted: 1,
+      skipped: 0,
+      unknown: 0,
+    });
     expect(prisma.locationEvent.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -84,6 +92,11 @@ describe('FlespiIngestService', () => {
       locationEvent: { findFirst: jest.fn(), create: jest.fn() },
     };
     const result = await createService(prisma).ingestBody([ping]);
-    expect(result).toEqual({ received: 1, accepted: 0, skipped: 0, unknown: 1 });
+    expect(result).toEqual({
+      received: 1,
+      accepted: 0,
+      skipped: 0,
+      unknown: 1,
+    });
   });
 });
