@@ -326,29 +326,52 @@ button {
   outline-offset: -2px;
 }
 
+.job-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgb(11 31 51 / 0.12);
+}
+
 .job-tabs {
   display: flex;
-  gap: 0.25rem;
+  gap: 0;
   overflow-x: auto;
-  border-bottom: 1px solid rgb(11 31 51 / 0.1);
-  padding-bottom: 0;
+  border-bottom: 0;
+  background: var(--color-paper);
+  padding: 0 0.35rem;
+  -webkit-overflow-scrolling: touch;
 }
 
 .job-tab {
-  flex-shrink: 0;
+  flex: 1 0 auto;
+  min-width: 4.5rem;
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  padding: 0.55rem 0.75rem;
+  padding: 0.7rem 0.85rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: rgb(11 31 51 / 0.55);
+  color: rgb(11 31 51 / 0.5);
   cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.job-tab:hover {
+  color: var(--color-ink);
 }
 
 .job-tab.is-active {
   border-bottom-color: var(--color-harbour);
   color: var(--color-harbour);
+}
+
+.job-tab-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .job-workspace {
@@ -363,6 +386,12 @@ button {
 @media (min-width: 768px) {
   .job-workspace {
     padding-bottom: 0.5rem;
+  }
+
+  .job-tab {
+    flex: 0 0 auto;
+    min-width: 0;
+    text-align: left;
   }
 }
 
