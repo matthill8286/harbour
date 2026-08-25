@@ -67,7 +67,11 @@ export class ImportJobsController {
   }
 
   @Patch(':id')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateImportJobDto) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateImportJobDto,
+  ) {
     return this.jobs.update(user, id, dto);
   }
 
@@ -81,7 +85,11 @@ export class ImportJobsController {
   }
 
   @Post(':id/tasks')
-  addTask(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateTaskDto) {
+  addTask(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateTaskDto,
+  ) {
     return this.jobs.addTask(user, id, dto);
   }
 
@@ -96,22 +104,38 @@ export class ImportJobsController {
   }
 
   @Post(':id/costs')
-  addCost(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateCostDto) {
+  addCost(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateCostDto,
+  ) {
     return this.jobs.addCost(user, id, dto);
   }
 
   @Post(':id/charges')
-  addCharge(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateChargeDto) {
+  addCharge(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateChargeDto,
+  ) {
     return this.jobs.addCharge(user, id, dto);
   }
 
   @Post(':id/notes')
-  addNote(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateNoteDto) {
+  addNote(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateNoteDto,
+  ) {
     return this.jobs.addNote(user, id, dto);
   }
 
   @Post(':id/journeys')
-  addJourney(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: CreateJourneyDto) {
+  addJourney(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: CreateJourneyDto,
+  ) {
     return this.jobs.addJourney(user, id, dto);
   }
 
@@ -124,7 +148,13 @@ export class ImportJobsController {
     @Body('type') type?: string,
     @Body('customerVisible') customerVisible?: string,
   ) {
-    return this.jobs.addDocument(user, id, requireUpload(file), customerVisible === 'true', type);
+    return this.jobs.addDocument(
+      user,
+      id,
+      requireUpload(file),
+      customerVisible === 'true',
+      type,
+    );
   }
 
   @Post(':id/photos')
@@ -136,7 +166,13 @@ export class ImportJobsController {
     @Body('category') category?: string,
     @Body('customerVisible') customerVisible?: string,
   ) {
-    return this.jobs.addPhoto(user, id, requireUpload(file), customerVisible === 'true', category);
+    return this.jobs.addPhoto(
+      user,
+      id,
+      requireUpload(file),
+      customerVisible === 'true',
+      category,
+    );
   }
 
   @Get(':id/documents/:fileId')
@@ -174,7 +210,13 @@ export class ImportJobsController {
     @Param('fileId') fileId: string,
     @Body() dto: UpdateFileVisibilityDto,
   ) {
-    return this.jobs.setFileVisibility(user, id, 'document', fileId, dto.customerVisible);
+    return this.jobs.setFileVisibility(
+      user,
+      id,
+      'document',
+      fileId,
+      dto.customerVisible,
+    );
   }
 
   @Patch(':id/photos/:fileId')
@@ -184,6 +226,12 @@ export class ImportJobsController {
     @Param('fileId') fileId: string,
     @Body() dto: UpdateFileVisibilityDto,
   ) {
-    return this.jobs.setFileVisibility(user, id, 'photo', fileId, dto.customerVisible);
+    return this.jobs.setFileVisibility(
+      user,
+      id,
+      'photo',
+      fileId,
+      dto.customerVisible,
+    );
   }
 }

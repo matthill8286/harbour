@@ -19,7 +19,8 @@ export class MapsService {
     }
     return {
       provider: 'osm',
-      tileUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      tileUrl:
+        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
       attribution: '© OpenStreetMap © CARTO',
       maxZoom: 19,
     };

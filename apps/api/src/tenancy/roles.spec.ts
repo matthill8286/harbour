@@ -1,4 +1,9 @@
-import { canManageOrganisation, canWriteStaff, isPortalRole, isStaffRole } from '@vip/shared';
+import {
+  canManageOrganisation,
+  canWriteStaff,
+  isPortalRole,
+  isStaffRole,
+} from '@vip/shared';
 
 describe('organisation roles', () => {
   it('treats OWNER as staff with write access', () => {

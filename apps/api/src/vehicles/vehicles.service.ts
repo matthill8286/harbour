@@ -24,7 +24,9 @@ export class VehiclesService {
                 { make: { contains: search, mode: 'insensitive' } },
                 { model: { contains: search, mode: 'insensitive' } },
                 { ukRegistration: { contains: search, mode: 'insensitive' } },
-                { cyprusRegistration: { contains: search, mode: 'insensitive' } },
+                {
+                  cyprusRegistration: { contains: search, mode: 'insensitive' },
+                },
               ],
             }
           : {}),

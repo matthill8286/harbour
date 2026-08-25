@@ -24,7 +24,10 @@ export class GpsProviderService {
     status: JobStatus,
     current?: { latitude: number; longitude: number } | null,
   ) {
-    const targetIndex = nearestRouteIndex(this.route, this.anchorForStatus(status));
+    const targetIndex = nearestRouteIndex(
+      this.route,
+      this.anchorForStatus(status),
+    );
     const startIndex = current ? nearestRouteIndex(this.route, current) + 1 : 0;
     if (startIndex > targetIndex) return [];
     return this.route.slice(startIndex, targetIndex + 1);
@@ -38,7 +41,10 @@ export class GpsProviderService {
     status: JobStatus,
     point: { latitude: number; longitude: number },
   ) {
-    const targetIndex = nearestRouteIndex(this.route, this.anchorForStatus(status));
+    const targetIndex = nearestRouteIndex(
+      this.route,
+      this.anchorForStatus(status),
+    );
     return nearestRouteIndex(this.route, point) > targetIndex;
   }
 

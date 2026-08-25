@@ -23,8 +23,8 @@ describe('tenant object keys', () => {
 
 describe('monthStartUtc', () => {
   it('snaps usage to the first of the UTC month', () => {
-    expect(monthStartUtc(new Date('2026-03-27T18:00:00.000Z')).toISOString()).toBe(
-      '2026-03-01T00:00:00.000Z',
-    );
+    expect(
+      monthStartUtc(new Date('2026-03-27T18:00:00.000Z')).toISOString(),
+    ).toBe('2026-03-01T00:00:00.000Z');
   });
 });
