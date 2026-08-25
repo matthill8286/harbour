@@ -58,6 +58,67 @@ button {
   }
 }
 
+.harbour-map-fleet {
+  height: 28rem;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .fleet-map-layout {
+    display: grid;
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+    min-height: calc(100vh - 11rem);
+  }
+
+  .fleet-sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .fleet-sidebar-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+
+  .fleet-map-panel {
+    display: flex;
+    min-height: 0;
+  }
+
+  .harbour-map-fleet {
+    height: 100%;
+    min-height: 28rem;
+  }
+}
+
+.fleet-filter-chip {
+  border: 1px solid rgb(11 31 51 / 0.12);
+  border-radius: 999px;
+  background: var(--color-paper);
+  color: rgb(11 31 51 / 0.72);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.7rem;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.fleet-filter-chip.is-active {
+  border-color: var(--color-harbour);
+  background: rgb(28 107 106 / 0.12);
+  color: var(--color-harbour);
+}
+
+.fleet-sidebar-item.is-selected {
+  border-color: var(--color-harbour);
+  background: rgb(28 107 106 / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(28 107 106 / 0.12);
+}
+
 .leaflet-container {
   height: 100%;
   width: 100%;
@@ -95,4 +156,38 @@ button {
   height: 12px;
   clip-path: polygon(50% 0, 100% 100%, 0 100%);
   background: #fffaf2;
+}
+
+.harbour-vehicle-dot.is-estimated {
+  background: var(--color-paper);
+  box-shadow: 0 0 0 3px var(--color-harbour), 0 8px 16px rgb(11 31 51 / 0.28);
+}
+
+.harbour-vehicle-dot.is-estimated::after {
+  background: var(--color-harbour);
+}
+
+.harbour-vehicle-dot.is-selected {
+  background: var(--color-signal);
+  box-shadow: 0 0 0 4px #fffaf2, 0 0 0 7px rgb(224 161 0 / 0.55), 0 10px 18px rgb(11 31 51 / 0.32);
+  transform: scale(1.12);
+}
+
+.harbour-vehicle-dot.is-selected::after {
+  background: var(--color-ink);
+}
+
+.leaflet-tooltip.harbour-map-label {
+  background: var(--color-ink);
+  border: none;
+  border-radius: 999px;
+  color: var(--color-paper);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  box-shadow: none;
+}
+
+.leaflet-tooltip.harbour-map-label::before {
+  display: none;
 }

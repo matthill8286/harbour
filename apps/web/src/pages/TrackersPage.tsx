@@ -5,6 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { trackerKindLabel } from '../lib/tracking';
 import { Card, EmptyState, ErrorBanner, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { useSession } from '../lib/session';
 
 type InventoryTracker = {
   id: string;
@@ -19,6 +20,7 @@ type InventoryTracker = {
 };
 
 export function TrackersPage() {
+  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ serialNumber: '', provider: 'flespi' });
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +52,9 @@ export function TrackersPage() {
       <PageHeader
         eyebrow="Hardware"
         title="Trackers"
-        description="Register the IMEI from the TAT140 sticker. The Flespi stream must already post into Harbour. Do not put a live Teltonika unit on the same job as demo tracker TRK-001 — replace the demo unit first or the map and job status will disagree."
+        description="GPS units owned by this organisation. Live Teltonika devices should not share a job with the demo simulator."
       />
+      {canWrite ? (
       <Card className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
         <input
           className={fieldClass}
@@ -82,10 +85,15 @@ export function TrackersPage() {
           </div>
         ) : null}
       </Card>
+      ) : null}
       {!isLoading && (data ?? []).length === 0 ? (
         <EmptyState
           title="No trackers yet"
-          description="Add a TAT140 IMEI here, then assign it from the job’s Live GPS panel."
+          description={
+            canWrite
+              ? 'Add a TAT140 IMEI here, then assign it from the job’s Live GPS panel.'
+              : 'This organisation has no GPS units registered yet.'
+          }
         />
       ) : (
         <ul className="space-y-2">

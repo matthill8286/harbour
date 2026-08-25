@@ -21,7 +21,7 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { memberships: { include: { organisation: true } } },
+      include: { memberships: { include: { organisation: { include: { settings: true } } } } },
     });
     if (!user?.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
@@ -44,6 +44,7 @@ export class AuthService {
       firstName: invite.customer.firstName,
       lastName: invite.customer.lastName,
       organisationName: invite.organisation.name,
+      organisationBrandName: invite.organisation.settings?.brandName?.trim() || invite.organisation.name,
       expiresAt: invite.expiresAt,
     };
   }
@@ -75,7 +76,7 @@ export class AuthService {
           passwordHash,
           name: `${invite.customer.firstName} ${invite.customer.lastName}`.trim(),
         },
-        include: { memberships: { include: { organisation: true } } },
+        include: { memberships: { include: { organisation: { include: { settings: true } } } } },
       });
     });
     const membership = user.memberships.find(
@@ -100,7 +101,7 @@ export class AuthService {
       organisationId: string;
       role: AuthUser['role'];
       customerId: string | null;
-      organisation: { name: string };
+      organisation: { name: string; currency?: string; country?: string; settings?: { brandName: string | null } | null };
     },
   ) {
     const authUser = buildAuthUser({
@@ -121,7 +122,7 @@ export class AuthService {
       where: { tokenHash: hashInviteToken(token) },
       include: {
         customer: true,
-        organisation: true,
+        organisation: { include: { settings: true } },
         user: true,
       },
     });

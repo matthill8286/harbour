@@ -6,6 +6,7 @@ import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, ErrorBanner, LoadingScreen, PageHeader, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
+import { useSession } from '../lib/session';
 
 type PortalAccess = {
   status: 'NONE' | 'INVITED' | 'ACTIVE';
@@ -51,6 +52,7 @@ const PORTAL_COPY: Record<PortalAccess['status'], { title: string; body: string;
 };
 
 export function CustomerDetailPage() {
+  const { canWrite } = useSession();
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const query = useQuery({
@@ -140,10 +142,13 @@ export function CustomerDetailPage() {
       <Card>
         <h2 className="display text-2xl">Portal</h2>
         <p className="mt-1 text-sm font-semibold">{copy.title}</p>
-        <p className="text-sm text-ink/60">{copy.body}</p>
+        <p className="text-sm text-ink/60">
+          {canWrite ? copy.body : 'Portal access is managed by staff in this organisation.'}
+        </p>
         {customer.portal.expiresAt && customer.portal.status === 'INVITED' ? (
           <p className="mt-2 text-xs text-ink/45">Expires {formatDate(customer.portal.expiresAt)}</p>
         ) : null}
+        {canWrite ? (
         <button
           type="button"
           className={`${primaryBtn} mt-4`}
@@ -152,6 +157,7 @@ export function CustomerDetailPage() {
         >
           {invite.isPending ? 'Creating link…' : copy.action}
         </button>
+        ) : null}
         {inviteUrl ? (
           <div className="mt-4 rounded-xl bg-sand px-3 py-3 text-sm">
             <p className="font-semibold">Copy this link now. Harbour only stores a hash of the token.</p>
@@ -166,13 +172,14 @@ export function CustomerDetailPage() {
       <Card>
         <h2 className="display text-2xl">Contact</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <input className={fieldClass} value={values.firstName} onChange={(event) => setForm({ ...values, firstName: event.target.value })} placeholder="First name" />
-          <input className={fieldClass} value={values.lastName} onChange={(event) => setForm({ ...values, lastName: event.target.value })} placeholder="Last name" />
-          <input className={fieldClass} value={values.email} onChange={(event) => setForm({ ...values, email: event.target.value })} placeholder="Email" />
-          <input className={fieldClass} value={values.phone} onChange={(event) => setForm({ ...values, phone: event.target.value })} placeholder="Phone" />
-          <input className={`${fieldClass} sm:col-span-2`} value={values.address} onChange={(event) => setForm({ ...values, address: event.target.value })} placeholder="Address" />
-          <textarea className={`${fieldClass} min-h-24 sm:col-span-2`} value={values.notes} onChange={(event) => setForm({ ...values, notes: event.target.value })} placeholder="Internal notes — never shown in the portal" />
+          <input className={fieldClass} disabled={!canWrite} value={values.firstName} onChange={(event) => setForm({ ...values, firstName: event.target.value })} placeholder="First name" />
+          <input className={fieldClass} disabled={!canWrite} value={values.lastName} onChange={(event) => setForm({ ...values, lastName: event.target.value })} placeholder="Last name" />
+          <input className={fieldClass} disabled={!canWrite} value={values.email} onChange={(event) => setForm({ ...values, email: event.target.value })} placeholder="Email" />
+          <input className={fieldClass} disabled={!canWrite} value={values.phone} onChange={(event) => setForm({ ...values, phone: event.target.value })} placeholder="Phone" />
+          <input className={`${fieldClass} sm:col-span-2`} disabled={!canWrite} value={values.address} onChange={(event) => setForm({ ...values, address: event.target.value })} placeholder="Address" />
+          <textarea className={`${fieldClass} min-h-24 sm:col-span-2`} disabled={!canWrite} value={values.notes} onChange={(event) => setForm({ ...values, notes: event.target.value })} placeholder="Internal notes — never shown in the portal" />
         </div>
+        {canWrite ? (
         <button
           type="button"
           className={`${primaryBtn} mt-3`}
@@ -181,6 +188,7 @@ export function CustomerDetailPage() {
         >
           {save.isPending ? 'Saving…' : 'Save'}
         </button>
+        ) : null}
       </Card>
 
       <Card>

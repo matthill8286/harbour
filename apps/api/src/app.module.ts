@@ -11,6 +11,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { PortalModule } from './portal/portal.module';
 import { TrackersModule } from './trackers/trackers.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { OrganisationsModule } from './organisations/organisations.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { HealthController } from './health.controller';
 
@@ -29,6 +30,7 @@ import { HealthController } from './health.controller';
     PortalModule,
     TrackersModule,
     TrackingModule,
+    OrganisationsModule,
   ],
   controllers: [HealthController],
 })

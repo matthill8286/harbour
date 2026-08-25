@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 
 export const fieldClass =
-  'w-full rounded-xl border border-ink/10 bg-paper px-3 py-2 text-sm outline-none transition focus:border-harbour';
+  'w-full rounded-xl border border-ink/10 bg-paper px-3 py-2 text-sm outline-none transition focus:border-harbour disabled:bg-sand disabled:text-ink/55';
 
 export const primaryBtn =
   'inline-flex items-center justify-center rounded-xl bg-harbour px-4 py-2 text-sm font-semibold text-paper transition hover:bg-harbour/90 disabled:opacity-50';

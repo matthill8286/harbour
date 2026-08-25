@@ -5,6 +5,7 @@ import { DEFAULT_WORKFLOW_STATUSES, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, LoadingScreen, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { useSession } from '../lib/session';
 
 type JobListItem = {
   id: string;
@@ -17,6 +18,7 @@ type JobListItem = {
 };
 
 export function JobsPage() {
+  const { canWrite } = useSession();
   const [params] = useSearchParams();
   const [search, setSearch] = useState(params.get('search') ?? '');
   const [debouncedSearch, setDebouncedSearch] = useState(search);
@@ -41,10 +43,13 @@ export function JobsPage() {
       <PageHeader
         eyebrow="Work"
         title="Import jobs"
+        description="Jobs belonging to this organisation. Another importer cannot see them."
         actions={
-          <Link to="/jobs/new" className={primaryBtn}>
-            New job
-          </Link>
+          canWrite ? (
+            <Link to="/jobs/new" className={primaryBtn}>
+              New job
+            </Link>
+          ) : undefined
         }
       />
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -67,11 +72,13 @@ export function JobsPage() {
       {!isLoading && (data ?? []).length === 0 ? (
         <EmptyState
           title="No jobs match"
-          description="Try a different search, or create a new import job."
+          description={canWrite ? 'Try a different search, or create a new import job.' : 'Try a different search.'}
           action={
-            <Link to="/jobs/new" className={primaryBtn}>
-              New job
-            </Link>
+            canWrite ? (
+              <Link to="/jobs/new" className={primaryBtn}>
+                New job
+              </Link>
+            ) : undefined
           }
         />
       ) : (

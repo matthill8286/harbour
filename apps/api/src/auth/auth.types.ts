@@ -5,6 +5,9 @@ export type AuthUser = {
   membershipId: string;
   organisationId: string;
   organisationName: string;
+  organisationBrandName: string;
+  organisationCurrency: string;
+  organisationCountry: string;
   email: string;
   name: string;
   role: UserRole;

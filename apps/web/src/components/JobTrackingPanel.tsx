@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { LocationPoint } from '@vip/shared';
+import { isDestinationReached, corridorPositionForStatus, type LocationPoint } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 import { FALLBACK_MAP, trackerKindLabel, type JobTracking } from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
 import { ErrorBanner, fieldClass, primaryBtn, secondaryBtn } from './ui';
+import { useSession } from '../lib/session';
 
 export function JobTrackingPanel({
   jobId,
@@ -14,6 +15,7 @@ export function JobTrackingPanel({
   jobId: string;
   lastKnown?: LocationPoint | null;
 }) {
+  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [trackerId, setTrackerId] = useState('');
   const [replacing, setReplacing] = useState(false);
@@ -81,6 +83,8 @@ export function JobTrackingPanel({
   const current = tracking?.current ?? lastKnown ?? null;
   const trail = tracking?.trail?.length ? tracking.trail : current ? [current] : [];
   const map = tracking?.map ?? FALLBACK_MAP;
+  const arrived = tracking ? isDestinationReached(tracking.status) : false;
+  const plotted = current ?? (tracking ? corridorPositionForStatus(tracking.status) : null);
 
   if (!tracking && !current) {
     return (
@@ -90,13 +94,15 @@ export function JobTrackingPanel({
     );
   }
 
-  const markers = current
+  const markers = plotted
     ? [
         {
           id: tracking?.importJobId ?? jobId,
-          latitude: current.latitude,
-          longitude: current.longitude,
-          heading: current.heading,
+          latitude: plotted.latitude,
+          longitude: plotted.longitude,
+          heading: current?.heading,
+          estimated: !current,
+          status: tracking?.status,
           label: `${tracking?.vehicle.make ?? 'Vehicle'} ${tracking?.vehicle.model ?? ''}`.trim(),
           sublabel: tracking?.reference,
         },
@@ -111,11 +117,11 @@ export function JobTrackingPanel({
           <p className="text-sm text-ink/60">
             {current
               ? `${Number(current.latitude).toFixed(4)}, ${Number(current.longitude).toFixed(4)} · ${formatDateTime(current.recordedAt)}`
-              : 'No location events yet'}
+              : 'No GPS ping yet — showing the planned corridor from this job’s status'}
             {current?.speed != null ? ` · ${Math.round(current.speed)} km/h` : ''}
           </p>
         </div>
-        {tracking?.tracker && tracking.tracker.provider === 'generic' ? (
+        {canWrite && tracking?.tracker && tracking.tracker.provider === 'generic' ? (
           <button
             type="button"
             className="rounded-full bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
@@ -125,7 +131,7 @@ export function JobTrackingPanel({
             {advance.isPending ? 'Pinging…' : 'Advance GPS'}
           </button>
         ) : null}
-        {tracking?.tracker?.provider === 'flespi' ? (
+        {canWrite && tracking?.tracker?.provider === 'flespi' ? (
           <button
             type="button"
             className="rounded-full bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
@@ -136,7 +142,13 @@ export function JobTrackingPanel({
           </button>
         ) : null}
       </div>
-      <JourneyMap key={jobId} map={map} trail={trail} markers={markers} />
+      <JourneyMap
+        key={jobId}
+        map={map}
+        trail={trail}
+        markers={markers}
+        showPlannedRoute={!arrived}
+      />
       <div className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {tracking?.tracker ? (
@@ -149,7 +161,7 @@ export function JobTrackingPanel({
           ) : (
             <p className="text-ink/50">{tracking ? 'No tracker assigned' : 'Showing last known position'}</p>
           )}
-          {tracking?.tracker ? (
+          {canWrite && tracking?.tracker ? (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -172,7 +184,7 @@ export function JobTrackingPanel({
             </div>
           ) : null}
         </div>
-        {tracking && (!tracking.tracker || replacing) ? (
+        {canWrite && tracking && (!tracking.tracker || replacing) ? (
           <TrackerAssignForm
             available={tracking.availableTrackers ?? []}
             trackerId={trackerId}

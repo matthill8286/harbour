@@ -1,4 +1,4 @@
-import { canWriteStaff, isPortalRole, isStaffRole } from '@vip/shared';
+import { canManageOrganisation, canWriteStaff, isPortalRole, isStaffRole } from '@vip/shared';
 
 describe('organisation roles', () => {
   it('treats OWNER as staff with write access', () => {
@@ -10,6 +10,13 @@ describe('organisation roles', () => {
   it('treats VIEWER as staff without write access', () => {
     expect(isStaffRole('VIEWER')).toBe(true);
     expect(canWriteStaff('VIEWER')).toBe(false);
+  });
+
+  it('reserves organisation settings for owners and admins', () => {
+    expect(canManageOrganisation('OWNER')).toBe(true);
+    expect(canManageOrganisation('ADMIN')).toBe(true);
+    expect(canManageOrganisation('STAFF')).toBe(false);
+    expect(canManageOrganisation('VIEWER')).toBe(false);
   });
 
   it('keeps CUSTOMER on the portal permission model', () => {
