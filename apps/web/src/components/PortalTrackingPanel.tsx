@@ -5,7 +5,13 @@ import { formatDateTime } from '../lib/format';
 import type { JobTracking } from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
 
-export function PortalTrackingPanel({ jobId }: { jobId: string }) {
+export function PortalTrackingPanel({
+  jobId,
+  destination,
+}: {
+  jobId: string;
+  destination?: string;
+}) {
   const { data: tracking } = useQuery({
     queryKey: ['portal-tracking', jobId],
     queryFn: () => api<JobTracking>(`/portal/jobs/${jobId}/tracking`),
@@ -26,6 +32,7 @@ export function PortalTrackingPanel({ jobId }: { jobId: string }) {
           latitude: current.latitude,
           longitude: current.longitude,
           heading: current.heading,
+          status: tracking.status as JobStatus,
           label: `${tracking.vehicle.make ?? 'Your vehicle'} ${tracking.vehicle.model ?? ''}`.trim(),
           sublabel: getStatusLabel(tracking.status as JobStatus),
         },
@@ -38,7 +45,7 @@ export function PortalTrackingPanel({ jobId }: { jobId: string }) {
         <h2 className="display text-2xl">Where it is</h2>
         <p className="text-sm text-ink/60">
           {arrived
-            ? `In Cyprus · updated ${current ? formatDateTime(current.recordedAt) : 'just now'}`
+            ? `Arrived${destination ? ` in ${destination}` : ''} · updated ${current ? formatDateTime(current.recordedAt) : 'just now'}`
             : current
               ? `Last update ${formatDateTime(current.recordedAt)}`
               : 'Location will appear once the vehicle is on the road.'}

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { api, downloadApiFile } from '../lib/api';
 import { formatBytes, formatCategory, formatDateTime } from '../lib/format';
+import { useSession } from '../lib/session';
 import { AuthenticatedImage } from './AuthenticatedImage';
 import { Card, ErrorBanner, fieldClass, secondaryBtn } from './ui';
 
@@ -40,6 +41,7 @@ export function JobJourneys({
   jobId: string;
   journeys: Journey[];
 }) {
+  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ origin: '', destination: '', type: 'ROAD', status: 'PLANNED' });
   const create = useMutation({
@@ -76,6 +78,7 @@ export function JobJourneys({
         ))}
         {journeys.length === 0 ? <li className="text-sm text-ink/50">No legs recorded yet.</li> : null}
       </ol>
+      {canWrite ? (
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <input className={fieldClass} placeholder="Origin" value={form.origin} onChange={(event) => setForm({ ...form, origin: event.target.value })} />
         <input className={fieldClass} placeholder="Destination" value={form.destination} onChange={(event) => setForm({ ...form, destination: event.target.value })} />
@@ -102,6 +105,7 @@ export function JobJourneys({
           Add journey leg
         </button>
       </div>
+      ) : null}
     </Card>
   );
 }
@@ -115,6 +119,7 @@ export function JobFilesPanel({
   photos: Photo[];
   documents: DocumentFile[];
 }) {
+  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [photoMeta, setPhotoMeta] = useState({ category: 'COLLECTION', customerVisible: false });
   const [docMeta, setDocMeta] = useState({ type: 'OTHER', customerVisible: false });
@@ -168,6 +173,7 @@ export function JobFilesPanel({
                   {formatCategory(photo.category)}
                   {photo.customerVisible ? ' · customer' : ' · internal'}
                 </p>
+                {canWrite ? (
                 <button
                   type="button"
                   className="font-semibold text-harbour"
@@ -177,11 +183,13 @@ export function JobFilesPanel({
                 >
                   {photo.customerVisible ? 'Hide from customer' : 'Share with customer'}
                 </button>
+                ) : null}
               </figcaption>
             </figure>
           ))}
         </div>
         {photos.length === 0 ? <p className="mt-3 text-sm text-ink/50">No photos yet.</p> : null}
+        {canWrite ? (
         <div className="mt-4 grid gap-2">
           <select className={fieldClass} value={photoMeta.category} onChange={(event) => setPhotoMeta({ ...photoMeta, category: event.target.value })}>
             {PHOTO_CATEGORIES.map((item) => (
@@ -215,6 +223,7 @@ export function JobFilesPanel({
             }}
           />
         </div>
+        ) : null}
       </Card>
       <Card>
         <h2 className="display text-2xl">Documents</h2>
@@ -237,6 +246,7 @@ export function JobFilesPanel({
                 >
                   Download
                 </button>
+                {canWrite ? (
                 <button
                   type="button"
                   className="text-[11px] font-semibold text-harbour"
@@ -244,11 +254,13 @@ export function JobFilesPanel({
                 >
                   {doc.customerVisible ? 'Hide from customer' : 'Share with customer'}
                 </button>
+                ) : null}
               </div>
             </li>
           ))}
         </ul>
         {documents.length === 0 ? <p className="mt-3 text-sm text-ink/50">No documents yet.</p> : null}
+        {canWrite ? (
         <div className="mt-4 grid gap-2">
           <select className={fieldClass} value={docMeta.type} onChange={(event) => setDocMeta({ ...docMeta, type: event.target.value })}>
             {DOCUMENT_TYPES.map((item) => (
@@ -282,6 +294,7 @@ export function JobFilesPanel({
             }}
           />
         </div>
+        ) : null}
       </Card>
     </section>
     </div>

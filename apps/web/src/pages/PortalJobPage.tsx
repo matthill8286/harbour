@@ -93,7 +93,7 @@ export function PortalJobPage() {
           </ol>
         </Card>
       ) : null}
-      <PortalTrackingPanel jobId={job.id} />
+      <PortalTrackingPanel jobId={job.id} destination={job.destinationCountry} />
       <Card>
         <h2 className="display text-2xl">Updates</h2>
         {job.notes.length === 0 && job.statusHistory.length === 0 ? (

@@ -1,7 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, MapPinned, Radio, Ship, Users } from 'lucide-react';
-import { isStaffRole } from '@vip/shared';
+import { LayoutDashboard, MapPinned, Radio, Settings, Ship, Users } from 'lucide-react';
 import { useAuth } from '../lib/auth';
+import { useSession } from '../lib/session';
 import { ErrorBoundary } from './ErrorBoundary';
 
 const staffLinks = [
@@ -13,25 +13,29 @@ const staffLinks = [
 ];
 
 export function AppShell() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const { user, isStaff, isPortal, canWrite, canManage, workspace, roleLabel } = useSession();
   const navigate = useNavigate();
-  const isStaff = user ? isStaffRole(user.role) : false;
+  const home = isPortal ? '/portal' : '/';
   const links = isStaff
-    ? staffLinks
+    ? [...staffLinks, ...(canManage ? [{ to: '/organisation', label: 'Workspace', icon: Settings }] : [])]
     : [{ to: '/portal', label: 'My vehicle', icon: Ship }];
 
   return (
     <div className="min-h-svh bg-sand text-ink">
       <header className="sticky top-0 z-20 border-b border-ink/10 bg-ink text-paper">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-          <NavLink to={isStaff ? '/' : '/portal'} className="block">
-            <p className="display text-lg leading-none">Harbour</p>
+          <NavLink to={home} className="block min-w-0">
+            <p className="display truncate text-lg leading-none">{workspace}</p>
             <p className="text-[11px] uppercase tracking-[0.22em] text-mist">
-              {user?.organisationName ?? 'Vehicle import desk'}
+              {isPortal ? 'Customer portal · Harbour' : 'Harbour workspace'}
             </p>
           </NavLink>
-          <div className="flex items-center gap-3 text-sm">
-            <span className="hidden sm:inline text-mist">{user?.name}</span>
+          <div className="flex shrink-0 items-center gap-3 text-sm">
+            <div className="hidden text-right sm:block">
+              <p className="text-paper">{user?.name}</p>
+              <p className="text-[11px] uppercase tracking-widest text-mist">{roleLabel}</p>
+            </div>
             <button
               type="button"
               className="rounded-full border border-paper/30 px-3 py-1 text-sm hover:bg-paper/10"
@@ -44,6 +48,11 @@ export function AppShell() {
             </button>
           </div>
         </div>
+        {isStaff && !canWrite ? (
+          <p className="border-t border-paper/10 px-4 py-1.5 text-center text-[11px] text-mist">
+            View access — you can look through this workspace, not change jobs, trackers, or customers.
+          </p>
+        ) : null}
       </header>
 
       <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6 pb-24 md:pb-8">
@@ -75,7 +84,17 @@ export function AppShell() {
       </div>
 
       <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-ink/10 bg-paper md:hidden">
-        <ul className={`grid ${links.length === 1 ? 'grid-cols-1' : links.length === 5 ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        <ul
+          className={`grid ${
+            links.length === 1
+              ? 'grid-cols-1'
+              : links.length === 6
+                ? 'grid-cols-6'
+                : links.length === 5
+                  ? 'grid-cols-5'
+                  : 'grid-cols-4'
+          }`}
+        >
           {links.map((link) => (
             <li key={link.to}>
               <NavLink

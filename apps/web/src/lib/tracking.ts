@@ -66,3 +66,27 @@ export type LiveTracking = {
 export function trackerKindLabel(provider: string) {
   return provider === 'flespi' ? 'Teltonika / Flespi' : 'Demo simulator';
 }
+
+/** Nudge stacked fleet pings so two London jobs are both clickable. */
+export function spreadOverlappingMarkers<T extends { latitude: number; longitude: number }>(
+  markers: T[],
+  radiusDeg = 0.55,
+): T[] {
+  const groups = new Map<string, number[]>();
+  markers.forEach((marker, index) => {
+    const key = `${marker.latitude.toFixed(2)}:${marker.longitude.toFixed(2)}`;
+    const members = groups.get(key) ?? [];
+    members.push(index);
+    groups.set(key, members);
+  });
+  return markers.map((marker, index) => {
+    const members = groups.get(`${marker.latitude.toFixed(2)}:${marker.longitude.toFixed(2)}`) ?? [index];
+    if (members.length < 2) return marker;
+    const offset = members.indexOf(index);
+    return {
+      ...marker,
+      latitude: marker.latitude - offset * (radiusDeg * 0.45),
+      longitude: marker.longitude + offset * radiusDeg,
+    };
+  });
+}
