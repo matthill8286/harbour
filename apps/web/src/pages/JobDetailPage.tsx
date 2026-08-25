@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
@@ -38,7 +38,7 @@ type JobDetail = {
     vin: string | null;
   };
   statusHistory: { id: string; toStatus: string; note: string | null; createdAt: string }[];
-  tasks: { id: string; title: string; status: string; dueDate: string | null }[];
+  tasks: { id: string; title: string; status: string; dueDate: string | null; createdAt?: string }[];
   costs: { id: string; category: string; description: string; amount: string }[];
   charges: { id: string; category: string; description: string; amount: string }[];
   notes: { id: string; body: string; visibility: string; createdAt: string; author: { name: string } }[];
@@ -120,7 +120,27 @@ export function JobDetailPage() {
   const taskStatus = useMutation({
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
       api(`/import-jobs/${id}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-    onSuccess: invalidate,
+    onMutate: async ({ taskId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ['job', id] });
+      const previous = queryClient.getQueryData<JobDetail>(['job', id]);
+      if (previous) {
+        queryClient.setQueryData<JobDetail>(['job', id], {
+          ...previous,
+          tasks: previous.tasks.map((task) =>
+            task.id === taskId ? { ...task, status } : task,
+          ),
+        });
+      }
+      return { previous };
+    },
+    onError: (_error, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['job', id], context.previous);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['job', id] });
+    },
   });
   const costMutation = useMutation({
     mutationFn: () =>
@@ -153,6 +173,17 @@ export function JobDetailPage() {
     },
   });
 
+  // Stable checklist order — never reshuffle when a box is ticked.
+  const orderedTasks = useMemo(() => {
+    const tasks = jobQuery.data?.tasks ?? [];
+    return [...tasks].sort((a, b) => {
+      const aAt = a.createdAt ?? '';
+      const bAt = b.createdAt ?? '';
+      if (aAt !== bAt) return aAt.localeCompare(bAt);
+      return a.id.localeCompare(b.id);
+    });
+  }, [jobQuery.data?.tasks]);
+
   if (jobQuery.isLoading) return <LoadingScreen label="Loading job…" />;
   if (jobQuery.isError || !job) {
     return (
@@ -165,7 +196,7 @@ export function JobDetailPage() {
   const nextStatuses = STATUS_TRANSITIONS[job.status] ?? [];
   const forward = nextStatuses.filter((status) => status !== 'CANCELLED');
   const canCancel = nextStatuses.includes('CANCELLED');
-  const openTasks = job.tasks.filter((task) => task.status !== 'COMPLETED');
+  const openTasks = orderedTasks.filter((task) => task.status !== 'COMPLETED');
 
   function moveTo(status: JobStatus) {
     if (status === 'CANCELLED' && !window.confirm('Cancel this import job? This is a terminal status.')) {
@@ -183,7 +214,7 @@ export function JobDetailPage() {
 
   return (
     <div className="job-workspace">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
         <Link to="/jobs" className="text-sm font-semibold text-harbour">
           ← All jobs
         </Link>
@@ -192,80 +223,85 @@ export function JobDetailPage() {
         </Link>
       </div>
 
-      <div className="sticky top-0 z-10 rounded-2xl bg-ink p-4 text-paper shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-mist">{job.reference}</p>
-            <h1 className="display text-2xl sm:text-3xl">
-              {job.vehicle.make} {job.vehicle.model} {job.vehicle.variant}
-            </h1>
-            <p className="mt-1 text-sm text-mist">
-              <Link to={`/customers/${job.customer.id}`} className="underline-offset-4 hover:underline">
-                {job.customer.firstName} {job.customer.lastName}
-              </Link>
-              {job.vehicle.ukRegistration ? ` · ${job.vehicle.ukRegistration}` : ''}
-              {` · ${job.originCountry} → ${job.destinationCountry}`}
-            </p>
+      <div className="job-chrome">
+        <div className="job-chrome-header rounded-t-2xl bg-ink p-4 text-paper">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-mist">{job.reference}</p>
+              <h1 className="display text-2xl sm:text-3xl">
+                {job.vehicle.make} {job.vehicle.model} {job.vehicle.variant}
+              </h1>
+              <p className="mt-1 text-sm text-mist">
+                <Link to={`/customers/${job.customer.id}`} className="underline-offset-4 hover:underline">
+                  {job.customer.firstName} {job.customer.lastName}
+                </Link>
+                {job.vehicle.ukRegistration ? ` · ${job.vehicle.ukRegistration}` : ''}
+                {` · ${job.originCountry} → ${job.destinationCountry}`}
+              </p>
+            </div>
+            <StatusBadge status={job.status} inverted />
           </div>
-          <StatusBadge status={job.status} inverted />
+          {nextStatuses.length > 0 && canWrite ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {forward.map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  className="rounded-xl bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
+                  disabled={statusMutation.isPending}
+                  onClick={() => moveTo(status)}
+                >
+                  {getStatusLabel(status)}
+                </button>
+              ))}
+              {canCancel ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-paper/30 px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
+                  disabled={statusMutation.isPending}
+                  onClick={() => moveTo('CANCELLED')}
+                >
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {statusMutation.isError ? (
+            <div className="mt-3">
+              <ErrorBanner
+                message={
+                  statusMutation.error instanceof Error
+                    ? statusMutation.error.message
+                    : 'Could not update status'
+                }
+              />
+            </div>
+          ) : null}
+          <div className="mt-4">
+            <JourneyStepper status={job.status} embedded />
+          </div>
         </div>
-        {nextStatuses.length > 0 && canWrite ? (
-          <div className="mt-3 flex flex-wrap gap-2">
-            {forward.map((status) => (
-              <button
-                key={status}
-                type="button"
-                className="rounded-xl bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
-                disabled={statusMutation.isPending}
-                onClick={() => moveTo(status)}
-              >
-                {getStatusLabel(status)}
-              </button>
-            ))}
-            {canCancel ? (
-              <button
-                type="button"
-                className="rounded-xl border border-paper/30 px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
-                disabled={statusMutation.isPending}
-                onClick={() => moveTo('CANCELLED')}
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-        {statusMutation.isError ? (
-          <div className="mt-3">
-            <ErrorBanner
-              message={
-                statusMutation.error instanceof Error
-                  ? statusMutation.error.message
-                  : 'Could not update status'
-              }
-            />
-          </div>
-        ) : null}
+
+        <div className="job-tabs" role="tablist" aria-label="Job sections">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab.id}
+              className={`job-tab${activeTab === tab.id ? ' is-active' : ''}`}
+              onClick={() => setTab(tab.id)}
+            >
+              {tab.label}
+              {tab.id === 'overview' && openTasks.length > 0 ? ` · ${openTasks.length}` : ''}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="job-tabs" role="tablist" aria-label="Job sections">
-        {TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === tab.id}
-            className={`job-tab${activeTab === tab.id ? ' is-active' : ''}`}
-            onClick={() => setTab(tab.id)}
-          >
-            {tab.label}
-            {tab.id === 'overview' && openTasks.length > 0 ? ` · ${openTasks.length}` : ''}
-          </button>
-        ))}
-      </div>
-
+      <div className="job-tab-panel">
       {activeTab === 'overview' ? (
         <div className="space-y-4">
-          <JourneyStepper status={job.status} />
           <dl className="grid gap-3 rounded-2xl bg-paper p-4 text-sm sm:grid-cols-3">
             <div>
               <dt className="text-[11px] uppercase tracking-widest text-ink/45">Contact</dt>
@@ -303,18 +339,18 @@ export function JobDetailPage() {
                 <span className="text-xs text-ink/50">{openTasks.length} open</span>
               ) : null}
             </div>
-            {job.tasks.length === 0 ? (
+            {orderedTasks.length === 0 ? (
               <p className="mt-2 text-sm text-ink/50">No tasks yet.</p>
             ) : (
               <ul className="mt-3 space-y-2">
-                {job.tasks.map((task) => {
+                {orderedTasks.map((task) => {
                   const done = task.status === 'COMPLETED';
                   return (
                     <li key={task.id} className="flex items-center gap-3 text-sm">
                       <input
                         type="checkbox"
                         className="h-4 w-4 accent-harbour"
-                        disabled={!canWrite}
+                        disabled={!canWrite || taskStatus.isPending}
                         checked={done}
                         onChange={() =>
                           taskStatus.mutate({ taskId: task.id, status: done ? 'TODO' : 'COMPLETED' })
@@ -521,6 +557,7 @@ export function JobDetailPage() {
           ) : null}
         </Card>
       ) : null}
+      </div>
     </div>
   );
 }
