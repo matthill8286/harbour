@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { api, ApiError } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { trackerKindLabel } from '../lib/tracking';
+import { TrackerQrScanButton } from '../components/TrackerQrScanner';
 import { Card, EmptyState, ErrorBanner, PageHeader, fieldClass, primaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
 
@@ -56,13 +57,23 @@ export function TrackersPage() {
       />
       {canWrite ? (
       <Card className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-        <input
-          className={fieldClass}
-          placeholder="IMEI"
-          value={form.serialNumber}
-          onChange={(event) => setForm({ ...form, serialNumber: event.target.value })}
-          autoComplete="off"
-        />
+        <div className="flex gap-2 sm:col-span-1">
+          <input
+            className={fieldClass}
+            placeholder="IMEI"
+            value={form.serialNumber}
+            onChange={(event) => setForm({ ...form, serialNumber: event.target.value })}
+            autoComplete="off"
+          />
+          <TrackerQrScanButton
+            onImei={(imei) => {
+              setForm((current) => ({ ...current, serialNumber: imei }));
+              setError(null);
+            }}
+            onError={setError}
+            disabled={create.isPending}
+          />
+        </div>
         <select
           className={fieldClass}
           value={form.provider}
@@ -91,7 +102,7 @@ export function TrackersPage() {
           title="No trackers yet"
           description={
             canWrite
-              ? 'Add a TAT140 IMEI here, then assign it from the job’s Live GPS panel.'
+              ? 'Scan the TAT140 sticker QR or type the IMEI here, then assign it from the job’s Live GPS panel.'
               : 'This organisation has no GPS units registered yet.'
           }
         />
