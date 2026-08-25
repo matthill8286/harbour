@@ -5,6 +5,7 @@ import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 import { FALLBACK_MAP, trackerKindLabel, type JobTracking } from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
+import { TrackerQrScanButton } from './TrackerQrScanner';
 import { ErrorBanner, fieldClass, primaryBtn, secondaryBtn } from './ui';
 import { useSession } from '../lib/session';
 
@@ -238,6 +239,8 @@ function TrackerAssignForm({
   onAssignExisting: () => void;
   onRegister: () => void;
 }) {
+  const [scanError, setScanError] = useState<string | null>(null);
+
   return (
     <div className="space-y-2">
       {available.length > 0 ? (
@@ -264,7 +267,7 @@ function TrackerAssignForm({
         </form>
       ) : null}
       <form
-        className="grid gap-2 sm:grid-cols-[1fr_auto_auto]"
+        className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           if (imei.trim()) onRegister();
@@ -277,6 +280,15 @@ function TrackerAssignForm({
           onChange={(event) => onImei(event.target.value)}
           autoComplete="off"
         />
+        <TrackerQrScanButton
+          label="Scan"
+          disabled={pending}
+          onImei={(value) => {
+            setScanError(null);
+            onImei(value);
+          }}
+          onError={setScanError}
+        />
         <select className={fieldClass} value={provider} onChange={(event) => onProvider(event.target.value)}>
           <option value="flespi">Teltonika / Flespi</option>
           <option value="generic">Demo simulator</option>
@@ -285,6 +297,7 @@ function TrackerAssignForm({
           {pending ? 'Saving…' : `${submitLabel} new unit`}
         </button>
       </form>
+      {scanError ? <ErrorBanner message={scanError} /> : null}
       {error ? <ErrorBanner message={error} /> : null}
     </div>
   );

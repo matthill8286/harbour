@@ -24,4 +24,4 @@ async function bootstrap() {
   await app.listen(port, '127.0.0.1');
 }
 
-bootstrap();
+void bootstrap();

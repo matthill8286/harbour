@@ -8,6 +8,8 @@
     "dev:web": "pnpm --filter @vip/web dev",
     "build": "pnpm -r --filter @vip/shared --filter @vip/api --filter @vip/web run build",
     "lint": "pnpm -r run lint",
+    "test": "pnpm --filter @vip/api test && pnpm --filter @vip/web test",
+    "typecheck": "pnpm --filter @vip/shared build && pnpm --filter @vip/web exec tsc -p tsconfig.app.json --noEmit && pnpm --filter @vip/api exec tsc -p tsconfig.build.json --noEmit",
     "db:generate": "pnpm --filter @vip/api prisma:generate",
     "db:migrate": "pnpm --filter @vip/api prisma:migrate",
     "db:seed": "pnpm --filter @vip/api prisma:seed",

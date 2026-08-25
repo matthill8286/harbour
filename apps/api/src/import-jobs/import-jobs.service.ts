@@ -45,12 +45,21 @@ const jobListInclude = {
 const jobDetailInclude = {
   customer: true,
   vehicle: { include: { registrations: true } },
-  statusHistory: { include: { changedBy: { select: publicUserSelect } }, orderBy: { createdAt: 'asc' } },
+  statusHistory: {
+    include: { changedBy: { select: publicUserSelect } },
+    orderBy: { createdAt: 'asc' },
+  },
   journeys: { orderBy: { createdAt: 'asc' } },
-  tasks: { include: { assignedTo: { select: publicUserSelect } }, orderBy: { createdAt: 'desc' } },
+  tasks: {
+    include: { assignedTo: { select: publicUserSelect } },
+    orderBy: { createdAt: 'desc' },
+  },
   costs: { orderBy: { incurredOn: 'desc' } },
   charges: { orderBy: { incurredOn: 'desc' } },
-  notes: { include: { author: { select: publicUserSelect } }, orderBy: { createdAt: 'desc' } },
+  notes: {
+    include: { author: { select: publicUserSelect } },
+    orderBy: { createdAt: 'desc' },
+  },
   documents: { orderBy: { createdAt: 'desc' } },
   photos: { orderBy: { createdAt: 'desc' } },
   trackerAssignments: {
@@ -80,11 +89,34 @@ export class ImportJobsService {
           ? {
               OR: [
                 { reference: { contains: query.search, mode: 'insensitive' } },
-                { customer: { firstName: { contains: query.search, mode: 'insensitive' } } },
-                { customer: { lastName: { contains: query.search, mode: 'insensitive' } } },
-                { vehicle: { make: { contains: query.search, mode: 'insensitive' } } },
-                { vehicle: { model: { contains: query.search, mode: 'insensitive' } } },
-                { vehicle: { ukRegistration: { contains: query.search, mode: 'insensitive' } } },
+                {
+                  customer: {
+                    firstName: { contains: query.search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  customer: {
+                    lastName: { contains: query.search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  vehicle: {
+                    make: { contains: query.search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  vehicle: {
+                    model: { contains: query.search, mode: 'insensitive' },
+                  },
+                },
+                {
+                  vehicle: {
+                    ukRegistration: {
+                      contains: query.search,
+                      mode: 'insensitive',
+                    },
+                  },
+                },
               ],
             }
           : {}),
@@ -102,7 +134,11 @@ export class ImportJobsService {
     if (!existing) {
       throw new NotFoundException('Import job not found');
     }
-    await this.tracking.alignToStatus(id, user.organisationId, existing.status as JobStatus);
+    await this.tracking.alignToStatus(
+      id,
+      user.organisationId,
+      existing.status as JobStatus,
+    );
     const job = await this.prisma.importJob.findFirst({
       where: { id, organisationId: user.organisationId },
       include: jobDetailInclude,
@@ -163,7 +199,10 @@ export class ImportJobsService {
     const year = new Date().getFullYear();
     const prefix = `CY-${year}-`;
     const count = await this.prisma.importJob.count({
-      where: { organisationId: user.organisationId, reference: { startsWith: prefix } },
+      where: {
+        organisationId: user.organisationId,
+        reference: { startsWith: prefix },
+      },
     });
     const reference = `${prefix}${String(count + 1).padStart(5, '0')}`;
 
@@ -241,11 +280,12 @@ export class ImportJobsService {
     const createdAt = lastHistory
       ? new Date(Math.max(Date.now(), lastHistory.createdAt.getTime() + 60_000))
       : new Date();
-    const job = await this.prisma.importJob.update({
+    await this.prisma.importJob.update({
       where: { id },
       data: {
         status: to,
-        completedAt: to === 'COMPLETED' || to === 'CANCELLED' ? createdAt : null,
+        completedAt:
+          to === 'COMPLETED' || to === 'CANCELLED' ? createdAt : null,
         statusHistory: {
           create: {
             organisationId: user.organisationId,
@@ -292,7 +332,12 @@ export class ImportJobsService {
     });
   }
 
-  async updateTask(user: AuthUser, jobId: string, taskId: string, dto: UpdateTaskDto) {
+  async updateTask(
+    user: AuthUser,
+    jobId: string,
+    taskId: string,
+    dto: UpdateTaskDto,
+  ) {
     await this.get(user, jobId);
     return this.prisma.task.update({
       where: { id: taskId },
@@ -303,9 +348,17 @@ export class ImportJobsService {
         priority: dto.priority,
         assignedToId: dto.assignedToId,
         dueDate:
-          dto.dueDate === undefined ? undefined : dto.dueDate ? new Date(dto.dueDate) : null,
+          dto.dueDate === undefined
+            ? undefined
+            : dto.dueDate
+              ? new Date(dto.dueDate)
+              : null,
         completedAt:
-          dto.status === 'COMPLETED' ? new Date() : dto.status ? null : undefined,
+          dto.status === 'COMPLETED'
+            ? new Date()
+            : dto.status
+              ? null
+              : undefined,
       },
       include: { assignedTo: { select: publicUserSelect } },
     });
@@ -462,7 +515,11 @@ export class ImportJobsService {
       action: 'PHOTO_UPLOADED',
       entityType: 'Photo',
       entityId: photo.id,
-      metadata: { importJobId: jobId, customerVisible, filename: photo.filename },
+      metadata: {
+        importJobId: jobId,
+        customerVisible,
+        filename: photo.filename,
+      },
     });
     if (customerVisible) {
       this.notifications.notify({
@@ -485,7 +542,11 @@ export class ImportJobsService {
     const job = await this.get(user, jobId);
     if (kind === 'document') {
       const existing = await this.prisma.document.findFirst({
-        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+        where: {
+          id: fileId,
+          importJobId: jobId,
+          organisationId: user.organisationId,
+        },
       });
       if (!existing) {
         throw new NotFoundException('Document not found');
@@ -494,11 +555,24 @@ export class ImportJobsService {
         where: { id: fileId },
         data: { customerVisible },
       });
-      this.recordVisibilityChange(user, jobId, job.customerId, 'Document', document.id, document.name, existing.customerVisible, customerVisible);
+      this.recordVisibilityChange(
+        user,
+        jobId,
+        job.customerId,
+        'Document',
+        document.id,
+        document.name,
+        existing.customerVisible,
+        customerVisible,
+      );
       return this.withoutStorageKey(document);
     }
     const existing = await this.prisma.photo.findFirst({
-      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+      where: {
+        id: fileId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
     });
     if (!existing) {
       throw new NotFoundException('Photo not found');
@@ -507,7 +581,16 @@ export class ImportJobsService {
       where: { id: fileId },
       data: { customerVisible },
     });
-    this.recordVisibilityChange(user, jobId, job.customerId, 'Photo', photo.id, photo.filename, existing.customerVisible, customerVisible);
+    this.recordVisibilityChange(
+      user,
+      jobId,
+      job.customerId,
+      'Photo',
+      photo.id,
+      photo.filename,
+      existing.customerVisible,
+      customerVisible,
+    );
     return this.withoutStorageKey(photo);
   }
 
@@ -522,11 +605,20 @@ export class ImportJobsService {
     return this.audit.listForJob(user, jobId);
   }
 
-  async readStoredFile(user: AuthUser, jobId: string, kind: 'document' | 'photo', fileId: string) {
+  async readStoredFile(
+    user: AuthUser,
+    jobId: string,
+    kind: 'document' | 'photo',
+    fileId: string,
+  ) {
     await this.get(user, jobId);
     if (kind === 'document') {
       const doc = await this.prisma.document.findFirst({
-        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+        where: {
+          id: fileId,
+          importJobId: jobId,
+          organisationId: user.organisationId,
+        },
       });
       if (!doc) {
         throw new NotFoundException('Document not found');
@@ -538,7 +630,11 @@ export class ImportJobsService {
       };
     }
     const photo = await this.prisma.photo.findFirst({
-      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId },
+      where: {
+        id: fileId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
     });
     if (!photo) {
       throw new NotFoundException('Photo not found');
@@ -562,10 +658,18 @@ export class ImportJobsService {
       photos?: Array<{ storageKey: string }>;
     },
   >(job: T) {
-    const totalCost = job.costs.reduce((sum, item) => sum + Number(item.amount), 0);
-    const totalCharge = job.charges.reduce((sum, item) => sum + Number(item.amount), 0);
-    const documents = job.documents?.map(({ storageKey: _storageKey, ...document }) => document);
-    const photos = job.photos?.map(({ storageKey: _storageKey, ...photo }) => photo);
+    const totalCost = job.costs.reduce(
+      (sum, item) => sum + Number(item.amount),
+      0,
+    );
+    const totalCharge = job.charges.reduce(
+      (sum, item) => sum + Number(item.amount),
+      0,
+    );
+    const documents = job.documents?.map((document) =>
+      this.withoutStorageKey(document),
+    );
+    const photos = job.photos?.map((photo) => this.withoutStorageKey(photo));
     return {
       ...job,
       documents,
@@ -575,7 +679,8 @@ export class ImportJobsService {
   }
 
   private withoutStorageKey<T extends { storageKey: string }>(record: T) {
-    const { storageKey: _storageKey, ...rest } = record;
+    const { storageKey, ...rest } = record;
+    void storageKey;
     return rest;
   }
 
