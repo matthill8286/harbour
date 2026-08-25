@@ -1,4 +1,10 @@
-import { isDestinationReached, journeyStatusesForJob, routeAnchorLabel, type JobStatus } from '@vip/shared';
+import {
+  isDestinationReached,
+  journeyStatusesForJob,
+  remainingCorridorFrom,
+  routeAnchorLabel,
+  type JobStatus,
+} from '@vip/shared';
 
 describe('journeyStatusesForJob', () => {
   it('keeps every leg planned before collection', () => {
@@ -35,5 +41,28 @@ describe('isDestinationReached', () => {
     expect(isDestinationReached('SHIPPING_TO_CYPRUS')).toBe(false);
     expect(isDestinationReached('ARRIVED_CYPRUS')).toBe(true);
     expect(isDestinationReached('IN_TRANSIT_TO_GREECE' as JobStatus)).toBe(false);
+  });
+});
+
+describe('remainingCorridorFrom', () => {
+  it('places jobs with no GPS on the status waypoint and keeps Cyprus ahead', () => {
+    const remaining = remainingCorridorFrom(null, 'NEW');
+    expect(remaining[0]?.label).toBe('London');
+    expect(remaining.at(-1)?.label).toBe('Limassol');
+  });
+
+  it('extends a Greece ping through the ferry to Limassol', () => {
+    const remaining = remainingCorridorFrom(
+      { latitude: 40.6401, longitude: 22.9444 },
+      'IN_TRANSIT_TO_GREECE',
+    );
+    expect(remaining[0]?.label).toBe('Thessaloniki');
+    expect(remaining.map((point) => point.label)).toEqual(
+      expect.arrayContaining(['Piraeus', 'Limassol']),
+    );
+  });
+
+  it('hides the planned remainder once the vehicle has arrived', () => {
+    expect(remainingCorridorFrom({ latitude: 34.7071, longitude: 33.0226 }, 'ARRIVED_CYPRUS')).toEqual([]);
   });
 });

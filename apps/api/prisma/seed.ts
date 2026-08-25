@@ -81,6 +81,7 @@ async function seedOrganisationPlatform(
 async function main() {
   const passwordHash = await hash('ChangeMe!Admin1');
   const staffHash = await hash('ChangeMe!Staff1');
+  const viewerHash = await hash('ChangeMe!Viewer1');
   const customerHash = await hash('ChangeMe!Customer1');
 
   const organisation = await prisma.organisation.upsert({
@@ -162,6 +163,14 @@ async function main() {
     passwordHash: staffHash,
     name: 'Sam Staff',
     role: UserRole.STAFF,
+  });
+
+  await upsertMember({
+    organisationId: organisation.id,
+    email: 'viewer@demo-imports.local',
+    passwordHash: viewerHash,
+    name: 'Val Viewer',
+    role: UserRole.VIEWER,
   });
 
   const john = await prisma.customer.upsert({
@@ -543,6 +552,7 @@ async function main() {
   console.log('  Founding tenant: Demo Imports Ltd');
   console.log('  Owner:    admin@demo-imports.local / ChangeMe!Admin1');
   console.log('  Staff:    staff@demo-imports.local / ChangeMe!Staff1');
+  console.log('  Viewer:   viewer@demo-imports.local / ChangeMe!Viewer1');
   console.log('  Customer: customer@example.com / ChangeMe!Customer1');
   console.log('  Second tenant owner: owner@cyprus-auto.local / ChangeMe!Admin1');
 }

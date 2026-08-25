@@ -19,6 +19,18 @@ export function canWriteStaff(role: UserRole): boolean {
   return role === 'OWNER' || role === 'ADMIN' || role === 'STAFF';
 }
 
+export function canManageOrganisation(role: UserRole): boolean {
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+export const ROLE_LABELS: Record<UserRole, string> = {
+  OWNER: 'Owner',
+  ADMIN: 'Admin',
+  STAFF: 'Staff',
+  VIEWER: 'Viewer',
+  CUSTOMER: 'Customer',
+};
+
 export const ORGANISATION_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
 export type OrganisationStatus = (typeof ORGANISATION_STATUSES)[number];
 
@@ -299,6 +311,9 @@ export type PublicUser = {
   membershipId: string;
   organisationId: string;
   organisationName: string;
+  organisationBrandName: string;
+  organisationCurrency: string;
+  organisationCountry: string;
   email: string;
   name: string;
   role: UserRole;
@@ -395,6 +410,22 @@ export function bearingDegrees(
     Math.cos(fromLat) * Math.sin(toLat) -
     Math.sin(fromLat) * Math.cos(toLat) * Math.cos(deltaLng);
   return (Math.atan2(y, x) * 180) / Math.PI + 360;
+}
+
+export function corridorPositionForStatus(status: JobStatus): GeoPoint {
+  const label = routeAnchorLabel(status);
+  return UK_TO_CYPRUS_ROUTE.find((point) => point.label === label) ?? UK_TO_CYPRUS_ROUTE[0];
+}
+
+/** Remaining named waypoints from the vehicle’s last ping (or status) to Limassol. */
+export function remainingCorridorFrom(
+  current: { latitude: number; longitude: number } | null | undefined,
+  status: JobStatus = 'NEW',
+): GeoPoint[] {
+  if (isDestinationReached(status)) return [];
+  const from = current ?? corridorPositionForStatus(status);
+  const index = nearestRouteIndex(UK_TO_CYPRUS_ROUTE, from);
+  return UK_TO_CYPRUS_ROUTE.slice(index);
 }
 
 export function nearestRouteIndex(

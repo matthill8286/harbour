@@ -6,6 +6,7 @@ import { formatDate } from '../lib/format';
 import { StatusBadge } from '../components/StatusBadge';
 import { JourneyStepper } from '../components/JourneyStepper';
 import { EmptyState, LoadingScreen, PageHeader } from '../components/ui';
+import { useSession } from '../lib/session';
 
 type PortalJob = {
   id: string;
@@ -25,6 +26,7 @@ type PortalJob = {
 };
 
 export function PortalPage() {
+  const { workspace } = useSession();
   const { data, isLoading } = useQuery({
     queryKey: ['portal-jobs'],
     queryFn: () => api<PortalJob[]>('/portal/jobs'),
@@ -35,9 +37,9 @@ export function PortalPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        eyebrow="Portal"
+        eyebrow={workspace}
         title="Your vehicles"
-        description="Follow each import from the UK to Cyprus. Photos and documents appear when your importer shares them."
+        description={`Follow the import ${workspace} opened for you. Photos and documents appear when they are shared.`}
       />
       {(data ?? []).length === 0 ? (
         <EmptyState title="No import in progress" description="When a job is opened for you, it will appear here." />
