@@ -26,17 +26,30 @@ function read(message: Record<string, unknown>, path: string): unknown {
   return current;
 }
 
-function readNumber(message: Record<string, unknown>, ...paths: string[]): number | null {
+function readNumber(
+  message: Record<string, unknown>,
+  ...paths: string[]
+): number | null {
   for (const path of paths) {
     const value = read(message, path);
-    const numeric = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+    const numeric =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : NaN;
     if (Number.isFinite(numeric)) return numeric;
   }
   return null;
 }
 
 function recordedAt(message: Record<string, unknown>): Date | null {
-  const unix = readNumber(message, 'timestamp', 'gps.timestamp', 'server.timestamp');
+  const unix = readNumber(
+    message,
+    'timestamp',
+    'gps.timestamp',
+    'server.timestamp',
+  );
   if (unix == null) return null;
   const millis = unix > 1e12 ? unix : unix * 1000;
   const date = new Date(millis);
@@ -60,13 +73,24 @@ export function parseFlespiPing(value: unknown): FlespiPing | null {
   const message = asRecord(value);
   if (!message) return null;
   const identRaw = read(message, 'ident') ?? read(message, 'device.imei');
-  const ident = typeof identRaw === 'string' ? identRaw.trim() : identRaw != null ? String(identRaw).trim() : '';
+  const ident =
+    typeof identRaw === 'string'
+      ? identRaw.trim()
+      : typeof identRaw === 'number'
+        ? String(identRaw).trim()
+        : '';
   const latitude = readNumber(message, 'position.latitude', 'latitude');
   const longitude = readNumber(message, 'position.longitude', 'longitude');
   const at = recordedAt(message);
-  if (!ident || latitude == null || longitude == null || at == null) return null;
+  if (!ident || latitude == null || longitude == null || at == null)
+    return null;
   if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
-  const heading = readNumber(message, 'position.direction', 'position.heading', 'heading');
+  const heading = readNumber(
+    message,
+    'position.direction',
+    'position.heading',
+    'heading',
+  );
   return {
     ident,
     latitude,
