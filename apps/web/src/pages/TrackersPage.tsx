@@ -5,7 +5,7 @@ import { api, ApiError } from '../lib/api';
 import { formatDateTime, relativeTime } from '../lib/format';
 import { trackerKindLabel } from '../lib/tracking';
 import { TrackerQrScanButton } from '../components/TrackerQrScanner';
-import { Card, EmptyState, ErrorBanner, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { Card, EmptyState, ErrorBanner, PageHeader, StaffPage, fieldClass, primaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
 
 type InventoryTracker = {
@@ -49,7 +49,7 @@ export function TrackersPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <StaffPage>
       <PageHeader
         eyebrow="Hardware"
         title="Trackers"
@@ -138,6 +138,6 @@ export function TrackersPage() {
           })}
         </ul>
       )}
-    </div>
+    </StaffPage>
   );
 }

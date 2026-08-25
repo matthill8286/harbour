@@ -5,7 +5,7 @@ import type { JobStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { StatusBadge } from '../components/StatusBadge';
-import { Card, ErrorBanner, LoadingScreen, PageHeader, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
+import { Card, ErrorBanner, LoadingScreen, PageHeader, StaffPage, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
 
 type PortalAccess = {
@@ -128,7 +128,7 @@ export function CustomerDetailPage() {
   const copy = PORTAL_COPY[customer.portal.status];
 
   return (
-    <div className="space-y-5">
+    <StaffPage>
       <Link to="/customers" className="text-sm font-semibold text-harbour">
         ← All customers
       </Link>
@@ -214,6 +214,6 @@ export function CustomerDetailPage() {
           </ul>
         )}
       </Card>
-    </div>
+    </StaffPage>
   );
 }
