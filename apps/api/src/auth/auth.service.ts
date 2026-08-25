@@ -1,4 +1,10 @@
-import { BadRequestException, GoneException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  GoneException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
 import { PrismaService } from '../prisma/prisma.service';
@@ -21,7 +27,11 @@ export class AuthService {
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email.toLowerCase() },
-      include: { memberships: { include: { organisation: { include: { settings: true } } } } },
+      include: {
+        memberships: {
+          include: { organisation: { include: { settings: true } } },
+        },
+      },
     });
     if (!user?.passwordHash) {
       throw new UnauthorizedException('Invalid email or password');
@@ -32,7 +42,9 @@ export class AuthService {
     }
     const membership = pickActiveMembership(user.memberships);
     if (!membership) {
-      throw new UnauthorizedException('No active organisation for this account');
+      throw new UnauthorizedException(
+        'No active organisation for this account',
+      );
     }
     return this.issueSession(user, membership);
   }
@@ -44,7 +56,9 @@ export class AuthService {
       firstName: invite.customer.firstName,
       lastName: invite.customer.lastName,
       organisationName: invite.organisation.name,
-      organisationBrandName: invite.organisation.settings?.brandName?.trim() || invite.organisation.name,
+      organisationBrandName:
+        invite.organisation.settings?.brandName?.trim() ||
+        invite.organisation.name,
       expiresAt: invite.expiresAt,
     };
   }
@@ -59,7 +73,11 @@ export class AuthService {
         data: { acceptedAt },
       });
       await tx.portalInvite.updateMany({
-        where: { userId: invite.userId, acceptedAt: null, id: { not: invite.id } },
+        where: {
+          userId: invite.userId,
+          acceptedAt: null,
+          id: { not: invite.id },
+        },
         data: { expiresAt: acceptedAt },
       });
       await tx.organisationMembership.updateMany({
@@ -76,21 +94,35 @@ export class AuthService {
           passwordHash,
           name: `${invite.customer.firstName} ${invite.customer.lastName}`.trim(),
         },
-        include: { memberships: { include: { organisation: { include: { settings: true } } } } },
+        include: {
+          memberships: {
+            include: { organisation: { include: { settings: true } } },
+          },
+        },
       });
     });
     const membership = user.memberships.find(
-      (item) => item.organisationId === invite.organisationId && item.role === 'CUSTOMER',
+      (item) =>
+        item.organisationId === invite.organisationId &&
+        item.role === 'CUSTOMER',
     );
     if (!membership) {
       throw new UnauthorizedException('No customer membership for this invite');
     }
-    void this.audit.record(buildAuthUser({ id: user.id, email: user.email, name: user.name, membership }), {
-      action: 'PORTAL_ACCESS_ACCEPTED',
-      entityType: 'Customer',
-      entityId: invite.customerId,
-      metadata: { customerId: invite.customerId },
-    });
+    void this.audit.record(
+      buildAuthUser({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        membership,
+      }),
+      {
+        action: 'PORTAL_ACCESS_ACCEPTED',
+        entityType: 'Customer',
+        entityId: invite.customerId,
+        metadata: { customerId: invite.customerId },
+      },
+    );
     return this.issueSession(user, membership);
   }
 
@@ -101,7 +133,12 @@ export class AuthService {
       organisationId: string;
       role: AuthUser['role'];
       customerId: string | null;
-      organisation: { name: string; currency?: string; country?: string; settings?: { brandName: string | null } | null };
+      organisation: {
+        name: string;
+        currency?: string;
+        country?: string;
+        settings?: { brandName: string | null } | null;
+      };
     },
   ) {
     const authUser = buildAuthUser({
@@ -110,7 +147,10 @@ export class AuthService {
       name: user.name,
       membership,
     });
-    const accessToken = await this.jwt.signAsync({ sub: user.id, membershipId: membership.id });
+    const accessToken = await this.jwt.signAsync({
+      sub: user.id,
+      membershipId: membership.id,
+    });
     return { accessToken, user: authUser };
   }
 
@@ -130,10 +170,14 @@ export class AuthService {
       throw new NotFoundException('Invite not found');
     }
     if (invite.acceptedAt) {
-      throw new BadRequestException('This invite has already been used. Sign in instead.');
+      throw new BadRequestException(
+        'This invite has already been used. Sign in instead.',
+      );
     }
     if (invite.expiresAt.getTime() <= Date.now()) {
-      throw new GoneException('This invite has expired. Ask your importer for a new link.');
+      throw new GoneException(
+        'This invite has expired. Ask your importer for a new link.',
+      );
     }
     if (invite.organisation.status !== 'ACTIVE') {
       throw new UnauthorizedException('This organisation is not active');

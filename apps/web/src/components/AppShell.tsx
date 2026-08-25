@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, MapPinned, Radio, Settings, Ship, Users } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { useSession } from '../lib/session';
@@ -16,6 +16,8 @@ export function AppShell() {
   const { logout } = useAuth();
   const { user, isStaff, isPortal, canWrite, canManage, workspace, roleLabel } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const wideMain = location.pathname === '/tracking';
   const home = isPortal ? '/portal' : '/';
   const links = isStaff
     ? [...staffLinks, ...(canManage ? [{ to: '/organisation', label: 'Workspace', icon: Settings }] : [])]
@@ -55,7 +57,11 @@ export function AppShell() {
         ) : null}
       </header>
 
-      <div className="mx-auto flex max-w-6xl gap-6 px-4 py-6 pb-24 md:pb-8">
+      <div
+        className={`mx-auto flex gap-6 py-6 pb-24 md:pb-8 ${
+          wideMain ? 'max-w-[96rem] px-3 sm:px-4 lg:px-6' : 'max-w-6xl px-4'
+        }`}
+      >
         <nav className="hidden w-48 shrink-0 md:block">
           <ul className="space-y-1">
             {links.map((link) => (

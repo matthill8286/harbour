@@ -36,7 +36,10 @@ export class OrganisationsService {
         await tx.organisationSettings.upsert({
           where: { organisationId: user.organisationId },
           update: { brandName: dto.brandName.trim() || null },
-          create: { organisationId: user.organisationId, brandName: dto.brandName.trim() || null },
+          create: {
+            organisationId: user.organisationId,
+            brandName: dto.brandName.trim() || null,
+          },
         });
       }
       return tx.organisation.update({

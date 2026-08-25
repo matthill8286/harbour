@@ -1,8 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
-import { AssignTrackerDto, CreateLocationDto, CreateTrackerDto } from './dto/tracker.dto';
+import {
+  AssignTrackerDto,
+  CreateLocationDto,
+  CreateTrackerDto,
+} from './dto/tracker.dto';
 
 @Injectable()
 export class TrackersService {
@@ -19,7 +27,9 @@ export class TrackersService {
           where: { removedAt: null },
           include: {
             importJob: { select: { id: true, reference: true } },
-            vehicle: { select: { make: true, model: true, ukRegistration: true } },
+            vehicle: {
+              select: { make: true, model: true, ukRegistration: true },
+            },
           },
         },
       },
@@ -113,7 +123,10 @@ export class TrackersService {
       action: 'TRACKER_UNASSIGNED',
       entityType: 'TrackerAssignment',
       entityId: assignment.id,
-      metadata: { importJobId: assignment.importJobId, trackerId: assignment.trackerId },
+      metadata: {
+        importJobId: assignment.importJobId,
+        trackerId: assignment.trackerId,
+      },
     });
     return updated;
   }

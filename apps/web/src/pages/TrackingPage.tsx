@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { corridorPositionForStatus } from '@vip/shared';
@@ -15,6 +15,7 @@ export function TrackingPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FleetFilter>('all');
+  const listRef = useRef<HTMLUListElement>(null);
   const { data, isLoading } = useQuery({
     queryKey: ['tracking-live'],
     queryFn: () => api<LiveTracking>('/tracking/live'),
@@ -22,21 +23,25 @@ export function TrackingPage() {
   });
   const vehicles = data?.vehicles ?? [];
   const pinging = vehicles.filter((item) => item.current).length;
-  const markers = spreadOverlappingMarkers(
-    vehicles.map((item) => {
-      const point = item.current ?? corridorPositionForStatus(item.status);
-      return {
-        id: item.importJobId,
-        latitude: point.latitude,
-        longitude: point.longitude,
-        heading: item.current?.heading ?? null,
-        estimated: !item.current,
-        status: item.status,
-        label: `${item.vehicle.make ?? 'Vehicle'} ${item.vehicle.model ?? ''}`.trim(),
-        sublabel: `${item.reference} · ${item.customer.firstName} ${item.customer.lastName}`,
-        href: `/jobs/${item.importJobId}`,
-      };
-    }),
+  const markers = useMemo(
+    () =>
+      spreadOverlappingMarkers(
+        vehicles.map((item) => {
+          const point = item.current ?? corridorPositionForStatus(item.status);
+          return {
+            id: item.importJobId,
+            latitude: point.latitude,
+            longitude: point.longitude,
+            heading: item.current?.heading ?? null,
+            estimated: !item.current,
+            status: item.status,
+            label: `${item.vehicle.make ?? 'Vehicle'} ${item.vehicle.model ?? ''}`.trim(),
+            sublabel: `${item.reference} · ${item.customer.firstName} ${item.customer.lastName}`,
+            href: `/jobs/${item.importJobId}`,
+          };
+        }),
+      ),
+    [vehicles],
   );
   const markerById = useMemo(
     () => new Map(markers.map((marker) => [marker.id, marker])),
@@ -62,24 +67,31 @@ export function TrackingPage() {
       return haystack.includes(query);
     });
   }, [filter, search, vehicles]);
+  const selectedVehicle = vehicles.find((item) => item.importJobId === selectedId) ?? null;
   const selectedMarker = selectedId ? markerById.get(selectedId) : null;
   const focusTarget = selectedMarker
     ? { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude }
     : null;
+
+  useEffect(() => {
+    if (!selectedId || !listRef.current) return;
+    const row = listRef.current.querySelector(`[data-job-id="${selectedId}"]`);
+    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
 
   function selectVehicle(id: string) {
     setSelectedId((current) => (current === id ? null : id));
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <PageHeader
-        eyebrow="Live fleet"
-        title="Map"
+        eyebrow="Operations"
+        title="Live fleet"
         description={
           vehicles.length === 0
-            ? 'Vehicles currently moving for this organisation. Trails stay inside this workspace.'
-            : `${vehicles.length} active ${vehicles.length === 1 ? 'job' : 'jobs'} · ${pinging} with a live ping. Select a vehicle in the list to jump to it on the map.`
+            ? 'Active import jobs for this workspace appear here once a tracker is assigned.'
+            : `${vehicles.length} active ${vehicles.length === 1 ? 'vehicle' : 'vehicles'} · ${pinging} live · ${vehicles.length - pinging} estimated. Pick one from the list to focus the map.`
         }
         actions={
           selectedId ? (
@@ -90,7 +102,7 @@ export function TrackingPage() {
         }
       />
       {isLoading || !data ? (
-        <LoadingScreen label="Loading map…" />
+        <LoadingScreen label="Loading fleet map…" />
       ) : vehicles.length === 0 ? (
         <EmptyState
           title="No active vehicles to track"
@@ -99,6 +111,12 @@ export function TrackingPage() {
       ) : (
         <div className="fleet-map-layout">
           <aside className="fleet-sidebar rounded-2xl bg-paper p-4">
+            <div className="mb-3 flex items-baseline justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink/55">
+                Fleet list
+              </h2>
+              <span className="text-xs text-ink/45">{filteredVehicles.length} shown</span>
+            </div>
             <div className="space-y-3">
               <label className="block">
                 <span className="sr-only">Search fleet</span>
@@ -113,7 +131,7 @@ export function TrackingPage() {
                 {(
                   [
                     ['all', `All (${vehicles.length})`],
-                    ['live', `Live ping (${pinging})`],
+                    ['live', `Live (${pinging})`],
                     ['estimated', `Estimated (${vehicles.length - pinging})`],
                   ] as const
                 ).map(([value, label]) => (
@@ -128,7 +146,7 @@ export function TrackingPage() {
                 ))}
               </div>
             </div>
-            <ul className="fleet-sidebar-list mt-4 space-y-2">
+            <ul ref={listRef} className="fleet-sidebar-list mt-4 space-y-2">
               {filteredVehicles.length === 0 ? (
                 <li className="rounded-xl border border-dashed border-ink/15 px-3 py-6 text-center text-sm text-ink/55">
                   No vehicles match your search.
@@ -137,18 +155,28 @@ export function TrackingPage() {
                 filteredVehicles.map((item) => {
                   const isSelected = selectedId === item.importJobId;
                   const point = item.current ?? corridorPositionForStatus(item.status);
+                  const isLive = Boolean(item.current);
                   return (
                     <li key={item.importJobId}>
                       <button
                         type="button"
+                        data-job-id={item.importJobId}
                         className={`fleet-sidebar-item w-full rounded-xl border px-3 py-3 text-left transition${
-                          isSelected ? ' is-selected' : ' border-ink/10 hover:border-harbour/35 hover:bg-sand/40'
+                          isSelected
+                            ? ' is-selected'
+                            : ' border-ink/10 hover:border-harbour/35 hover:bg-sand/40'
                         }`}
                         onClick={() => selectVehicle(item.importJobId)}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate font-semibold">{item.reference}</p>
+                            <p className="flex items-center gap-2 truncate font-semibold">
+                              <span
+                                className={`fleet-ping-dot${isLive ? ' is-live' : ' is-estimated'}`}
+                                aria-hidden
+                              />
+                              {item.reference}
+                            </p>
                             <p className="truncate text-sm text-ink/70">
                               {item.vehicle.make} {item.vehicle.model}
                             </p>
@@ -159,9 +187,9 @@ export function TrackingPage() {
                           <StatusBadge status={item.status} />
                         </div>
                         <p className="mt-2 text-xs text-ink/50">
-                          {item.current
-                            ? `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)} · ${relativeTime(item.current.recordedAt)}`
-                            : 'No ping yet · corridor estimate'}
+                          {isLive
+                            ? `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)} · ${relativeTime(item.current!.recordedAt)}`
+                            : 'No live ping · corridor estimate'}
                         </p>
                         {isSelected ? (
                           <Link
@@ -180,6 +208,22 @@ export function TrackingPage() {
             </ul>
           </aside>
           <div className="fleet-map-panel rounded-2xl bg-paper p-2">
+            {selectedVehicle ? (
+              <div className="fleet-map-focus-bar mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sand/70 px-3 py-2 text-sm">
+                <div>
+                  <p className="font-semibold">{selectedVehicle.reference}</p>
+                  <p className="text-xs text-ink/55">
+                    {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ·{' '}
+                    {selectedVehicle.customer.firstName} {selectedVehicle.customer.lastName}
+                  </p>
+                </div>
+                <StatusBadge status={selectedVehicle.status} />
+              </div>
+            ) : (
+              <p className="fleet-map-hint mb-2 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-xs text-ink/55">
+                Select a vehicle in the list, or tap a marker on the map, to zoom in on its route.
+              </p>
+            )}
             <JourneyMap
               map={data.map}
               trails={vehicles.map((item) => item.trail)}

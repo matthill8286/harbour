@@ -15,6 +15,8 @@ export class NotificationsService {
   notify(event: CustomerNotification) {
     if (!event.customerId) return;
     const job = event.importJobId ? ` job=${event.importJobId}` : '';
-    this.logger.log(`${event.type}${job} customer=${event.customerId} ${event.message}`);
+    this.logger.log(
+      `${event.type}${job} customer=${event.customerId} ${event.message}`,
+    );
   }
 }

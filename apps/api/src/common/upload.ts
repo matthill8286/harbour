@@ -3,7 +3,13 @@ import type { Options } from 'multer';
 
 export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
-const PHOTO_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']);
+const PHOTO_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
 const DOCUMENT_TYPES = new Set([
   ...PHOTO_TYPES,
   'application/pdf',

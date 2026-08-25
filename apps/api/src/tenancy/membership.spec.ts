@@ -10,8 +10,18 @@ describe('pickActiveMembership', () => {
 
   it('prefers a staff membership over a portal membership', () => {
     const picked = pickActiveMembership([
-      { ...base, id: 'cust', role: 'CUSTOMER', createdAt: new Date('2026-08-01') },
-      { ...base, id: 'staff', role: 'STAFF', createdAt: new Date('2026-01-01') },
+      {
+        ...base,
+        id: 'cust',
+        role: 'CUSTOMER',
+        createdAt: new Date('2026-08-01'),
+      },
+      {
+        ...base,
+        id: 'staff',
+        role: 'STAFF',
+        createdAt: new Date('2026-01-01'),
+      },
     ]);
     expect(picked?.id).toBe('staff');
   });

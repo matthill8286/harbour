@@ -21,7 +21,9 @@ describe('GpsProviderService.nextPoint', () => {
   it('advances along the densified UK-to-Cyprus route', () => {
     const current = gps.nextPoint();
     const next = gps.nextPoint(current);
-    expect(nearestRouteIndex(gps.route, next)).toBeGreaterThan(nearestRouteIndex(gps.route, current));
+    expect(nearestRouteIndex(gps.route, next)).toBeGreaterThan(
+      nearestRouteIndex(gps.route, current),
+    );
   });
 
   it('stays on the last waypoint once the route is complete', () => {
@@ -36,12 +38,16 @@ describe('GpsProviderService.nextPoint', () => {
     const points = gps.pointsTowardAnchor('ARRIVED_CYPRUS', piraeus);
     expect(points.length).toBeGreaterThan(0);
     expect(points[points.length - 1].label).toBe('Limassol');
-    expect(gps.pointsTowardAnchor('ARRIVED_CYPRUS', points[points.length - 1])).toEqual([]);
+    expect(
+      gps.pointsTowardAnchor('ARRIVED_CYPRUS', points[points.length - 1]),
+    ).toEqual([]);
   });
 
   it('does not invent more points when the last ping is already past the UK anchor', () => {
     const limassol = { latitude: 34.7071, longitude: 33.0226 };
-    expect(gps.pointsTowardAnchor('READY_FOR_COLLECTION', limassol)).toEqual([]);
+    expect(gps.pointsTowardAnchor('READY_FOR_COLLECTION', limassol)).toEqual(
+      [],
+    );
     expect(gps.isPastAnchor('READY_FOR_COLLECTION', limassol)).toBe(true);
     expect(gps.isPastAnchor('ARRIVED_CYPRUS', limassol)).toBe(false);
   });
