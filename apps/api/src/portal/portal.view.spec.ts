@@ -27,7 +27,9 @@ const source = {
       completedAt: null,
     },
   ],
-  notes: [{ id: 'n1', body: 'On the ferry', createdAt: new Date('2026-08-23') }],
+  notes: [
+    { id: 'n1', body: 'On the ferry', createdAt: new Date('2026-08-23') },
+  ],
   documents: [
     {
       id: 'd1',
@@ -50,7 +52,12 @@ const source = {
     },
   ],
   statusHistory: [
-    { id: 'h1', toStatus: 'NEW', note: null, createdAt: new Date('2026-08-01') },
+    {
+      id: 'h1',
+      toStatus: 'NEW',
+      note: null,
+      createdAt: new Date('2026-08-01'),
+    },
   ],
 };
 
@@ -78,7 +85,11 @@ describe('toPortalJob', () => {
     expect(view.vehicle.make).toBe('BMW');
     expect(view.vehicle.colour).toBe('Black Sapphire');
     expect(view.vehicle.year).toBe(2019);
-    expect(view.documents[0]).toMatchObject({ name: 'v5c.pdf', type: 'V5C', sizeBytes: 1200 });
+    expect(view.documents[0]).toMatchObject({
+      name: 'v5c.pdf',
+      type: 'V5C',
+      sizeBytes: 1200,
+    });
     expect(view.notes[0].body).toBe('On the ferry');
   });
 });

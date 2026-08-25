@@ -1,4 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
 import type { JobStatus } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../integrations/storage.service';
@@ -20,7 +25,14 @@ export class PortalService {
       where: { organisationId: user.organisationId, customerId },
       include: {
         vehicle: {
-          select: { make: true, model: true, variant: true, ukRegistration: true, colour: true, year: true },
+          select: {
+            make: true,
+            model: true,
+            variant: true,
+            ukRegistration: true,
+            colour: true,
+            year: true,
+          },
         },
         _count: {
           select: {
@@ -44,28 +56,50 @@ export class PortalService {
 
   async get(user: AuthUser, id: string) {
     const job = await this.loadCustomerJob(user, id);
-    await this.tracking.alignToStatus(job.id, user.organisationId, job.status as JobStatus);
+    await this.tracking.alignToStatus(
+      job.id,
+      user.organisationId,
+      job.status as JobStatus,
+    );
     return toPortalJob(await this.loadCustomerJob(user, id));
   }
 
-  async readVisibleFile(user: AuthUser, jobId: string, kind: 'document' | 'photo', fileId: string) {
+  async readVisibleFile(
+    user: AuthUser,
+    jobId: string,
+    kind: 'document' | 'photo',
+    fileId: string,
+  ) {
     await this.loadCustomerJob(user, jobId);
     if (kind === 'document') {
       const document = await this.prisma.document.findFirst({
-        where: { id: fileId, importJobId: jobId, organisationId: user.organisationId, customerVisible: true },
+        where: {
+          id: fileId,
+          importJobId: jobId,
+          organisationId: user.organisationId,
+          customerVisible: true,
+        },
       });
       if (!document) {
         throw new NotFoundException('Document not found');
       }
       return {
-        buffer: await this.storage.read(document.storageKey, user.organisationId),
+        buffer: await this.storage.read(
+          document.storageKey,
+          user.organisationId,
+        ),
         mimeType: document.mimeType,
         name: document.name,
         inline: false,
       };
     }
     const photo = await this.prisma.photo.findFirst({
-      where: { id: fileId, importJobId: jobId, organisationId: user.organisationId, customerVisible: true },
+      where: {
+        id: fileId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+        customerVisible: true,
+      },
     });
     if (!photo) {
       throw new NotFoundException('Photo not found');
@@ -78,7 +112,12 @@ export class PortalService {
     };
   }
 
-  toStream(file: { buffer: Buffer; mimeType: string; name: string; inline: boolean }) {
+  toStream(file: {
+    buffer: Buffer;
+    mimeType: string;
+    name: string;
+    inline: boolean;
+  }) {
     return new StreamableFile(file.buffer, {
       type: file.mimeType,
       disposition: `${file.inline ? 'inline' : 'attachment'}; filename="${file.name}"`,
@@ -87,7 +126,9 @@ export class PortalService {
 
   private requireCustomer(user: AuthUser) {
     if (!user.customerId) {
-      throw new ForbiddenException('No customer profile linked to this account');
+      throw new ForbiddenException(
+        'No customer profile linked to this account',
+      );
     }
     return user.customerId;
   }
@@ -114,8 +155,14 @@ export class PortalService {
           where: { visibility: 'CUSTOMER' },
           orderBy: { createdAt: 'desc' },
         },
-        documents: { where: { customerVisible: true }, orderBy: { createdAt: 'desc' } },
-        photos: { where: { customerVisible: true }, orderBy: { createdAt: 'desc' } },
+        documents: {
+          where: { customerVisible: true },
+          orderBy: { createdAt: 'desc' },
+        },
+        photos: {
+          where: { customerVisible: true },
+          orderBy: { createdAt: 'desc' },
+        },
       },
     });
     if (!job) {

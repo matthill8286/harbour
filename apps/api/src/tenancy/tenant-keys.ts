@@ -16,13 +16,16 @@ export function tenantObjectKey(input: {
 }
 
 export function isSafeObjectKey(key: string, organisationId?: string): boolean {
-  if (!key || key.includes('..') || key.startsWith('/') || key.includes('\\') || key.includes('\0')) {
+  if (
+    !key ||
+    key.includes('..') ||
+    key.startsWith('/') ||
+    key.includes('\\') ||
+    key.includes('\0')
+  ) {
     return false;
   }
-  if (organisationId && !key.startsWith(`${organisationId}/`)) {
-    return false;
-  }
-  return true;
+  return !(organisationId && !key.startsWith(`${organisationId}/`));
 }
 
 export function monthStartUtc(at: Date): Date {

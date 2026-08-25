@@ -31,7 +31,8 @@ export function buildAuthUser(input: {
     organisationId: input.membership.organisationId,
     organisationName: input.membership.organisation.name,
     organisationBrandName: organisationBrandName(input.membership.organisation),
-    organisationCurrency: input.membership.organisation.currency?.trim() || 'EUR',
+    organisationCurrency:
+      input.membership.organisation.currency?.trim() || 'EUR',
     organisationCountry: input.membership.organisation.country?.trim() || 'CY',
     email: input.email,
     name: input.name,

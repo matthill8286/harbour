@@ -11,7 +11,12 @@ describe('buildAuthUser', () => {
         organisationId: 'org-a',
         role: 'OWNER',
         customerId: null,
-        organisation: { name: 'Demo Imports', currency: 'GBP', country: 'GB', settings: { brandName: 'Demo Desk' } },
+        organisation: {
+          name: 'Demo Imports',
+          currency: 'GBP',
+          country: 'GB',
+          settings: { brandName: 'Demo Desk' },
+        },
       },
     });
     expect(user.organisationId).toBe('org-a');

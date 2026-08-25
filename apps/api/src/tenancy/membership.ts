@@ -8,7 +8,9 @@ export type MembershipCandidate = {
   organisation: { status: string };
 };
 
-export function pickActiveMembership<T extends MembershipCandidate>(memberships: T[]): T | null {
+export function pickActiveMembership<T extends MembershipCandidate>(
+  memberships: T[],
+): T | null {
   const active = memberships.filter(
     (item) => item.status === 'ACTIVE' && item.organisation.status === 'ACTIVE',
   );
@@ -17,5 +19,9 @@ export function pickActiveMembership<T extends MembershipCandidate>(memberships:
   }
   const staff = active.filter((item) => item.role !== 'CUSTOMER');
   const pool = staff.length > 0 ? staff : active;
-  return [...pool].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0] ?? null;
+  return (
+    [...pool].sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+    )[0] ?? null
+  );
 }

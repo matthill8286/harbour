@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { FlespiGpsClient } from './flespi-gps.client';
 import { parseFlespiBatch, type FlespiPing } from './flespi-message';
@@ -34,7 +39,9 @@ export class FlespiIngestService {
       throw new NotFoundException('Tracker not found');
     }
     if (tracker.provider !== 'flespi') {
-      throw new BadRequestException('Only Flespi trackers can be synced from the gateway');
+      throw new BadRequestException(
+        'Only Flespi trackers can be synced from the gateway',
+      );
     }
     if (!this.flespi.configured()) {
       throw new BadRequestException('FLESPI_TOKEN is not configured');
@@ -52,9 +59,7 @@ export class FlespiIngestService {
 
   private async ingestPing(ping: FlespiPing, trackerId?: string) {
     const trackers = await this.prisma.tracker.findMany({
-      where: trackerId
-        ? { id: trackerId }
-        : { serialNumber: ping.ident },
+      where: trackerId ? { id: trackerId } : { serialNumber: ping.ident },
       include: { assignments: { where: { removedAt: null }, take: 1 } },
     });
     if (trackers.length === 0) {
@@ -94,7 +99,11 @@ export class FlespiIngestService {
         data: {
           lastSeenAt: ping.recordedAt,
           batteryLevel: ping.batteryLevel ?? tracker.batteryLevel,
-          status: assignment ? 'ASSIGNED' : tracker.status === 'OFFLINE' ? 'AVAILABLE' : tracker.status,
+          status: assignment
+            ? 'ASSIGNED'
+            : tracker.status === 'OFFLINE'
+              ? 'AVAILABLE'
+              : tracker.status,
         },
       });
       accepted += 1;

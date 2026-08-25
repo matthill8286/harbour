@@ -18,7 +18,11 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { VehiclesService } from './vehicles.service';
-import { CreateVehicleDto, LookupVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
+import {
+  CreateVehicleDto,
+  LookupVehicleDto,
+  UpdateVehicleDto,
+} from './dto/vehicle.dto';
 
 @Controller('vehicles')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -57,7 +61,11 @@ export class VehiclesController {
   }
 
   @Patch(':id')
-  update(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: UpdateVehicleDto) {
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateVehicleDto,
+  ) {
     return this.vehicles.update(user, id, dto);
   }
 }

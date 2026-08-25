@@ -8,7 +8,9 @@ describe('describePortalAccess', () => {
   };
 
   it('is NONE when the customer has no portal user', () => {
-    expect(describePortalAccess({ user: null, pendingInvite: null }).status).toBe('NONE');
+    expect(
+      describePortalAccess({ user: null, pendingInvite: null }).status,
+    ).toBe('NONE');
   });
 
   it('is INVITED when a user exists without a password and a live invite', () => {
