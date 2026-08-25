@@ -61,7 +61,7 @@ export function JobActivity({ jobId }: { jobId: string }) {
 
   return (
     <Card>
-      <h2 className="display text-2xl">Activity</h2>
+      <h2 className="font-semibold">Activity</h2>
       <p className="text-xs text-ink/45">Staff-only audit trail. Customers never see this.</p>
       {query.isLoading ? <p className="mt-3 text-sm text-ink/50">Loading activity…</p> : null}
       {items.length === 0 && !query.isLoading ? (
