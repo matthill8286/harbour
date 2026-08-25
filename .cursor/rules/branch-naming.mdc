@@ -1,0 +1,10 @@
+---
+description: Use semantic git branch names — never the cursor/ prefix
+alwaysApply: true
+---
+
+# Branch naming
+
+- Never create or suggest branches starting with `cursor/`.
+- Use short, semantic names that describe the change, e.g. `staff-ops-shell-ux`, `tracker-qr-scan`, `fix-fleet-map-jump`.
+- Prefer `feature/…`, `fix/…`, or a plain kebab-case topic over tool/vendor prefixes.
