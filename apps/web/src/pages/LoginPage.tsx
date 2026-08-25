@@ -7,8 +7,8 @@ import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 export function LoginPage() {
   const { user, ready, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('admin@demo-imports.local');
-  const [password, setPassword] = useState('ChangeMe!Admin1');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -34,15 +34,15 @@ export function LoginPage() {
     <div className="min-h-svh bg-ink text-paper">
       <div className="mx-auto grid min-h-svh max-w-5xl md:grid-cols-2">
         <section className="hidden flex-col justify-between p-10 md:flex">
-          <p className="text-xs uppercase tracking-[0.28em] text-mist">UK → EU → Greece → Cyprus</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-mist">Multi-tenant import operations</p>
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              The import job is the work. The vehicle is the asset. Track every crossing without
-              mixing customer updates and internal margin.
+              Each importer is a workspace. Jobs, GPS, documents and customers stay inside that
+              organisation — never mixed with another business.
             </p>
           </div>
-          <p className="text-sm text-mist">Demo organisation: Demo Imports Ltd</p>
+          <p className="text-sm text-mist">Sign in to your organisation workspace.</p>
         </section>
         <section className="flex items-center bg-sand p-6 text-ink md:p-12">
           <form onSubmit={onSubmit} className="w-full max-w-md space-y-4">
@@ -69,15 +69,22 @@ export function LoginPage() {
             </label>
             {error ? <ErrorBanner message={error} /> : null}
             <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
-              {pending ? 'Signing in…' : 'Enter desk'}
+              {pending ? 'Signing in…' : 'Continue'}
             </button>
-            <p className="text-xs text-ink/60">
-              Staff: admin@demo-imports.local / ChangeMe!Admin1
-              <br />
-              Customer: customer@example.com / ChangeMe!Customer1
-              <br />
-              New customers use the invite link from their importer.
-            </p>
+            <details className="text-xs text-ink/60">
+              <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
+              <p className="mt-2">
+                Demo Imports owner: admin@demo-imports.local / ChangeMe!Admin1
+                <br />
+                Staff: staff@demo-imports.local / ChangeMe!Staff1
+                <br />
+                Viewer: viewer@demo-imports.local / ChangeMe!Viewer1
+                <br />
+                Customer portal: customer@example.com / ChangeMe!Customer1
+                <br />
+                Second tenant: owner@cyprus-auto.local / ChangeMe!Admin1
+              </p>
+            </details>
           </form>
         </section>
       </div>

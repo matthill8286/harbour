@@ -18,6 +18,7 @@ import { JourneyStepper } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
 import { toLocationPoint } from '../lib/tracking';
+import { useSession } from '../lib/session';
 
 type JobDetail = {
   id: string;
@@ -71,6 +72,7 @@ type JobDetail = {
 };
 
 export function JobDetailPage() {
+  const { canWrite, currency } = useSession();
   const { id = '' } = useParams();
   const queryClient = useQueryClient();
   const jobQuery = useQuery({
@@ -199,7 +201,7 @@ export function JobDetailPage() {
 
       <JourneyStepper status={job.status} />
 
-      {nextStatuses.length > 0 ? (
+      {nextStatuses.length > 0 && canWrite ? (
         <Card>
           <p className="text-xs uppercase tracking-widest text-ink/50">Next action</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -238,15 +240,15 @@ export function JobDetailPage() {
       <section className="grid gap-4 md:grid-cols-3">
         <Card>
           <p className="text-xs uppercase tracking-widest text-ink/50">Internal cost</p>
-          <p className="display text-3xl">{money(job.totals.totalCost)}</p>
+          <p className="display text-3xl">{money(job.totals.totalCost, currency)}</p>
         </Card>
         <Card>
           <p className="text-xs uppercase tracking-widest text-ink/50">Customer charges</p>
-          <p className="display text-3xl">{money(job.totals.totalCharge)}</p>
+          <p className="display text-3xl">{money(job.totals.totalCharge, currency)}</p>
         </Card>
         <div className="rounded-2xl bg-harbour p-4 text-paper">
           <p className="text-xs uppercase tracking-widest text-mist">Gross margin</p>
-          <p className="display text-3xl">{money(job.totals.margin)}</p>
+          <p className="display text-3xl">{money(job.totals.margin, currency)}</p>
         </div>
       </section>
 
@@ -292,6 +294,7 @@ export function JobDetailPage() {
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-harbour"
+                    disabled={!canWrite}
                     checked={done}
                     onChange={() =>
                       taskStatus.mutate({ taskId: task.id, status: done ? 'TODO' : 'COMPLETED' })
@@ -306,6 +309,7 @@ export function JobDetailPage() {
             })}
           </ul>
         )}
+        {canWrite ? (
         <form
           className="mt-4 flex gap-2"
           onSubmit={(event) => {
@@ -323,6 +327,7 @@ export function JobDetailPage() {
             Add
           </button>
         </form>
+        ) : null}
       </Card>
 
       <section className="grid gap-4 md:grid-cols-2">
@@ -336,10 +341,11 @@ export function JobDetailPage() {
                   {item.description}
                   <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
                 </span>
-                <span className="font-semibold">{money(item.amount)}</span>
+                <span className="font-semibold">{money(item.amount, currency)}</span>
               </li>
             ))}
           </ul>
+          {canWrite ? (
           <div className="mt-4 grid gap-2">
             <select className={fieldClass} value={cost.category} onChange={(event) => setCost({ ...cost, category: event.target.value })}>
               {COST_CATEGORIES.map((item) => (
@@ -354,6 +360,7 @@ export function JobDetailPage() {
               Add cost
             </button>
           </div>
+          ) : null}
         </Card>
         <Card>
           <h2 className="display text-2xl">Customer charges</h2>
@@ -365,10 +372,11 @@ export function JobDetailPage() {
                   {item.description}
                   <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
                 </span>
-                <span className="font-semibold">{money(item.amount)}</span>
+                <span className="font-semibold">{money(item.amount, currency)}</span>
               </li>
             ))}
           </ul>
+          {canWrite ? (
           <div className="mt-4 grid gap-2">
             <select className={fieldClass} value={charge.category} onChange={(event) => setCharge({ ...charge, category: event.target.value })}>
               {CHARGE_CATEGORIES.map((item) => (
@@ -383,6 +391,7 @@ export function JobDetailPage() {
               Add charge
             </button>
           </div>
+          ) : null}
         </Card>
       </section>
 
@@ -398,6 +407,8 @@ export function JobDetailPage() {
             </li>
           ))}
         </ul>
+        {canWrite ? (
+        <>
         <textarea
           className={`${fieldClass} mt-4 min-h-24`}
           value={note.body}
@@ -416,6 +427,8 @@ export function JobDetailPage() {
             Add note
           </button>
         </div>
+        </>
+        ) : null}
       </Card>
     </div>
   );

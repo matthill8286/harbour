@@ -49,9 +49,12 @@ Founding tenant: **Demo Imports Ltd**
 | --- | --- | --- |
 | Owner | admin@demo-imports.local | ChangeMe!Admin1 |
 | Staff | staff@demo-imports.local | ChangeMe!Staff1 |
+| Viewer | viewer@demo-imports.local | ChangeMe!Viewer1 |
 | Customer | customer@example.com | ChangeMe!Customer1 |
 
 A second tenant (`cyprus-auto-logistics`) is seeded with `owner@cyprus-auto.local` / `ChangeMe!Admin1` so organisation isolation can be exercised.
+
+Owners and admins see **Workspace** in the nav: brand name, timezone, currency, and the internal team. Viewers can read jobs and GPS but cannot create or move them. The customer portal shows the importer’s brand, not Harbour’s.
 
 Seeded job `CY-2026-00421` is a BMW M5 Competition travelling UK → Bulgaria → Greece → Cyprus.
 

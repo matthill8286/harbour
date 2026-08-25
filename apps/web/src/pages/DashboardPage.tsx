@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { JOB_STAGE_LABELS, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
+import { useSession } from '../lib/session';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, EmptyState, LoadingScreen, PageHeader } from '../components/ui';
 
@@ -31,30 +32,33 @@ type Dashboard = {
 };
 
 export function DashboardPage() {
+  const { canWrite, workspace } = useSession();
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api<Dashboard>('/dashboard'),
   });
 
-  if (isLoading || !data) return <LoadingScreen label="Loading the desk…" />;
+  if (isLoading || !data) return <LoadingScreen label="Loading workspace…" />;
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Operations"
-        title="Desk board"
-        description="Active jobs, overdue work, and vehicles due in the next two weeks."
+        eyebrow={workspace}
+        title="Operations"
+        description="Active jobs, overdue work, and vehicles due in the next two weeks — for this organisation only."
         actions={
-          <Link to="/jobs/new" className="rounded-full bg-harbour px-4 py-2 text-sm font-semibold text-paper">
-            New job
-          </Link>
+          canWrite ? (
+            <Link to="/jobs/new" className="rounded-full bg-harbour px-4 py-2 text-sm font-semibold text-paper">
+              New job
+            </Link>
+          ) : undefined
         }
       />
       <div className="rounded-3xl bg-ink p-6 text-paper">
         <p className="text-sm text-mist">Active import jobs</p>
         <p className="display text-6xl">{data.activeJobs}</p>
         <Link to="/tracking" className="mt-3 inline-block text-sm text-mist underline-offset-4 hover:underline">
-          Open live map
+          Open live map · {data.activeJobs} {data.activeJobs === 1 ? 'job' : 'jobs'}
         </Link>
       </div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
@@ -136,11 +140,17 @@ export function DashboardPage() {
       {data.activeJobs === 0 ? (
         <EmptyState
           title="No active import jobs"
-          description="Create a job to start tracking a vehicle from the UK to Cyprus."
+          description={
+            canWrite
+              ? 'Create a job to start tracking a vehicle from collection to delivery.'
+              : 'No active imports in this workspace yet.'
+          }
           action={
-            <Link to="/jobs/new" className="rounded-xl bg-harbour px-4 py-2 text-sm font-semibold text-paper">
-              New job
-            </Link>
+            canWrite ? (
+              <Link to="/jobs/new" className="rounded-xl bg-harbour px-4 py-2 text-sm font-semibold text-paper">
+                New job
+              </Link>
+            ) : undefined
           }
         />
       ) : null}

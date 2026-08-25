@@ -10,6 +10,7 @@ type InvitePreview = {
   firstName: string;
   lastName: string;
   organisationName: string;
+  organisationBrandName?: string;
   expiresAt: string;
 };
 
@@ -57,7 +58,8 @@ export function InvitePage() {
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              Set a password to follow your vehicle from the UK through registration and on to Cyprus.
+              Set a password to follow your vehicle. You will only see the job your importer assigned to you —
+              not anyone else’s.
             </p>
           </div>
           <Link to="/login" className="text-sm text-mist underline-offset-4 hover:underline">
@@ -80,7 +82,9 @@ export function InvitePage() {
             ) : null}
             {preview.data ? (
               <form onSubmit={onSubmit} className="space-y-4">
-                <p className="text-xs uppercase tracking-widest text-harbour">{preview.data.organisationName}</p>
+                <p className="text-xs uppercase tracking-widest text-harbour">
+                  {preview.data.organisationBrandName ?? preview.data.organisationName}
+                </p>
                 <h2 className="display text-3xl">Welcome, {preview.data.firstName}</h2>
                 <p className="text-sm text-ink/60">
                   Choose a password for {preview.data.email}. Then you will land on your import job.

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
 import { Card, EmptyState, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { useSession } from '../lib/session';
 
 type Customer = {
   id: string;
@@ -15,6 +16,7 @@ type Customer = {
 };
 
 export function CustomersPage() {
+  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const { data, isLoading } = useQuery({
@@ -31,7 +33,12 @@ export function CustomersPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader eyebrow="Directory" title="Customers" description="People who own the vehicles you import." />
+      <PageHeader
+        eyebrow="Directory"
+        title="Customers"
+        description="End customers of this organisation. They only see jobs assigned to them."
+      />
+      {canWrite ? (
       <Card className="grid gap-2 sm:grid-cols-2">
         <input className={fieldClass} placeholder="First name" value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
         <input className={fieldClass} placeholder="Last name" value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
@@ -46,8 +53,12 @@ export function CustomersPage() {
           Add customer
         </button>
       </Card>
+      ) : null}
       {!isLoading && (data ?? []).length === 0 ? (
-        <EmptyState title="No customers yet" description="Add the vehicle owner before creating a job." />
+        <EmptyState
+          title="No customers yet"
+          description={canWrite ? 'Add the vehicle owner before creating a job.' : 'This organisation has no customers yet.'}
+        />
       ) : (
         <ul className="space-y-2">
           {(data ?? []).map((customer) => (

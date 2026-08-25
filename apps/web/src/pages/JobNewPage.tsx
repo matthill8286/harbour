@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import type { VehicleLookupResult } from '@vip/shared';
 import { api } from '../lib/api';
+import { useSession } from '../lib/session';
 import { ErrorBanner, PageHeader, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
 
 type Customer = {
@@ -17,6 +18,7 @@ type CreatedJob = { id: string };
 const STEPS = ['Customer', 'Vehicle', 'Confirm'];
 
 export function JobNewPage() {
+  const { country } = useSession();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const [customerId, setCustomerId] = useState('');
@@ -24,7 +26,7 @@ export function JobNewPage() {
   const [lookup, setLookup] = useState<VehicleLookupResult | null>(null);
   const [registration, setRegistration] = useState('');
   const [originCountry, setOriginCountry] = useState('GB');
-  const [destinationCountry, setDestinationCountry] = useState('CY');
+  const [destinationCountry, setDestinationCountry] = useState(country);
   const [registrationCountry, setRegistrationCountry] = useState('BG');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
+import { canManageOrganisation, canWriteStaff, isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
 import { useAuth } from './lib/auth';
 import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
@@ -15,6 +15,7 @@ import { PortalPage } from './pages/PortalPage';
 import { PortalJobPage } from './pages/PortalJobPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { TrackersPage } from './pages/TrackersPage';
+import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LoadingScreen } from './components/ui';
 
@@ -26,7 +27,7 @@ function Guard({
   allow: (user: PublicUser) => boolean;
 }) {
   const { user, ready } = useAuth();
-  if (!ready) return <LoadingScreen label="Opening Harbour…" />;
+  if (!ready) return <LoadingScreen label="Opening workspace…" />;
   if (!user) return <Navigate to="/login" replace />;
   if (!allow(user)) {
     return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
@@ -35,6 +36,8 @@ function Guard({
 }
 
 const staff = (user: PublicUser) => isStaffRole(user.role);
+const staffWrite = (user: PublicUser) => canWriteStaff(user.role);
+const manager = (user: PublicUser) => canManageOrganisation(user.role);
 const customer = (user: PublicUser) => isPortalRole(user.role);
 
 export default function App() {
@@ -68,7 +71,7 @@ export default function App() {
         <Route
           path="/jobs/new"
           element={
-            <Guard allow={staff}>
+            <Guard allow={staffWrite}>
               <JobNewPage />
             </Guard>
           }
@@ -110,6 +113,14 @@ export default function App() {
           element={
             <Guard allow={staff}>
               <CustomerDetailPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/organisation"
+          element={
+            <Guard allow={manager}>
+              <OrganisationPage />
             </Guard>
           }
         />
