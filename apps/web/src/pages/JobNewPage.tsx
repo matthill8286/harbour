@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import type { VehicleLookupResult } from '@vip/shared';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
-import { ErrorBanner, PageHeader, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
+import { ErrorBanner, PageHeader, StaffPage, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
 
 type Customer = {
   id: string;
@@ -112,7 +112,7 @@ export function JobNewPage() {
   }
 
   return (
-    <div className="space-y-5">
+    <StaffPage>
       <PageHeader
         eyebrow="Create"
         title="New import job"
@@ -247,6 +247,6 @@ export function JobNewPage() {
           </div>
         </div>
       ) : null}
-    </div>
+    </StaffPage>
   );
 }

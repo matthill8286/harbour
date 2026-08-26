@@ -34,6 +34,42 @@ export function PageHeader({
   );
 }
 
+/** Constrained reading column for list/form pages inside the stable shell. */
+export function StaffPage({
+  children,
+  wide = false,
+  className = '',
+}: {
+  children: ReactNode;
+  wide?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`staff-page ${wide ? 'is-wide' : ''} ${className}`.trim()}>{children}</div>
+  );
+}
+
+/** Slim title row for ops surfaces (Map, Job workspace). */
+export function OpsToolbar({
+  title,
+  meta,
+  actions,
+}: {
+  title: string;
+  meta?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
+        {meta ? <div className="mt-0.5 text-xs text-ink/55">{meta}</div> : null}
+      </div>
+      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+    </div>
+  );
+}
+
 export function Card({
   children,
   className = '',

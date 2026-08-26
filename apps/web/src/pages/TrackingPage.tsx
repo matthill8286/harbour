@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { corridorPositionForStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { relativeTime } from '../lib/format';
 import { spreadOverlappingMarkers, type LiveTracking } from '../lib/tracking';
 import { JourneyMap } from '../components/JourneyMap';
 import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, fieldClass, LoadingScreen, PageHeader, secondaryBtn } from '../components/ui';
+import { EmptyState, LoadingScreen, OpsToolbar, fieldClass, secondaryBtn } from '../components/ui';
 
 type FleetFilter = 'all' | 'live' | 'estimated';
 
 export function TrackingPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const initialJob = params.get('job');
+  const [selectedId, setSelectedId] = useState<string | null>(initialJob);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<FleetFilter>('all');
   const listRef = useRef<HTMLUListElement>(null);
@@ -74,6 +76,10 @@ export function TrackingPage() {
     : null;
 
   useEffect(() => {
+    if (initialJob) setSelectedId(initialJob);
+  }, [initialJob]);
+
+  useEffect(() => {
     if (!selectedId || !listRef.current) return;
     const row = listRef.current.querySelector(`[data-job-id="${selectedId}"]`);
     row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -84,19 +90,18 @@ export function TrackingPage() {
   }
 
   return (
-    <div className="space-y-4">
-      <PageHeader
-        eyebrow="Operations"
+    <div className="fleet-ops-page">
+      <OpsToolbar
         title="Live fleet"
-        description={
+        meta={
           vehicles.length === 0
-            ? 'Active import jobs for this workspace appear here once a tracker is assigned.'
-            : `${vehicles.length} active ${vehicles.length === 1 ? 'vehicle' : 'vehicles'} · ${pinging} live · ${vehicles.length - pinging} estimated. Pick one from the list to focus the map.`
+            ? 'No active vehicles yet'
+            : `${vehicles.length} active · ${pinging} live · ${vehicles.length - pinging} estimated`
         }
         actions={
           selectedId ? (
             <button type="button" className={secondaryBtn} onClick={() => setSelectedId(null)}>
-              Show all fleet
+              Show all
             </button>
           ) : null
         }
@@ -110,14 +115,8 @@ export function TrackingPage() {
         />
       ) : (
         <div className="fleet-map-layout">
-          <aside className="fleet-sidebar rounded-2xl bg-paper p-4">
-            <div className="mb-3 flex items-baseline justify-between gap-2">
-              <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink/55">
-                Fleet list
-              </h2>
-              <span className="text-xs text-ink/45">{filteredVehicles.length} shown</span>
-            </div>
-            <div className="space-y-3">
+          <aside className="fleet-sidebar rounded-2xl bg-paper p-3">
+            <div className="space-y-2">
               <label className="block">
                 <span className="sr-only">Search fleet</span>
                 <input
@@ -127,12 +126,12 @@ export function TrackingPage() {
                   onChange={(event) => setSearch(event.target.value)}
                 />
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {(
                   [
                     ['all', `All (${vehicles.length})`],
                     ['live', `Live (${pinging})`],
-                    ['estimated', `Estimated (${vehicles.length - pinging})`],
+                    ['estimated', `Est. (${vehicles.length - pinging})`],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -146,10 +145,10 @@ export function TrackingPage() {
                 ))}
               </div>
             </div>
-            <ul ref={listRef} className="fleet-sidebar-list mt-4 space-y-2">
+            <ul ref={listRef} className="fleet-sidebar-list mt-3 space-y-1.5">
               {filteredVehicles.length === 0 ? (
                 <li className="rounded-xl border border-dashed border-ink/15 px-3 py-6 text-center text-sm text-ink/55">
-                  No vehicles match your search.
+                  No vehicles match.
                 </li>
               ) : (
                 filteredVehicles.map((item) => {
@@ -161,7 +160,7 @@ export function TrackingPage() {
                       <button
                         type="button"
                         data-job-id={item.importJobId}
-                        className={`fleet-sidebar-item w-full rounded-xl border px-3 py-3 text-left transition${
+                        className={`fleet-sidebar-item w-full rounded-xl border px-3 py-2.5 text-left transition${
                           isSelected
                             ? ' is-selected'
                             : ' border-ink/10 hover:border-harbour/35 hover:bg-sand/40'
@@ -170,34 +169,34 @@ export function TrackingPage() {
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="flex items-center gap-2 truncate font-semibold">
+                            <p className="flex items-center gap-2 truncate text-sm font-semibold">
                               <span
                                 className={`fleet-ping-dot${isLive ? ' is-live' : ' is-estimated'}`}
                                 aria-hidden
                               />
                               {item.reference}
                             </p>
-                            <p className="truncate text-sm text-ink/70">
+                            <p className="truncate text-xs text-ink/70">
                               {item.vehicle.make} {item.vehicle.model}
                             </p>
-                            <p className="truncate text-xs text-ink/50">
+                            <p className="truncate text-[11px] text-ink/50">
                               {item.customer.firstName} {item.customer.lastName}
                             </p>
                           </div>
                           <StatusBadge status={item.status} />
                         </div>
-                        <p className="mt-2 text-xs text-ink/50">
+                        <p className="mt-1.5 text-[11px] text-ink/50">
                           {isLive
                             ? `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)} · ${relativeTime(item.current!.recordedAt)}`
                             : 'No live ping · corridor estimate'}
                         </p>
                         {isSelected ? (
                           <Link
-                            to={`/jobs/${item.importJobId}`}
-                            className="mt-2 inline-block text-xs font-semibold text-harbour"
+                            to={`/jobs/${item.importJobId}?tab=tracking`}
+                            className="mt-1.5 inline-block text-xs font-semibold text-harbour"
                             onClick={(event) => event.stopPropagation()}
                           >
-                            Open job details
+                            Open job
                           </Link>
                         ) : null}
                       </button>
@@ -221,7 +220,7 @@ export function TrackingPage() {
               </div>
             ) : (
               <p className="fleet-map-hint mb-2 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-xs text-ink/55">
-                Select a vehicle in the list, or tap a marker on the map, to zoom in on its route.
+                Select a vehicle in the list, or tap a marker, to focus its route.
               </p>
             )}
             <JourneyMap
