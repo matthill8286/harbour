@@ -230,8 +230,10 @@ export class CustomersService {
     });
     this.notifications.notify({
       type: 'PORTAL_INVITE',
+      organisationId: user.organisationId,
       customerId: customer.id,
-      message: `Portal invite for ${email}: ${inviteUrl}`,
+      inviteUrl,
+      message: `Portal invite for ${email}`,
     });
 
     const presented = await this.get(user, id);

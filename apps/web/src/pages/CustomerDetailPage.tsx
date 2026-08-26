@@ -36,17 +36,17 @@ type CustomerDetail = {
 const PORTAL_COPY: Record<PortalAccess['status'], { title: string; body: string; action: string }> = {
   NONE: {
     title: 'No portal access',
-    body: 'Invite them with the email on this record. Harbour logs the link until a real mail adapter is wired.',
+    body: 'Invite them with the email on this record. Harbour emails the invite when mail is configured, and always shows a copyable link here.',
     action: 'Invite to portal',
   },
   INVITED: {
     title: 'Invite sent',
-    body: 'They have not set a password yet. Resend if the previous link was lost — the raw token is not stored.',
+    body: 'They have not set a password yet. Resend emails a fresh link — the raw token is not stored.',
     action: 'Resend invite',
   },
   ACTIVE: {
     title: 'Portal active',
-    body: 'They can sign in. Send a new link only if they need to set a fresh password.',
+    body: 'They can sign in. Send a new link only if they need to set a fresh password — it is emailed when mail is configured.',
     action: 'Send password reset link',
   },
 };
@@ -160,7 +160,7 @@ export function CustomerDetailPage() {
         ) : null}
         {inviteUrl ? (
           <div className="mt-4 rounded-xl bg-sand px-3 py-3 text-sm">
-            <p className="font-semibold">Copy this link now. Harbour only stores a hash of the token.</p>
+            <p className="font-semibold">Copy this link now if they need it — Harbour only stores a hash of the token.</p>
             <p className="mt-1 break-all text-ink/70">{inviteUrl}</p>
             <button type="button" className={`${secondaryBtn} mt-3`} onClick={() => void copyLink()}>
               {copied ? 'Copied' : 'Copy invite link'}
