@@ -68,3 +68,12 @@ Demo jobs use a simulated corridor. Real units:
 4. In Harbour, open **Trackers**, register the IMEI with provider Teltonika / Flespi, then **Assign** or **Replace** it on the import job. Do not leave demo tracker `TRK-001` on a job that should use a live TAT140.
 
 The customer portal never receives the IMEI. Unassigned pings only update last-seen/battery; job trails start after assign.
+
+## Customer email
+
+Status changes, customer-visible notes/files, and portal invites go through `NotificationsService`.
+
+- Default: `EMAIL_PROVIDER=log` — writes to the API console (no outbound mail).
+- Production: `EMAIL_PROVIDER=resend`, set `RESEND_API_KEY`, and a verified `EMAIL_FROM` address.
+
+Staff still get a copyable invite link after inviting a customer.

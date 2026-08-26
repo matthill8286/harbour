@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { AnprService } from './anpr.service';
 import { GpsProviderService } from './gps-provider.service';
 import { MapsService } from './maps.service';
+import { EmailTransport } from './email-transport';
 import { NotificationsService } from './notifications.service';
 import { StorageService } from './storage.service';
 import { VehicleDataService } from './vehicle-data.service';
@@ -18,6 +19,7 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
     AnprService,
     MapsService,
     GpsProviderService,
+    EmailTransport,
     NotificationsService,
     FlespiGpsClient,
     FlespiIngestService,
@@ -30,6 +32,7 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
     AnprService,
     MapsService,
     GpsProviderService,
+    EmailTransport,
     NotificationsService,
     FlespiIngestService,
   ],
