@@ -52,7 +52,7 @@ const jobDetailInclude = {
   journeys: { orderBy: { createdAt: 'asc' } },
   tasks: {
     include: { assignedTo: { select: publicUserSelect } },
-    orderBy: { createdAt: 'desc' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
   },
   costs: { orderBy: { incurredOn: 'desc' } },
   charges: { orderBy: { incurredOn: 'desc' } },

@@ -63,13 +63,184 @@ button {
   width: 100%;
 }
 
+/* —— Stable staff ops shell (never changes width by route) —— */
+.staff-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  background: var(--color-sand);
+  color: var(--color-ink);
+}
+
+.staff-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgb(11 31 51 / 0.12);
+  background: var(--color-ink);
+}
+
+.staff-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.staff-rail {
+  display: none;
+  width: 14rem;
+  flex-shrink: 0;
+  border-right: 1px solid rgb(11 31 51 / 0.08);
+  background: rgb(255 250 242 / 0.7);
+  padding: 1rem 0.75rem;
+  overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+  .staff-rail {
+    display: block;
+  }
+}
+
+.staff-rail-group + .staff-rail-group {
+  margin-top: 1.25rem;
+}
+
+.staff-rail-label {
+  margin: 0 0 0.4rem 0.75rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgb(11 31 51 / 0.4);
+}
+
+.staff-rail-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgb(11 31 51 / 0.7);
+}
+
+.staff-rail-link:hover {
+  background: var(--color-paper);
+}
+
+.staff-rail-link.is-active {
+  background: var(--color-ink);
+  color: var(--color-paper);
+}
+
+.staff-main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.25rem 1rem 5.5rem;
+}
+
+@media (min-width: 768px) {
+  .staff-main {
+    padding: 1.5rem 1.5rem 2rem;
+  }
+}
+
+.staff-main.is-fluid {
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 0.75rem 5rem;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .staff-main.is-fluid {
+    padding: 0.75rem 1rem 1rem;
+    height: calc(100svh - 4.25rem);
+    overflow: hidden;
+  }
+}
+
+.staff-page {
+  width: 100%;
+  max-width: 56rem;
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.staff-page.is-wide {
+  max-width: 72rem;
+}
+
+.staff-mobile-nav {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 30;
+  border-top: 1px solid rgb(11 31 51 / 0.1);
+  background: var(--color-paper);
+}
+
+@media (min-width: 768px) {
+  .staff-mobile-nav {
+    display: none;
+  }
+}
+
+.staff-mobile-link {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(11 31 51 / 0.5);
+  background: transparent;
+  border: 0;
+}
+
+.staff-mobile-link.is-active {
+  color: var(--color-harbour);
+}
+
+.staff-more-sheet {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 3.25rem;
+  z-index: 29;
+  border-radius: 1rem 1rem 0 0;
+  border: 1px solid rgb(11 31 51 / 0.1);
+  background: var(--color-paper);
+  box-shadow: 0 -12px 40px rgb(11 31 51 / 0.12);
+}
+
+@media (min-width: 768px) {
+  .staff-more-sheet {
+    display: none;
+  }
+}
+
+.fleet-map-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 28rem;
+}
+
 @media (min-width: 1024px) {
   .fleet-map-layout {
     display: grid;
-    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-    gap: 1rem;
-    align-items: stretch;
-    min-height: calc(100vh - 10rem);
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 0.75rem;
+    flex: 1;
+    min-height: 0;
+    height: 100%;
   }
 
   .fleet-sidebar {
@@ -94,7 +265,133 @@ button {
   .harbour-map-fleet {
     flex: 1;
     height: auto;
-    min-height: 32rem;
+    min-height: 0;
+  }
+}
+
+.fleet-ops-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 28rem;
+}
+
+.jobs-table-wrap {
+  overflow: auto;
+  border-radius: 1rem;
+  background: var(--color-paper);
+  min-height: 16rem;
+}
+
+.jobs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.jobs-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-paper);
+  border-bottom: 1px solid rgb(11 31 51 / 0.1);
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(11 31 51 / 0.45);
+  white-space: nowrap;
+}
+
+.jobs-table td {
+  border-bottom: 1px solid rgb(11 31 51 / 0.06);
+  padding: 0.7rem 0.85rem;
+  vertical-align: middle;
+}
+
+.jobs-table tbody tr {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.jobs-table tbody tr:hover {
+  background: rgb(28 107 106 / 0.06);
+}
+
+.jobs-table tbody tr:focus-visible {
+  outline: 2px solid var(--color-harbour);
+  outline-offset: -2px;
+}
+
+.job-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgb(11 31 51 / 0.12);
+}
+
+.job-tabs {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  border-bottom: 0;
+  background: var(--color-paper);
+  padding: 0 0.35rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.job-tab {
+  flex: 1 0 auto;
+  min-width: 4.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(11 31 51 / 0.5);
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.job-tab:hover {
+  color: var(--color-ink);
+}
+
+.job-tab.is-active {
+  border-bottom-color: var(--color-harbour);
+  color: var(--color-harbour);
+}
+
+.job-tab-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.job-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+}
+
+@media (min-width: 768px) {
+  .job-workspace {
+    padding-bottom: 0.5rem;
+  }
+
+  .job-tab {
+    flex: 0 0 auto;
+    min-width: 0;
+    text-align: left;
   }
 }
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { api } from '../lib/api';
-import { Card, EmptyState, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { Card, EmptyState, PageHeader, StaffPage, fieldClass, primaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
 
 type Customer = {
@@ -32,7 +32,7 @@ export function CustomersPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <StaffPage>
       <PageHeader
         eyebrow="Directory"
         title="Customers"
@@ -89,6 +89,6 @@ export function CustomersPage() {
           ))}
         </ul>
       )}
-    </div>
+    </StaffPage>
   );
 }

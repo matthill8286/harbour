@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ROLE_LABELS, type MembershipStatus, type SubscriptionPlan, type SubscriptionStatus, type UserRole } from '@vip/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { Card, ErrorBanner, PageHeader, fieldClass, primaryBtn } from '../components/ui';
+import { Card, ErrorBanner, PageHeader, StaffPage, fieldClass, primaryBtn } from '../components/ui';
 
 type OrganisationView = {
   id: string;
@@ -90,7 +90,7 @@ export function OrganisationPage() {
   const org = organisation.data;
 
   return (
-    <div className="space-y-6">
+    <StaffPage>
       <PageHeader
         eyebrow="Organisation"
         title="Workspace"
@@ -206,6 +206,6 @@ export function OrganisationPage() {
           ))}
         </ul>
       </Card>
-    </div>
+    </StaffPage>
   );
 }
