@@ -307,6 +307,7 @@ export class ImportJobsService {
     });
     this.notifications.notify({
       type: 'JOB_STATUS',
+      organisationId: user.organisationId,
       importJobId: id,
       customerId: current.customerId,
       message: `Your vehicle is now: ${getStatusLabel(to)}`,
@@ -418,6 +419,7 @@ export class ImportJobsService {
     if (visibility === 'CUSTOMER') {
       this.notifications.notify({
         type: 'CUSTOMER_NOTE',
+        organisationId: user.organisationId,
         importJobId: jobId,
         customerId: job.customerId,
         message: dto.body,
@@ -477,6 +479,7 @@ export class ImportJobsService {
     if (customerVisible) {
       this.notifications.notify({
         type: 'FILE_SHARED',
+        organisationId: user.organisationId,
         importJobId: jobId,
         customerId: job.customerId,
         message: `A document was shared: ${document.name}`,
@@ -524,6 +527,7 @@ export class ImportJobsService {
     if (customerVisible) {
       this.notifications.notify({
         type: 'FILE_SHARED',
+        organisationId: user.organisationId,
         importJobId: jobId,
         customerId: job.customerId,
         message: `A photo was shared: ${photo.filename}`,
@@ -703,6 +707,7 @@ export class ImportJobsService {
     if (customerVisible && !wasVisible) {
       this.notifications.notify({
         type: 'FILE_SHARED',
+        organisationId: user.organisationId,
         importJobId,
         customerId,
         message: `A file was shared: ${name}`,
