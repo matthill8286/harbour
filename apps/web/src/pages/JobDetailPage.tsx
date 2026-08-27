@@ -6,8 +6,10 @@ import {
   COST_CATEGORIES,
   NOTE_VISIBILITIES,
   STATUS_TRANSITIONS,
+  TASK_PRIORITIES,
   getStatusLabel,
   type JobStatus,
+  type TaskPriority,
 } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatCategory, formatDate, money } from '../lib/format';
@@ -38,7 +40,14 @@ type JobDetail = {
     vin: string | null;
   };
   statusHistory: { id: string; toStatus: string; note: string | null; createdAt: string }[];
-  tasks: { id: string; title: string; status: string; dueDate: string | null; createdAt?: string }[];
+  tasks: {
+    id: string;
+    title: string;
+    status: string;
+    priority: TaskPriority;
+    dueDate: string | null;
+    createdAt?: string;
+  }[];
   costs: { id: string; category: string; description: string; amount: string }[];
   charges: { id: string; category: string; description: string; amount: string }[];
   notes: { id: string; body: string; visibility: string; createdAt: string; author: { name: string } }[];
@@ -82,6 +91,18 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
+type TaskPatch = {
+  taskId: string;
+  status?: string;
+  priority?: TaskPriority;
+  dueDate?: string | null;
+};
+
+function toDateInputValue(value: string | null) {
+  if (!value) return '';
+  return value.slice(0, 10);
+}
+
 export function JobDetailPage() {
   const { canWrite, currency } = useSession();
   const { id = '' } = useParams();
@@ -97,7 +118,11 @@ export function JobDetailPage() {
     enabled: Boolean(id),
   });
   const job = jobQuery.data;
-  const [taskTitle, setTaskTitle] = useState('');
+  const [taskForm, setTaskForm] = useState<{
+    title: string;
+    priority: TaskPriority;
+    dueDate: string;
+  }>({ title: '', priority: 'MEDIUM', dueDate: '' });
   const [cost, setCost] = useState({ category: 'TRANSPORT', description: '', amount: '' });
   const [charge, setCharge] = useState({ category: 'TRANSPORT', description: '', amount: '' });
   const [note, setNote] = useState({ body: '', visibility: 'INTERNAL' });
@@ -111,23 +136,30 @@ export function JobDetailPage() {
   });
   const taskMutation = useMutation({
     mutationFn: () =>
-      api(`/import-jobs/${id}/tasks`, { method: 'POST', body: JSON.stringify({ title: taskTitle }) }),
+      api(`/import-jobs/${id}/tasks`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: taskForm.title.trim(),
+          priority: taskForm.priority,
+          ...(taskForm.dueDate ? { dueDate: taskForm.dueDate } : {}),
+        }),
+      }),
     onSuccess: () => {
-      setTaskTitle('');
+      setTaskForm({ title: '', priority: 'MEDIUM', dueDate: '' });
       void invalidate();
     },
   });
-  const taskStatus = useMutation({
-    mutationFn: ({ taskId, status }: { taskId: string; status: string }) =>
-      api(`/import-jobs/${id}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
-    onMutate: async ({ taskId, status }) => {
+  const taskUpdate = useMutation({
+    mutationFn: ({ taskId, ...patch }: TaskPatch) =>
+      api(`/import-jobs/${id}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
+    onMutate: async ({ taskId, ...patch }) => {
       await queryClient.cancelQueries({ queryKey: ['job', id] });
       const previous = queryClient.getQueryData<JobDetail>(['job', id]);
       if (previous) {
         queryClient.setQueryData<JobDetail>(['job', id], {
           ...previous,
           tasks: previous.tasks.map((task) =>
-            task.id === taskId ? { ...task, status } : task,
+            task.id === taskId ? { ...task, ...patch } : task,
           ),
         });
       }
@@ -346,20 +378,59 @@ export function JobDetailPage() {
                 {orderedTasks.map((task) => {
                   const done = task.status === 'COMPLETED';
                   return (
-                    <li key={task.id} className="flex items-center gap-3 text-sm">
+                    <li key={task.id} className="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
                       <input
                         type="checkbox"
-                        className="h-4 w-4 accent-harbour"
-                        disabled={!canWrite || taskStatus.isPending}
+                        className="h-4 w-4 shrink-0 accent-harbour"
+                        disabled={!canWrite || taskUpdate.isPending}
                         checked={done}
                         onChange={() =>
-                          taskStatus.mutate({ taskId: task.id, status: done ? 'TODO' : 'COMPLETED' })
+                          taskUpdate.mutate({ taskId: task.id, status: done ? 'TODO' : 'COMPLETED' })
                         }
                       />
-                      <span className={done ? 'text-ink/45 line-through' : ''}>{task.title}</span>
-                      {task.dueDate ? (
-                        <span className="ml-auto text-xs text-ink/45">{formatDate(task.dueDate)}</span>
-                      ) : null}
+                      <span className={`min-w-0 flex-1 ${done ? 'text-ink/45 line-through' : ''}`}>
+                        {task.title}
+                      </span>
+                      {canWrite ? (
+                        <>
+                          <select
+                            className={`${fieldClass} w-auto py-1`}
+                            aria-label={`Priority for ${task.title}`}
+                            value={task.priority}
+                            disabled={taskUpdate.isPending}
+                            onChange={(event) =>
+                              taskUpdate.mutate({
+                                taskId: task.id,
+                                priority: event.target.value as TaskPriority,
+                              })
+                            }
+                          >
+                            {TASK_PRIORITIES.map((priority) => (
+                              <option key={priority} value={priority}>
+                                {formatCategory(priority)}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            type="date"
+                            className={`${fieldClass} w-auto py-1`}
+                            aria-label={`Due date for ${task.title}`}
+                            value={toDateInputValue(task.dueDate)}
+                            disabled={taskUpdate.isPending}
+                            onChange={(event) =>
+                              taskUpdate.mutate({
+                                taskId: task.id,
+                                dueDate: event.target.value || null,
+                              })
+                            }
+                          />
+                        </>
+                      ) : (
+                        <span className="ml-auto flex items-center gap-2 text-xs text-ink/45">
+                          <span>{formatCategory(task.priority)}</span>
+                          {task.dueDate ? <span>{formatDate(task.dueDate)}</span> : null}
+                        </span>
+                      )}
                     </li>
                   );
                 })}
@@ -367,17 +438,38 @@ export function JobDetailPage() {
             )}
             {canWrite ? (
               <form
-                className="mt-4 flex gap-2"
+                className="mt-4 flex flex-wrap gap-2"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  if (taskTitle.trim()) taskMutation.mutate();
+                  if (taskForm.title.trim()) taskMutation.mutate();
                 }}
               >
                 <input
-                  className={fieldClass}
-                  value={taskTitle}
-                  onChange={(event) => setTaskTitle(event.target.value)}
+                  className={`${fieldClass} min-w-[12rem] flex-1`}
+                  value={taskForm.title}
+                  onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
                   placeholder="Add a task"
+                />
+                <select
+                  className={`${fieldClass} w-auto`}
+                  aria-label="Task priority"
+                  value={taskForm.priority}
+                  onChange={(event) =>
+                    setTaskForm({ ...taskForm, priority: event.target.value as TaskPriority })
+                  }
+                >
+                  {TASK_PRIORITIES.map((priority) => (
+                    <option key={priority} value={priority}>
+                      {formatCategory(priority)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="date"
+                  className={`${fieldClass} w-auto`}
+                  aria-label="Task due date"
+                  value={taskForm.dueDate}
+                  onChange={(event) => setTaskForm({ ...taskForm, dueDate: event.target.value })}
                 />
                 <button className={primaryBtn} type="submit">
                   Add
