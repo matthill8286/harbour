@@ -160,6 +160,7 @@ model Organisation {
   customers        Customer[]
   vehicles         Vehicle[]
   importJobs       ImportJob[]
+  routeTemplates   RouteTemplate[]
   trackers         Tracker[]
   trackerAssignments TrackerAssignment[]
   workflowStatuses WorkflowStatus[]
@@ -388,6 +389,8 @@ model ImportJob {
   completedAt          DateTime?
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
+  routeTemplateId      String?
+  routeTemplate        RouteTemplate? @relation(fields: [routeTemplateId], references: [id], onDelete: SetNull)
 
   statusHistory      JobStatusHistory[]
   journeys           Journey[]
@@ -407,6 +410,28 @@ model ImportJob {
   @@index([organisationId, vehicleId])
   @@index([customerId])
   @@index([vehicleId])
+  @@index([routeTemplateId])
+}
+
+/// Curated UK→BG→GR corridors staff assign on a job. Platform templates have null organisationId.
+model RouteTemplate {
+  id             String        @id @default(cuid())
+  organisationId String?
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  code           String
+  name           String
+  description    String?
+  /// Ordered GeoPoint[] — { label, latitude, longitude }
+  waypoints      Json
+  active         Boolean       @default(true)
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  jobs ImportJob[]
+
+  @@unique([code])
+  @@index([organisationId, active, sortOrder])
 }
 
 model JobStatusHistory {

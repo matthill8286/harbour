@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { ImportJobsController } from './import-jobs.controller';
 import { ImportJobsService } from './import-jobs.service';
 import { TrackingModule } from '../tracking/tracking.module';
+import { RouteTemplatesModule } from '../routes/route-templates.module';
 
 @Module({
-  imports: [TrackingModule],
+  imports: [TrackingModule, RouteTemplatesModule],
   controllers: [ImportJobsController],
   providers: [ImportJobsService],
   exports: [ImportJobsService],

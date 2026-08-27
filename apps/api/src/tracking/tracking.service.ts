@@ -15,7 +15,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { GpsProviderService } from '../integrations/gps-provider.service';
 import { isSimulatedGpsProvider } from '../integrations/gps-providers';
 import { MapsService } from '../integrations/maps.service';
+import { plannedRouteForJob } from '../routes/planned-route';
 import type { AuthUser } from '../auth/auth.types';
+
+const trackingJobInclude = {
+  customer: { select: { firstName: true, lastName: true } },
+  vehicle: { select: { make: true, model: true, ukRegistration: true } },
+  routeTemplate: true,
+  trackerAssignments: {
+    where: { removedAt: null },
+    include: { tracker: true },
+    take: 1,
+  },
+} as const;
 
 @Injectable()
 export class TrackingService {
@@ -32,13 +44,7 @@ export class TrackingService {
         status: { notIn: ['COMPLETED', 'CANCELLED'] },
       },
       include: {
-        customer: { select: { firstName: true, lastName: true } },
-        vehicle: { select: { make: true, model: true, ukRegistration: true } },
-        trackerAssignments: {
-          where: { removedAt: null },
-          include: { tracker: true },
-          take: 1,
-        },
+        ...trackingJobInclude,
         locationEvents: { orderBy: { recordedAt: 'desc' }, take: 80 },
       },
       orderBy: { updatedAt: 'desc' },
@@ -62,13 +68,7 @@ export class TrackingService {
         ...(customerView ? { customerId: user.customerId ?? undefined } : {}),
       },
       include: {
-        customer: { select: { firstName: true, lastName: true } },
-        vehicle: { select: { make: true, model: true, ukRegistration: true } },
-        trackerAssignments: {
-          where: { removedAt: null },
-          include: { tracker: true },
-          take: 1,
-        },
+        ...trackingJobInclude,
         locationEvents: { orderBy: { recordedAt: 'desc' }, take: 300 },
       },
     });
@@ -83,13 +83,7 @@ export class TrackingService {
     const aligned = await this.prisma.importJob.findFirst({
       where: { id: job.id, organisationId: user.organisationId },
       include: {
-        customer: { select: { firstName: true, lastName: true } },
-        vehicle: { select: { make: true, model: true, ukRegistration: true } },
-        trackerAssignments: {
-          where: { removedAt: null },
-          include: { tracker: true },
-          take: 1,
-        },
+        ...trackingJobInclude,
         locationEvents: { orderBy: { recordedAt: 'desc' }, take: 300 },
       },
     });
@@ -336,6 +330,13 @@ export class TrackingService {
         model: string | null;
         ukRegistration: string | null;
       };
+      routeTemplate?: {
+        id: string;
+        code: string;
+        name: string;
+        description: string | null;
+        waypoints: unknown;
+      } | null;
       trackerAssignments: Array<{
         id: string;
         assignedAt: Date;
@@ -355,15 +356,30 @@ export class TrackingService {
     const trail = [...job.locationEvents]
       .sort((a, b) => a.recordedAt.getTime() - b.recordedAt.getTime())
       .map((event) => this.serializePoint(event));
+    const current = trail[trail.length - 1] ?? null;
     const assignment = job.trackerAssignments[0] ?? null;
+    const plannedRoute = plannedRouteForJob({
+      status: job.status,
+      current,
+      waypoints: job.routeTemplate?.waypoints,
+    });
     return {
       importJobId: job.id,
       reference: job.reference,
       status: job.status,
       customer: job.customer,
       vehicle: job.vehicle,
-      current: trail[trail.length - 1] ?? null,
+      current,
       trail,
+      plannedRoute,
+      routeTemplate: job.routeTemplate
+        ? {
+            id: job.routeTemplate.id,
+            code: job.routeTemplate.code,
+            name: job.routeTemplate.name,
+            description: job.routeTemplate.description,
+          }
+        : null,
       tracker:
         includeTracker && assignment
           ? {

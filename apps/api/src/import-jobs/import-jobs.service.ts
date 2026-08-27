@@ -17,6 +17,7 @@ import { NotificationsService } from '../integrations/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { TrackingService } from '../tracking/tracking.service';
 import { UsageService } from '../tenancy/usage.service';
+import { RouteTemplatesService } from '../routes/route-templates.service';
 import type { AuthUser } from '../auth/auth.types';
 import {
   ChangeStatusDto,
@@ -45,6 +46,7 @@ const jobListInclude = {
 const jobDetailInclude = {
   customer: true,
   vehicle: { include: { registrations: true } },
+  routeTemplate: true,
   statusHistory: {
     include: { changedBy: { select: publicUserSelect } },
     orderBy: { createdAt: 'asc' },
@@ -78,6 +80,7 @@ export class ImportJobsService {
     private readonly notifications: NotificationsService,
     private readonly tracking: TrackingService,
     private readonly usage: UsageService,
+    private readonly routes: RouteTemplatesService,
   ) {}
 
   list(user: AuthUser, query?: { status?: string; search?: string }) {
@@ -205,6 +208,7 @@ export class ImportJobsService {
       },
     });
     const reference = `${prefix}${String(count + 1).padStart(5, '0')}`;
+    const routeTemplateId = await this.routes.defaultTemplateId();
 
     const job = await this.prisma.importJob.create({
       data: {
@@ -216,6 +220,7 @@ export class ImportJobsService {
         originCountry: dto.originCountry ?? 'GB',
         destinationCountry: dto.destinationCountry ?? 'CY',
         registrationCountry: dto.registrationCountry,
+        routeTemplateId: routeTemplateId ?? undefined,
         expectedDeliveryDate: dto.expectedDeliveryDate
           ? new Date(dto.expectedDeliveryDate)
           : undefined,
@@ -244,12 +249,22 @@ export class ImportJobsService {
 
   async update(user: AuthUser, id: string, dto: UpdateImportJobDto) {
     await this.get(user, id);
+    let routeTemplateId: string | null | undefined = undefined;
+    if (dto.routeTemplateId !== undefined) {
+      if (dto.routeTemplateId === null || dto.routeTemplateId === '') {
+        routeTemplateId = null;
+      } else {
+        await this.routes.requireAssignable(user, dto.routeTemplateId);
+        routeTemplateId = dto.routeTemplateId;
+      }
+    }
     const job = await this.prisma.importJob.update({
       where: { id },
       data: {
         originCountry: dto.originCountry,
         destinationCountry: dto.destinationCountry,
         registrationCountry: dto.registrationCountry,
+        routeTemplateId,
         expectedDeliveryDate:
           dto.expectedDeliveryDate === undefined
             ? undefined
@@ -259,6 +274,14 @@ export class ImportJobsService {
       },
       include: jobDetailInclude,
     });
+    if (routeTemplateId !== undefined) {
+      void this.audit.record(user, {
+        action: 'JOB_ROUTE_TEMPLATE_CHANGED',
+        entityType: 'ImportJob',
+        entityId: id,
+        metadata: { importJobId: id, routeTemplateId },
+      });
+    }
     return this.present(job);
   }
 
@@ -674,8 +697,24 @@ export class ImportJobsService {
       this.withoutStorageKey(document),
     );
     const photos = job.photos?.map((photo) => this.withoutStorageKey(photo));
+    const routeTemplate =
+      'routeTemplate' in job && job.routeTemplate
+        ? this.routes.present(
+            job.routeTemplate as {
+              id: string;
+              code: string;
+              name: string;
+              description: string | null;
+              waypoints: unknown;
+              sortOrder: number;
+            },
+          )
+        : 'routeTemplate' in job
+          ? null
+          : undefined;
     return {
       ...job,
+      ...(routeTemplate !== undefined ? { routeTemplate } : {}),
       documents,
       photos,
       totals: { totalCost, totalCharge, margin: totalCharge - totalCost },
