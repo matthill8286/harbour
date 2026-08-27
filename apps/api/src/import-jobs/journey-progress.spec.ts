@@ -68,12 +68,11 @@ describe('isDestinationReached', () => {
 });
 
 describe('remainingCorridorFrom', () => {
-  it('places jobs with no GPS on the status waypoint and keeps Cyprus ahead', () => {
-    const remaining = remainingCorridorFrom(null, 'NEW');
-    const first = remaining[0];
-    const last = remaining.at(-1);
-    expect(first).toEqual(expect.objectContaining({ label: 'London' }));
-    expect(last).toEqual(expect.objectContaining({ label: 'Limassol' }));
+  it('returns the full planned route when there is no GPS yet', () => {
+    const remaining = remainingCorridorFrom(null, 'COLLECTED');
+    expect(remaining[0]).toEqual(expect.objectContaining({ label: 'London' }));
+    expect(remaining.at(-1)).toEqual(expect.objectContaining({ label: 'Limassol' }));
+    expect(remaining.length).toBeGreaterThan(5);
   });
 
   it('extends a Greece ping through the ferry to Limassol', () => {
@@ -94,5 +93,18 @@ describe('remainingCorridorFrom', () => {
         'ARRIVED_CYPRUS',
       ),
     ).toEqual([]);
+  });
+
+  it('uses the assigned template waypoints when provided', () => {
+    const northern = remainingCorridorFrom(null, 'NEW', [
+      { label: 'London', latitude: 51.5, longitude: -0.1 },
+      { label: 'Berlin', latitude: 52.5, longitude: 13.4 },
+      { label: 'Sofia', latitude: 42.7, longitude: 23.3 },
+    ]);
+    expect(northern.map((point) => point.label)).toEqual([
+      'London',
+      'Berlin',
+      'Sofia',
+    ]);
   });
 });

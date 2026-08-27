@@ -35,6 +35,13 @@ export type TrackingVehicle = {
   vehicle: { make: string | null; model: string | null; ukRegistration: string | null };
   current: LocationPoint | null;
   trail: LocationPoint[];
+  plannedRoute: Array<{ label: string; latitude: number; longitude: number }>;
+  routeTemplate: {
+    id: string;
+    code: string;
+    name: string;
+    description: string | null;
+  } | null;
   tracker: {
     assignmentId: string;
     assignedAt: string;
@@ -45,6 +52,15 @@ export type TrackingVehicle = {
     lastSeenAt: string | null;
     status: string;
   } | null;
+};
+
+export type RouteTemplateOption = {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  waypoints: Array<{ label: string; latitude: number; longitude: number }>;
+  sortOrder: number;
 };
 
 export type JobTracking = TrackingVehicle & {
