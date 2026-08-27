@@ -4,8 +4,7 @@ import { EmailTransport } from './email-transport';
 describe('EmailTransport', () => {
   const make = (env: Record<string, string | undefined>) =>
     new EmailTransport({
-      get: (key: string, fallback?: string) =>
-        env[key] ?? fallback,
+      get: (key: string, fallback?: string) => env[key] ?? fallback,
     } as ConfigService);
 
   it('defaults to log', () => {

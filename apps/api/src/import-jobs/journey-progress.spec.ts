@@ -71,7 +71,9 @@ describe('remainingCorridorFrom', () => {
   it('returns the full planned route when there is no GPS yet', () => {
     const remaining = remainingCorridorFrom(null, 'COLLECTED');
     expect(remaining[0]).toEqual(expect.objectContaining({ label: 'London' }));
-    expect(remaining.at(-1)).toEqual(expect.objectContaining({ label: 'Limassol' }));
+    expect(remaining.at(-1)).toEqual(
+      expect.objectContaining({ label: 'Limassol' }),
+    );
     expect(remaining.length).toBeGreaterThan(5);
   });
 

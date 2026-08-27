@@ -81,7 +81,9 @@ describe('NotificationsService', () => {
         subject: 'Update on your vehicle (CY-2026-00421)',
       }),
     );
-    expect(send.mock.calls[0][0].text).toContain('Your vehicle is now: Arrived');
+    expect(send.mock.calls[0][0].text).toContain(
+      'Your vehicle is now: Arrived',
+    );
   });
 
   it('includes the invite URL for portal invites', async () => {

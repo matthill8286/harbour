@@ -17,8 +17,7 @@ export function mapDvlaEnquiry(
   payload: DvlaVehicleEnquiry,
 ): VehicleLookupResult {
   const reg =
-    payload.registrationNumber?.trim() ||
-    formatUkRegistration(registration);
+    payload.registrationNumber?.trim() || formatUkRegistration(registration);
   return {
     registration: formatUkRegistration(reg),
     vin: null,
