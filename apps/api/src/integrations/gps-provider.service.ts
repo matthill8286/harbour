@@ -4,14 +4,15 @@ import {
   densifyRoute,
   nearestRouteIndex,
   routeAnchorLabel,
-  UK_TO_CYPRUS_ROUTE,
+  ROUTE_UK_BG_GR_CENTRAL,
   type GeoPoint,
   type JobStatus,
 } from '@vip/shared';
 
 @Injectable()
 export class GpsProviderService {
-  readonly route: GeoPoint[] = densifyRoute(UK_TO_CYPRUS_ROUTE, 4);
+  /** Demo simulator spine — always the central corridor (status anchors live there). */
+  readonly route: GeoPoint[] = densifyRoute(ROUTE_UK_BG_GR_CENTRAL, 4);
 
   anchorForStatus(status: JobStatus) {
     const label = routeAnchorLabel(status);

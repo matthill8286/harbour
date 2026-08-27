@@ -8,6 +8,7 @@ import {
   IsString,
   Min,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 import {
   CHARGE_CATEGORIES,
@@ -113,6 +114,12 @@ export class UpdateImportJobDto {
   @IsOptional()
   @IsDateString()
   expectedDeliveryDate?: string | null;
+
+  /** Assign or clear a curated UK→BG→GR corridor template. */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  routeTemplateId?: string | null;
 }
 
 export class ChangeStatusDto {

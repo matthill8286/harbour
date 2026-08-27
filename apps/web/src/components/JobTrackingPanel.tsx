@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { isDestinationReached, corridorPositionForStatus, type LocationPoint } from '@vip/shared';
+import { isDestinationReached, type LocationPoint } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
-import { FALLBACK_MAP, trackerKindLabel, type JobTracking } from '../lib/tracking';
+import {
+  FALLBACK_MAP,
+  trackerKindLabel,
+  type JobTracking,
+  type RouteTemplateOption,
+} from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
 import { TrackerQrScanButton } from './TrackerQrScanner';
 import { ErrorBanner, fieldClass, primaryBtn, secondaryBtn } from './ui';
@@ -28,6 +33,10 @@ export function JobTrackingPanel({
     enabled: Boolean(jobId),
     refetchInterval: 5000,
   });
+  const templatesQuery = useQuery({
+    queryKey: ['route-templates'],
+    queryFn: () => api<RouteTemplateOption[]>('/route-templates'),
+  });
   const tracking = trackingQuery.data;
 
   const invalidate = async () => {
@@ -43,6 +52,14 @@ export function JobTrackingPanel({
   });
   const sync = useMutation({
     mutationFn: () => api(`/trackers/${tracking!.tracker!.id}/sync`, { method: 'POST' }),
+    onSuccess: () => void invalidate(),
+  });
+  const assignRoute = useMutation({
+    mutationFn: (routeTemplateId: string) =>
+      api(`/import-jobs/${jobId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ routeTemplateId }),
+      }),
     onSuccess: () => void invalidate(),
   });
   const assign = useMutation({
@@ -85,7 +102,7 @@ export function JobTrackingPanel({
   const trail = tracking?.trail?.length ? tracking.trail : current ? [current] : [];
   const map = tracking?.map ?? FALLBACK_MAP;
   const arrived = tracking ? isDestinationReached(tracking.status) : false;
-  const plotted = current ?? (tracking ? corridorPositionForStatus(tracking.status) : null);
+  const plannedRoute = !arrived && tracking?.plannedRoute?.length ? tracking.plannedRoute : [];
 
   if (!tracking && !current) {
     return (
@@ -95,15 +112,13 @@ export function JobTrackingPanel({
     );
   }
 
-  const markers = plotted
+  const markers = current
     ? [
         {
           id: tracking?.importJobId ?? jobId,
-          latitude: plotted.latitude,
-          longitude: plotted.longitude,
-          heading: current?.heading,
-          estimated: !current,
-          status: tracking?.status,
+          latitude: current.latitude,
+          longitude: current.longitude,
+          heading: current.heading,
           label: `${tracking?.vehicle.make ?? 'Vehicle'} ${tracking?.vehicle.model ?? ''}`.trim(),
           sublabel: tracking?.reference,
         },
@@ -118,7 +133,7 @@ export function JobTrackingPanel({
           <p className="text-sm text-ink/60">
             {current
               ? `${Number(current.latitude).toFixed(4)}, ${Number(current.longitude).toFixed(4)} · ${formatDateTime(current.recordedAt)}`
-              : 'No GPS ping yet — showing the planned corridor from this job’s status'}
+              : 'No GPS ping yet — planned route only until a tracker reports'}
             {current?.speed != null ? ` · ${Math.round(current.speed)} km/h` : ''}
           </p>
         </div>
@@ -143,12 +158,50 @@ export function JobTrackingPanel({
           </button>
         ) : null}
       </div>
+
+      {templatesQuery.data && templatesQuery.data.length > 0 ? (
+        <div className="rounded-xl bg-sand/60 px-3 py-3">
+          <label className="block text-sm">
+            <span className="font-semibold">Planned corridor</span>
+            <span className="mt-0.5 block text-xs text-ink/55">
+              Assign the UK → Bulgaria → Greece route this consignment will follow. Switch it when
+              traffic or weather makes another corridor better.
+            </span>
+            <select
+              className={`${fieldClass} mt-2`}
+              disabled={!canWrite || assignRoute.isPending}
+              value={tracking?.routeTemplate?.id ?? ''}
+              onChange={(event) => {
+                if (event.target.value) assignRoute.mutate(event.target.value);
+              }}
+            >
+              <option value="" disabled>
+                Select a corridor…
+              </option>
+              {templatesQuery.data.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          {tracking?.routeTemplate?.description ? (
+            <p className="mt-2 text-xs text-ink/55">{tracking.routeTemplate.description}</p>
+          ) : null}
+          {assignRoute.error instanceof Error ? (
+            <div className="mt-2">
+              <ErrorBanner message={assignRoute.error.message} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <JourneyMap
         key={jobId}
         map={map}
         trail={trail}
         markers={markers}
-        showPlannedRoute={!arrived}
+        plannedRoutes={plannedRoute.length > 1 ? [plannedRoute] : []}
       />
       <div className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -157,10 +210,14 @@ export function JobTrackingPanel({
               Tracker <span className="font-semibold">{tracking.tracker.serialNumber}</span>
               {' · '}
               {trackerKindLabel(tracking.tracker.provider)}
-              {tracking.tracker.batteryLevel != null ? ` · ${tracking.tracker.batteryLevel}% battery` : ''}
+              {tracking.tracker.batteryLevel != null
+                ? ` · ${tracking.tracker.batteryLevel}% battery`
+                : ''}
             </p>
           ) : (
-            <p className="text-ink/50">{tracking ? 'No tracker assigned' : 'Showing last known position'}</p>
+            <p className="text-ink/50">
+              {tracking ? 'No tracker assigned' : 'Showing last known position'}
+            </p>
           )}
           {canWrite && tracking?.tracker ? (
             <div className="flex flex-wrap gap-2">
@@ -251,7 +308,11 @@ function TrackerAssignForm({
             if (trackerId) onAssignExisting();
           }}
         >
-          <select className={fieldClass} value={trackerId} onChange={(event) => onTrackerId(event.target.value)}>
+          <select
+            className={fieldClass}
+            value={trackerId}
+            onChange={(event) => onTrackerId(event.target.value)}
+          >
             <option value="">Select tracker</option>
             {available.map((tracker) => (
               <option key={tracker.id} value={tracker.id}>
@@ -289,7 +350,11 @@ function TrackerAssignForm({
           }}
           onError={setScanError}
         />
-        <select className={fieldClass} value={provider} onChange={(event) => onProvider(event.target.value)}>
+        <select
+          className={fieldClass}
+          value={provider}
+          onChange={(event) => onProvider(event.target.value)}
+        >
           <option value="flespi">Teltonika / Flespi</option>
           <option value="generic">Demo simulator</option>
         </select>

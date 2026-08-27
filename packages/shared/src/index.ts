@@ -359,8 +359,8 @@ export type MapConfig = {
   maxZoom: number;
 };
 
-/** Planned UK → Cyprus corridor used for demo GPS trails. */
-export const UK_TO_CYPRUS_ROUTE: GeoPoint[] = [
+/** Classic central corridor — default demo / seeded jobs. */
+export const ROUTE_UK_BG_GR_CENTRAL: GeoPoint[] = [
   { label: 'London', latitude: 51.5074, longitude: -0.1278 },
   { label: 'Dover', latitude: 51.1279, longitude: 1.3134 },
   { label: 'Calais', latitude: 50.9513, longitude: 1.8587 },
@@ -379,6 +379,78 @@ export const UK_TO_CYPRUS_ROUTE: GeoPoint[] = [
   { label: 'Piraeus', latitude: 37.942, longitude: 23.646 },
   { label: 'Limassol', latitude: 34.7071, longitude: 33.0226 },
 ];
+
+/** Northern approach via Berlin / Prague when central Europe is congested. */
+export const ROUTE_UK_BG_GR_NORTHERN: GeoPoint[] = [
+  { label: 'London', latitude: 51.5074, longitude: -0.1278 },
+  { label: 'Harwich', latitude: 51.944, longitude: 1.289 },
+  { label: 'Hook of Holland', latitude: 51.977, longitude: 4.132 },
+  { label: 'Berlin', latitude: 52.52, longitude: 13.405 },
+  { label: 'Prague', latitude: 50.0755, longitude: 14.4378 },
+  { label: 'Bratislava', latitude: 48.1486, longitude: 17.1077 },
+  { label: 'Budapest', latitude: 47.4979, longitude: 19.0402 },
+  { label: 'Belgrade', latitude: 44.7866, longitude: 20.4489 },
+  { label: 'Sofia', latitude: 42.6977, longitude: 23.3219 },
+  { label: 'Kulata', latitude: 41.3851, longitude: 23.362 },
+  { label: 'Thessaloniki', latitude: 40.6401, longitude: 22.9444 },
+  { label: 'Athens', latitude: 37.9838, longitude: 23.7275 },
+  { label: 'Piraeus', latitude: 37.942, longitude: 23.646 },
+  { label: 'Limassol', latitude: 34.7071, longitude: 33.0226 },
+];
+
+/** Southern approach via Milan / Zagreb when Alpine weather is clearer. */
+export const ROUTE_UK_BG_GR_SOUTHERN: GeoPoint[] = [
+  { label: 'London', latitude: 51.5074, longitude: -0.1278 },
+  { label: 'Dover', latitude: 51.1279, longitude: 1.3134 },
+  { label: 'Calais', latitude: 50.9513, longitude: 1.8587 },
+  { label: 'Lyon', latitude: 45.764, longitude: 4.8357 },
+  { label: 'Milan', latitude: 45.4642, longitude: 9.19 },
+  { label: 'Zagreb', latitude: 45.815, longitude: 15.9819 },
+  { label: 'Belgrade', latitude: 44.7866, longitude: 20.4489 },
+  { label: 'Sofia', latitude: 42.6977, longitude: 23.3219 },
+  { label: 'Kulata', latitude: 41.3851, longitude: 23.362 },
+  { label: 'Thessaloniki', latitude: 40.6401, longitude: 22.9444 },
+  { label: 'Igoumenitsa', latitude: 39.5033, longitude: 20.2656 },
+  { label: 'Patras', latitude: 38.2466, longitude: 21.7346 },
+  { label: 'Piraeus', latitude: 37.942, longitude: 23.646 },
+  { label: 'Limassol', latitude: 34.7071, longitude: 33.0226 },
+];
+
+export type RouteTemplateDefinition = {
+  code: string;
+  name: string;
+  description: string;
+  waypoints: GeoPoint[];
+  sortOrder: number;
+};
+
+/** Curated UK → Bulgaria → Greece corridors staff can assign on a job. */
+export const ROUTE_TEMPLATE_DEFINITIONS: RouteTemplateDefinition[] = [
+  {
+    code: 'UK_BG_GR_CENTRAL',
+    name: 'Central (Brussels · Vienna · Sofia)',
+    description: 'Classic corridor via Benelux and the Danube — default for most consignments.',
+    waypoints: ROUTE_UK_BG_GR_CENTRAL,
+    sortOrder: 10,
+  },
+  {
+    code: 'UK_BG_GR_NORTHERN',
+    name: 'Northern (Berlin · Prague · Sofia)',
+    description: 'Prefer when central Europe is congested or Channel delays favour the Hook.',
+    waypoints: ROUTE_UK_BG_GR_NORTHERN,
+    sortOrder: 20,
+  },
+  {
+    code: 'UK_BG_GR_SOUTHERN',
+    name: 'Southern (Milan · Zagreb · Sofia)',
+    description: 'Prefer in better Alpine weather or when collecting further south in the UK.',
+    waypoints: ROUTE_UK_BG_GR_SOUTHERN,
+    sortOrder: 30,
+  },
+];
+
+/** @deprecated Prefer ROUTE_UK_BG_GR_CENTRAL / assigned job template. */
+export const UK_TO_CYPRUS_ROUTE = ROUTE_UK_BG_GR_CENTRAL;
 
 export function densifyRoute(points: GeoPoint[], stepsPerLeg = 4): GeoPoint[] {
   const result: GeoPoint[] = [];
@@ -412,20 +484,46 @@ export function bearingDegrees(
   return (Math.atan2(y, x) * 180) / Math.PI + 360;
 }
 
-export function corridorPositionForStatus(status: JobStatus): GeoPoint {
+/** @deprecated Do not invent live positions — use real GPS only. Kept for demo anchors. */
+export function corridorPositionForStatus(
+  status: JobStatus,
+  waypoints: GeoPoint[] = ROUTE_UK_BG_GR_CENTRAL,
+): GeoPoint {
   const label = routeAnchorLabel(status);
-  return UK_TO_CYPRUS_ROUTE.find((point) => point.label === label) ?? UK_TO_CYPRUS_ROUTE[0];
+  return waypoints.find((point) => point.label === label) ?? waypoints[0];
 }
 
-/** Remaining named waypoints from the vehicle’s last ping (or status) to Limassol. */
+/**
+ * Remaining planned waypoints for map polylines.
+ * With no GPS, returns the full assigned route — never invents a vehicle marker.
+ */
 export function remainingCorridorFrom(
   current: { latitude: number; longitude: number } | null | undefined,
   status: JobStatus = 'NEW',
+  waypoints: GeoPoint[] = ROUTE_UK_BG_GR_CENTRAL,
 ): GeoPoint[] {
-  if (isDestinationReached(status)) return [];
-  const from = current ?? corridorPositionForStatus(status);
-  const index = nearestRouteIndex(UK_TO_CYPRUS_ROUTE, from);
-  return UK_TO_CYPRUS_ROUTE.slice(index);
+  if (isDestinationReached(status) || waypoints.length === 0) return [];
+  if (!current) return waypoints;
+  const index = nearestRouteIndex(waypoints, current);
+  return waypoints.slice(index);
+}
+
+export function parseRouteWaypoints(value: unknown): GeoPoint[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const point = item as Record<string, unknown>;
+    const latitude = Number(point.latitude);
+    const longitude = Number(point.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return [];
+    return [
+      {
+        label: typeof point.label === 'string' ? point.label : 'Waypoint',
+        latitude,
+        longitude,
+      },
+    ];
+  });
 }
 
 export function nearestRouteIndex(

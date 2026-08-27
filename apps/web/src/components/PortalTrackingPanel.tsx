@@ -25,6 +25,7 @@ export function PortalTrackingPanel({
 
   const current = tracking.current;
   const arrived = isDestinationReached(tracking.status as JobStatus);
+  const plannedRoute = !arrived && tracking.plannedRoute?.length ? tracking.plannedRoute : [];
   const markers = current
     ? [
         {
@@ -32,7 +33,6 @@ export function PortalTrackingPanel({
           latitude: current.latitude,
           longitude: current.longitude,
           heading: current.heading,
-          status: tracking.status as JobStatus,
           label: `${tracking.vehicle.make ?? 'Your vehicle'} ${tracking.vehicle.model ?? ''}`.trim(),
           sublabel: getStatusLabel(tracking.status as JobStatus),
         },
@@ -48,14 +48,16 @@ export function PortalTrackingPanel({
             ? `Arrived${destination ? ` in ${destination}` : ''} · updated ${current ? formatDateTime(current.recordedAt) : 'just now'}`
             : current
               ? `Last update ${formatDateTime(current.recordedAt)}`
-              : 'Location will appear once the vehicle is on the road.'}
+              : tracking.routeTemplate
+                ? `On the ${tracking.routeTemplate.name} corridor — location appears once the tracker reports.`
+                : 'Location will appear once the vehicle is on the road.'}
         </p>
       </div>
       <JourneyMap
         map={tracking.map}
         trail={tracking.trail}
         markers={markers}
-        showPlannedRoute={!arrived}
+        plannedRoutes={plannedRoute.length > 1 ? [plannedRoute] : []}
       />
     </section>
   );
