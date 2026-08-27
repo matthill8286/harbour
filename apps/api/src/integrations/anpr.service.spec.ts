@@ -4,27 +4,32 @@ import { VehicleDataService } from './vehicle-data.service';
 
 describe('AnprService', () => {
   const vehicleData = {
-    lookup: jest.fn(async (registration: string) => ({
-      registration,
-      vin: null,
-      make: 'BMW',
-      model: 'M5',
-      variant: null,
-      year: 2019,
-      colour: null,
-      fuelType: null,
-      engineSize: null,
-      bodyType: null,
-      mileage: null,
-      countryOfRegistration: 'GB',
-      source: 'mock',
-    })),
+    lookup: jest.fn((registration: string) =>
+      Promise.resolve({
+        registration,
+        vin: null,
+        make: 'BMW',
+        model: 'M5',
+        variant: null,
+        year: 2019,
+        colour: null,
+        fuelType: null,
+        engineSize: null,
+        bodyType: null,
+        mileage: null,
+        countryOfRegistration: 'GB',
+        source: 'mock',
+      }),
+    ),
   };
 
   const make = (env: Record<string, string | undefined>) =>
-    new AnprService(vehicleData as unknown as VehicleDataService, {
-      get: (key: string, fallback?: string) => env[key] ?? fallback,
-    } as ConfigService);
+    new AnprService(
+      vehicleData as unknown as VehicleDataService,
+      {
+        get: (key: string, fallback?: string) => env[key] ?? fallback,
+      } as ConfigService,
+    );
 
   beforeEach(() => {
     jest.clearAllMocks();
