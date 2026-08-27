@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   getJobStage,
   JOB_STAGE_LABELS,
@@ -7,13 +8,38 @@ import {
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
+import {
+  buildNearDestinationAlert,
+  buildStaleTrackerAlert,
+  DEFAULT_NEAR_DESTINATION_METERS,
+  DEFAULT_STALE_TRACKER_MS,
+  haversineMeters,
+  isNearDestination,
+  isTrackerStale,
+  parsePositiveNumber,
+  routeDestination,
+  type OpsAlert,
+} from './ops-alerts';
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async get(user: AuthUser) {
-    const [jobs, overdueTasks, upcomingDeliveries, offlineTrackers] =
+    const staleThresholdMs = parsePositiveNumber(
+      this.config.get<string>('GPS_STALE_TRACKER_MS'),
+      DEFAULT_STALE_TRACKER_MS,
+    );
+    const nearRadiusMeters = parsePositiveNumber(
+      this.config.get<string>('GPS_NEAR_DESTINATION_METERS'),
+      DEFAULT_NEAR_DESTINATION_METERS,
+    );
+    const now = new Date();
+
+    const [jobs, overdueTasks, upcomingDeliveries, trackedJobs] =
       await Promise.all([
         this.prisma.importJob.findMany({
           where: { organisationId: user.organisationId },
@@ -56,26 +82,109 @@ export class DashboardService {
           orderBy: { expectedDeliveryDate: 'asc' },
           take: 8,
         }),
-        this.prisma.tracker.findMany({
+        this.prisma.importJob.findMany({
           where: {
             organisationId: user.organisationId,
-            OR: [
-              { status: 'OFFLINE' },
-              {
-                status: 'ASSIGNED',
-                lastSeenAt: { lt: new Date(Date.now() - 4 * 60 * 60 * 1000) },
-              },
-            ],
+            status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            trackerAssignments: { some: { removedAt: null } },
           },
-          include: {
-            assignments: {
+          select: {
+            id: true,
+            reference: true,
+            status: true,
+            routeTemplate: { select: { waypoints: true } },
+            trackerAssignments: {
               where: { removedAt: null },
-              include: { importJob: { select: { id: true, reference: true } } },
               take: 1,
+              select: {
+                tracker: {
+                  select: {
+                    id: true,
+                    serialNumber: true,
+                    status: true,
+                    lastSeenAt: true,
+                  },
+                },
+              },
+            },
+            locationEvents: {
+              orderBy: { recordedAt: 'desc' },
+              take: 1,
+              select: {
+                latitude: true,
+                longitude: true,
+                recordedAt: true,
+              },
             },
           },
         }),
       ]);
+
+    const opsAlerts: OpsAlert[] = [];
+    const offlineTrackers: {
+      id: string;
+      serialNumber: string;
+      assignments: { importJob: { id: string; reference: string } }[];
+    }[] = [];
+
+    for (const job of trackedJobs) {
+      const assignment = job.trackerAssignments[0];
+      if (!assignment) continue;
+      const tracker = assignment.tracker;
+
+      const stale =
+        tracker.status === 'OFFLINE' ||
+        isTrackerStale({
+          lastSeenAt: tracker.lastSeenAt,
+          now,
+          thresholdMs: staleThresholdMs,
+        });
+
+      if (stale) {
+        offlineTrackers.push({
+          id: tracker.id,
+          serialNumber: tracker.serialNumber,
+          assignments: [
+            { importJob: { id: job.id, reference: job.reference } },
+          ],
+        });
+        opsAlerts.push(
+          buildStaleTrackerAlert({
+            importJobId: job.id,
+            reference: job.reference,
+            trackerSerial: tracker.serialNumber,
+            lastSeenAt: tracker.lastSeenAt,
+          }),
+        );
+      }
+
+      const lastPing = job.locationEvents[0];
+      const current = lastPing
+        ? {
+            latitude: Number(lastPing.latitude),
+            longitude: Number(lastPing.longitude),
+          }
+        : null;
+      const destination = routeDestination(job.routeTemplate?.waypoints);
+      if (
+        isNearDestination({
+          status: job.status,
+          current,
+          destination,
+          radiusMeters: nearRadiusMeters,
+        }) &&
+        current
+      ) {
+        opsAlerts.push(
+          buildNearDestinationAlert({
+            importJobId: job.id,
+            reference: job.reference,
+            destinationLabel: destination.label,
+            distanceMeters: haversineMeters(current, destination),
+          }),
+        );
+      }
+    }
 
     const byStage = jobs.reduce(
       (acc, job) => {
@@ -98,6 +207,7 @@ export class DashboardService {
       overdueTasks,
       upcomingDeliveries,
       offlineTrackers,
+      opsAlerts,
     };
   }
 }
