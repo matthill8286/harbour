@@ -1,8 +1,5 @@
 export type CustomerEmailEventType =
-  | 'JOB_STATUS'
-  | 'CUSTOMER_NOTE'
-  | 'FILE_SHARED'
-  | 'PORTAL_INVITE';
+  'JOB_STATUS' | 'CUSTOMER_NOTE' | 'FILE_SHARED' | 'PORTAL_INVITE';
 
 export type CustomerEmailEvent = {
   type: CustomerEmailEventType;

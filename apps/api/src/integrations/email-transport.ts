@@ -67,9 +67,7 @@ export class EmailTransport {
     });
     if (!response.ok) {
       const detail = await response.text();
-      this.logger.warn(
-        `Resend ${response.status}: ${detail.slice(0, 240)}`,
-      );
+      this.logger.warn(`Resend ${response.status}: ${detail.slice(0, 240)}`);
       throw new Error(`Resend returned ${response.status}`);
     }
   }
