@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { corridorPositionForStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { relativeTime } from '../lib/format';
 import { spreadOverlappingMarkers, type LiveTracking } from '../lib/tracking';
@@ -9,7 +8,7 @@ import { JourneyMap } from '../components/JourneyMap';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, LoadingScreen, OpsToolbar, fieldClass, secondaryBtn } from '../components/ui';
 
-type FleetFilter = 'all' | 'live' | 'estimated';
+type FleetFilter = 'all' | 'live' | 'no-gps';
 
 export function TrackingPage() {
   const [params] = useSearchParams();
@@ -25,22 +24,23 @@ export function TrackingPage() {
   });
   const vehicles = data?.vehicles ?? [];
   const pinging = vehicles.filter((item) => item.current).length;
+  const awaiting = vehicles.length - pinging;
   const markers = useMemo(
     () =>
       spreadOverlappingMarkers(
-        vehicles.map((item) => {
-          const point = item.current ?? corridorPositionForStatus(item.status);
-          return {
-            id: item.importJobId,
-            latitude: point.latitude,
-            longitude: point.longitude,
-            heading: item.current?.heading ?? null,
-            estimated: !item.current,
-            status: item.status,
-            label: `${item.vehicle.make ?? 'Vehicle'} ${item.vehicle.model ?? ''}`.trim(),
-            sublabel: `${item.reference} · ${item.customer.firstName} ${item.customer.lastName}`,
-            href: `/jobs/${item.importJobId}`,
-          };
+        vehicles.flatMap((item) => {
+          if (!item.current) return [];
+          return [
+            {
+              id: item.importJobId,
+              latitude: item.current.latitude,
+              longitude: item.current.longitude,
+              heading: item.current.heading ?? null,
+              label: `${item.vehicle.make ?? 'Vehicle'} ${item.vehicle.model ?? ''}`.trim(),
+              sublabel: `${item.reference} · ${item.customer.firstName} ${item.customer.lastName}`,
+              href: `/jobs/${item.importJobId}`,
+            },
+          ];
         }),
       ),
     [vehicles],
@@ -53,7 +53,7 @@ export function TrackingPage() {
     const query = search.trim().toLowerCase();
     return vehicles.filter((item) => {
       if (filter === 'live' && !item.current) return false;
-      if (filter === 'estimated' && item.current) return false;
+      if (filter === 'no-gps' && item.current) return false;
       if (!query) return true;
       const haystack = [
         item.reference,
@@ -62,6 +62,7 @@ export function TrackingPage() {
         item.customer.firstName,
         item.customer.lastName,
         item.tracker?.serialNumber,
+        item.routeTemplate?.name,
       ]
         .filter(Boolean)
         .join(' ')
@@ -73,7 +74,19 @@ export function TrackingPage() {
   const selectedMarker = selectedId ? markerById.get(selectedId) : null;
   const focusTarget = selectedMarker
     ? { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude }
-    : null;
+    : selectedVehicle?.plannedRoute?.[0]
+      ? {
+          latitude: selectedVehicle.plannedRoute[0].latitude,
+          longitude: selectedVehicle.plannedRoute[0].longitude,
+        }
+      : null;
+  const plannedRoutes = useMemo(() => {
+    if (selectedId) {
+      const selected = vehicles.find((item) => item.importJobId === selectedId);
+      return selected?.plannedRoute?.length ? [selected.plannedRoute] : [];
+    }
+    return vehicles.map((item) => item.plannedRoute).filter((line) => line.length > 1);
+  }, [selectedId, vehicles]);
 
   useEffect(() => {
     if (initialJob) setSelectedId(initialJob);
@@ -96,7 +109,7 @@ export function TrackingPage() {
         meta={
           vehicles.length === 0
             ? 'No active vehicles yet'
-            : `${vehicles.length} active · ${pinging} live · ${vehicles.length - pinging} estimated`
+            : `${vehicles.length} active · ${pinging} live · ${awaiting} awaiting GPS`
         }
         actions={
           selectedId ? (
@@ -131,7 +144,7 @@ export function TrackingPage() {
                   [
                     ['all', `All (${vehicles.length})`],
                     ['live', `Live (${pinging})`],
-                    ['estimated', `Est. (${vehicles.length - pinging})`],
+                    ['no-gps', `No GPS (${awaiting})`],
                   ] as const
                 ).map(([value, label]) => (
                   <button
@@ -153,7 +166,6 @@ export function TrackingPage() {
               ) : (
                 filteredVehicles.map((item) => {
                   const isSelected = selectedId === item.importJobId;
-                  const point = item.current ?? corridorPositionForStatus(item.status);
                   const isLive = Boolean(item.current);
                   return (
                     <li key={item.importJobId}>
@@ -187,8 +199,10 @@ export function TrackingPage() {
                         </div>
                         <p className="mt-1.5 text-[11px] text-ink/50">
                           {isLive
-                            ? `${point.latitude.toFixed(4)}, ${point.longitude.toFixed(4)} · ${relativeTime(item.current!.recordedAt)}`
-                            : 'No live ping · corridor estimate'}
+                            ? `${item.current!.latitude.toFixed(4)}, ${item.current!.longitude.toFixed(4)} · ${relativeTime(item.current!.recordedAt)}`
+                            : item.routeTemplate
+                              ? `Awaiting GPS · ${item.routeTemplate.name}`
+                              : 'Awaiting GPS · no route assigned'}
                         </p>
                         {isSelected ? (
                           <Link
@@ -214,22 +228,27 @@ export function TrackingPage() {
                   <p className="text-xs text-ink/55">
                     {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ·{' '}
                     {selectedVehicle.customer.firstName} {selectedVehicle.customer.lastName}
+                    {selectedVehicle.routeTemplate
+                      ? ` · ${selectedVehicle.routeTemplate.name}`
+                      : ''}
                   </p>
                 </div>
                 <StatusBadge status={selectedVehicle.status} />
               </div>
             ) : (
               <p className="fleet-map-hint mb-2 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-xs text-ink/55">
-                Select a vehicle in the list, or tap a marker, to focus its route.
+                Select a vehicle in the list, or tap a marker, to focus its planned route.
               </p>
             )}
             <JourneyMap
               map={data.map}
-              trails={vehicles.map((item) => item.trail)}
+              trailLines={vehicles.map((item) => ({
+                id: item.importJobId,
+                points: item.trail,
+              }))}
               markers={markers}
+              plannedRoutes={plannedRoutes}
               heightClassName="harbour-map-fleet"
-              showCorridor={!selectedId}
-              showPlannedRoute
               fitMode="frame"
               labelled
               selectedId={selectedId}

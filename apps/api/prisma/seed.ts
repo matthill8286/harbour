@@ -4,12 +4,41 @@ import { PrismaClient, UserRole } from '@prisma/client';
 import { hash } from 'argon2';
 import {
   DEFAULT_WORKFLOW_STATUSES,
+  ROUTE_TEMPLATE_DEFINITIONS,
+  ROUTE_UK_BG_GR_CENTRAL,
   bearingDegrees,
   densifyRoute,
-  UK_TO_CYPRUS_ROUTE,
 } from '@vip/shared';
 
 const prisma = new PrismaClient();
+
+async function seedRouteTemplates() {
+  for (const definition of ROUTE_TEMPLATE_DEFINITIONS) {
+    await prisma.routeTemplate.upsert({
+      where: { code: definition.code },
+      update: {
+        name: definition.name,
+        description: definition.description,
+        waypoints: definition.waypoints,
+        sortOrder: definition.sortOrder,
+        active: true,
+        organisationId: null,
+      },
+      create: {
+        code: definition.code,
+        name: definition.name,
+        description: definition.description,
+        waypoints: definition.waypoints,
+        sortOrder: definition.sortOrder,
+        active: true,
+        organisationId: null,
+      },
+    });
+  }
+  return prisma.routeTemplate.findUniqueOrThrow({
+    where: { code: 'UK_BG_GR_CENTRAL' },
+  });
+}
 
 async function upsertMember(input: {
   organisationId: string;
@@ -83,6 +112,7 @@ async function main() {
   const staffHash = await hash('ChangeMe!Staff1');
   const viewerHash = await hash('ChangeMe!Viewer1');
   const customerHash = await hash('ChangeMe!Customer1');
+  const centralRoute = await seedRouteTemplates();
 
   const organisation = await prisma.organisation.upsert({
     where: { slug: 'demo-imports' },
@@ -273,6 +303,7 @@ async function main() {
         registrationCountry: 'BG',
         expectedDeliveryDate: new Date('2026-09-15'),
         startedAt: new Date('2026-08-20'),
+        routeTemplateId: centralRoute.id,
       },
     });
 
@@ -444,7 +475,11 @@ async function main() {
   } else {
     await prisma.importJob.update({
       where: { id: existingJob.id },
-      data: { status: 'IN_TRANSIT_TO_GREECE', completedAt: null },
+      data: {
+        status: 'IN_TRANSIT_TO_GREECE',
+        completedAt: null,
+        routeTemplateId: centralRoute.id,
+      },
     });
     await seedJobTimeline(organisation.id, existingJob.id, admin.id);
     const assignment = await prisma.trackerAssignment.findFirst({
@@ -481,6 +516,7 @@ async function main() {
         destinationCountry: 'CY',
         registrationCountry: 'NL',
         expectedDeliveryDate: new Date('2026-10-01'),
+        routeTemplateId: centralRoute.id,
         tasks: {
           create: {
             organisationId: organisation.id,
@@ -726,7 +762,7 @@ async function seedJourneyTrail(
   trackerId: string,
 ) {
   await prisma.locationEvent.deleteMany({ where: { importJobId } });
-  const route = densifyRoute(UK_TO_CYPRUS_ROUTE, 4);
+  const route = densifyRoute(ROUTE_UK_BG_GR_CENTRAL, 4);
   const travelled = route.slice(0, 41);
   const started = new Date('2026-08-23T09:32:00Z').getTime();
   const lastRecordedAt = new Date(started + (travelled.length - 1) * 3.5 * 60 * 60 * 1000);

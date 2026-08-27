@@ -77,3 +77,7 @@ Status changes, customer-visible notes/files, and portal invites go through `Not
 - Production: `EMAIL_PROVIDER=resend`, set `RESEND_API_KEY`, and a verified `EMAIL_FROM` address.
 
 Staff still get a copyable invite link after inviting a customer.
+
+## Planned corridors
+
+Live fleet markers only appear from real GPS pings. Jobs can be assigned one of three curated UK → Bulgaria → Greece corridors (Central / Northern / Southern). Staff switch the corridor on the job’s Tracking tab when traffic or weather changes; the dashed map line follows the assigned template, never a fake vehicle position.
