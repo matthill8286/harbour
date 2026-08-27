@@ -46,7 +46,7 @@ export class VehiclesController {
   @Roles(...STAFF_READ_ROLES)
   @UseInterceptors(FileInterceptor('image'))
   scanPlate(@UploadedFile() file?: Express.Multer.File) {
-    return this.vehicles.scanPlate(file?.originalname ?? 'plate.jpg');
+    return this.vehicles.scanPlate(file);
   }
 
   @Get(':id')

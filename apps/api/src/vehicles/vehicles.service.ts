@@ -63,8 +63,12 @@ export class VehiclesService {
     return this.vehicleData.lookup(registration);
   }
 
-  scanPlate(originalName: string) {
-    return this.anpr.recognise(originalName);
+  scanPlate(file?: Express.Multer.File) {
+    return this.anpr.recognise({
+      originalName: file?.originalname ?? 'plate.jpg',
+      buffer: file?.buffer,
+      mimeType: file?.mimetype,
+    });
   }
 
   create(user: AuthUser, dto: CreateVehicleDto) {
