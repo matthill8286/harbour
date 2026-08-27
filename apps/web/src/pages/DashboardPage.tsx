@@ -29,6 +29,14 @@ type Dashboard = {
     serialNumber: string;
     assignments: { importJob: { id: string; reference: string } }[];
   }[];
+  opsAlerts: {
+    kind: 'STALE_TRACKER' | 'NEAR_DESTINATION';
+    importJobId: string;
+    reference: string;
+    title: string;
+    detail: string;
+    trackerSerial?: string;
+  }[];
 };
 
 export function DashboardPage() {
@@ -130,26 +138,19 @@ export function DashboardPage() {
         </Card>
       </section>
 
-      {data.offlineTrackers.length > 0 ? (
+      {data.opsAlerts.length > 0 ? (
         <Card>
-          <h2 className="font-semibold">Tracker issues</h2>
+          <h2 className="font-semibold">GPS ops alerts</h2>
           <ul className="mt-2 space-y-2 text-sm">
-            {data.offlineTrackers.map((tracker) => (
-              <li key={tracker.id}>
-                {tracker.serialNumber}
-                {tracker.assignments[0] ? (
-                  <>
-                    {' · '}
-                    <Link
-                      className="font-semibold text-harbour"
-                      to={`/jobs/${tracker.assignments[0].importJob.id}?tab=tracking`}
-                    >
-                      {tracker.assignments[0].importJob.reference}
-                    </Link>
-                  </>
-                ) : (
-                  <span className="text-ink/50"> · unassigned</span>
-                )}
+            {data.opsAlerts.map((alert) => (
+              <li key={`${alert.kind}-${alert.importJobId}`}>
+                <Link
+                  className="font-semibold text-harbour"
+                  to={`/jobs/${alert.importJobId}?tab=tracking`}
+                >
+                  {alert.title} · {alert.reference}
+                </Link>
+                <p className="text-ink/70">{alert.detail}</p>
               </li>
             ))}
           </ul>
