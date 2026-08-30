@@ -80,11 +80,11 @@ Staff still get a copyable invite link after inviting a customer.
 
 ## Harbour AI
 
-Staff-only helpers via `AiTransport` (`AI_PROVIDER=log|openai`). Never invents costs/IMEI, never auto-posts notes, and never emails customers.
+Staff-only helpers via `AiTransport` (`AI_PROVIDER=log|openai`). Never invents GPS, costs, margins, or IMEI; never auto-posts notes; never emails customers.
 
-- Default: `AI_PROVIDER=log` — offline templates / heuristics (no network). Customer note **Draft with AI** still works.
-- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`).
-- UI: Job Detail → Notes → enter intent → **Draft with AI** fills the body; staff must still **Add note**.
+- Default: `AI_PROVIDER=log` — offline heuristics / templates (no network). Corridor suggest, Board `aiSummary`, and Notes **Draft with AI** still work.
+- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`) for model picks / polished copy. Invalid model ids fall back to heuristics.
+- UI: Tracking **Suggest corridor** → review → **Apply**; Board shows enriched ops alerts; Notes → intent → **Draft with AI** fills the body (staff must still **Add note**).
 
 ## Planned corridors
 

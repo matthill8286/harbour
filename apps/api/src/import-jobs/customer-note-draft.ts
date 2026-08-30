@@ -11,11 +11,7 @@ export function buildCustomerNoteDraft(ctx: CustomerNoteDraftContext): string {
   const intent = ctx.intent.trim().replace(/\s+/g, ' ');
   const tone = ctx.tone?.trim().toLowerCase();
   const greeting =
-    tone === 'warm'
-      ? 'Hope you are well —'
-      : tone === 'brief'
-        ? ''
-        : 'Hello,';
+    tone === 'warm' ? 'Hope you are well —' : tone === 'brief' ? '' : 'Hello,';
 
   const vehicleBit = ctx.vehicleSummary.trim()
     ? ` regarding your ${ctx.vehicleSummary.trim()}`
