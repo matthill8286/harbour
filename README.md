@@ -78,13 +78,13 @@ Status changes, customer-visible notes/files, and portal invites go through `Not
 
 Staff still get a copyable invite link after inviting a customer.
 
-## Harbour AI ops assist
+## Harbour AI
 
-Staff-only helpers for Board triage copy and corridor suggestions via `AiTransport`. Never invents GPS and never emails customers.
+Staff-only helpers via `AiTransport` (`AI_PROVIDER=log|openai`). Never invents GPS, costs, margins, or IMEI; never auto-posts notes; never emails customers.
 
-- Default: `AI_PROVIDER=log` — offline heuristics (no network). Corridor suggest and Board `aiSummary` still work.
-- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`) for model picks / polished triage. Invalid model ids fall back to heuristics.
-- UI: Tracking tab **Suggest corridor** → review rationale → **Apply** (existing route template PATCH). Board shows enriched ops alert text with links to `/jobs/:id?tab=tracking`.
+- Default: `AI_PROVIDER=log` — offline heuristics / templates (no network). Corridor suggest, Board `aiSummary`, and Notes **Draft with AI** still work.
+- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`) for model picks / polished copy. Invalid model ids fall back to heuristics.
+- UI: Tracking **Suggest corridor** → review → **Apply**; Board shows enriched ops alerts; Notes → intent → **Draft with AI** fills the body (staff must still **Add note**).
 
 ## Planned corridors
 

@@ -20,6 +20,10 @@ import { UsageService } from '../tenancy/usage.service';
 import { RouteTemplatesService } from '../routes/route-templates.service';
 import { AiTransport } from '../integrations/ai-transport';
 import {
+  buildCustomerNoteDraft,
+  vehicleSummaryFromParts,
+} from './customer-note-draft';
+import {
   pickValidatedRecommendation,
   recommendCorridorHeuristic,
   type CorridorRecommendation,
@@ -34,6 +38,7 @@ import {
   CreateJourneyDto,
   CreateNoteDto,
   CreateTaskDto,
+  DraftCustomerNoteDto,
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
@@ -527,6 +532,60 @@ export class ImportJobsService {
         incurredOn: dto.incurredOn ? new Date(dto.incurredOn) : undefined,
       },
     });
+  }
+
+  /**
+   * Staff-only draft for a customer-visible note. Never posts or emails —
+   * staff must still save the note themselves.
+   */
+  async draftCustomerNote(
+    user: AuthUser,
+    jobId: string,
+    dto: DraftCustomerNoteDto,
+  ) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId, organisationId: user.organisationId },
+      select: {
+        reference: true,
+        status: true,
+        vehicle: {
+          select: {
+            make: true,
+            model: true,
+            variant: true,
+            ukRegistration: true,
+          },
+        },
+      },
+    });
+    if (!job) {
+      throw new NotFoundException('Import job not found');
+    }
+
+    const statusLabel = getStatusLabel(job.status as JobStatus);
+    const vehicleSummary = vehicleSummaryFromParts(job.vehicle ?? {});
+    const logDraft = buildCustomerNoteDraft({
+      reference: job.reference,
+      statusLabel,
+      vehicleSummary,
+      intent: dto.intent,
+      tone: dto.tone,
+    });
+
+    const result = await this.ai.completeText({
+      system:
+        'You write short, professional customer updates for Harbour vehicle imports. Use only the facts provided. Never invent costs, margins, prices, IMEI, tracker ids, internal notes, or delivery promises you were not given. Do not mention internal ops tooling. Plain text only — no markdown headings.',
+      user: JSON.stringify({
+        intent: dto.intent.trim(),
+        tone: dto.tone?.trim() || 'professional',
+        reference: job.reference,
+        statusLabel,
+        vehicleSummary: vehicleSummary || null,
+      }),
+      logFallback: logDraft,
+    });
+
+    return { draft: result.text, source: result.source };
   }
 
   async addNote(user: AuthUser, jobId: string, dto: CreateNoteDto) {

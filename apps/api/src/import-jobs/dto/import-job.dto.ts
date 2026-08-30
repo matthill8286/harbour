@@ -243,6 +243,16 @@ export class CreateNoteDto {
   visibility?: (typeof NOTE_VISIBILITIES)[number];
 }
 
+export class DraftCustomerNoteDto {
+  @IsString()
+  @MinLength(1)
+  intent!: string;
+
+  @IsOptional()
+  @IsString()
+  tone?: string;
+}
+
 export class CreateJourneyDto {
   @IsOptional()
   @IsIn(JOURNEY_TYPES)
