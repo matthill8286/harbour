@@ -78,6 +78,14 @@ Status changes, customer-visible notes/files, and portal invites go through `Not
 
 Staff still get a copyable invite link after inviting a customer.
 
+## Harbour AI ops assist
+
+Staff-only helpers for Board triage copy and corridor suggestions via `AiTransport`. Never invents GPS and never emails customers.
+
+- Default: `AI_PROVIDER=log` — offline heuristics (no network). Corridor suggest and Board `aiSummary` still work.
+- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`) for model picks / polished triage. Invalid model ids fall back to heuristics.
+- UI: Tracking tab **Suggest corridor** → review rationale → **Apply** (existing route template PATCH). Board shows enriched ops alert text with links to `/jobs/:id?tab=tracking`.
+
 ## Planned corridors
 
 Live fleet markers only appear from real GPS pings. Jobs can be assigned one of three curated UK → Bulgaria → Greece corridors (Central / Northern / Southern). Staff switch the corridor on the job’s Tracking tab when traffic or weather changes; the dashed map line follows the assigned template, never a fake vehicle position.
