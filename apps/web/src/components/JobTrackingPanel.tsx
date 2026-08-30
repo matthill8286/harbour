@@ -27,6 +27,13 @@ export function JobTrackingPanel({
   const [replacing, setReplacing] = useState(false);
   const [imei, setImei] = useState('');
   const [provider, setProvider] = useState('flespi');
+  const [suggestion, setSuggestion] = useState<{
+    recommendedTemplateId: string;
+    code: string;
+    name: string;
+    rationale: string;
+    confidence: number;
+  } | null>(null);
   const trackingQuery = useQuery({
     queryKey: ['tracking', jobId],
     queryFn: () => api<JobTracking>(`/import-jobs/${jobId}/tracking`),
@@ -60,7 +67,21 @@ export function JobTrackingPanel({
         method: 'PATCH',
         body: JSON.stringify({ routeTemplateId }),
       }),
-    onSuccess: () => void invalidate(),
+    onSuccess: () => {
+      setSuggestion(null);
+      void invalidate();
+    },
+  });
+  const suggestRoute = useMutation({
+    mutationFn: () =>
+      api<{
+        recommendedTemplateId: string;
+        code: string;
+        name: string;
+        rationale: string;
+        confidence: number;
+      }>(`/import-jobs/${jobId}/route-recommend`, { method: 'POST' }),
+    onSuccess: (data) => setSuggestion(data),
   });
   const assign = useMutation({
     mutationFn: () =>
@@ -187,6 +208,40 @@ export function JobTrackingPanel({
           </label>
           {tracking?.routeTemplate?.description ? (
             <p className="mt-2 text-xs text-ink/55">{tracking.routeTemplate.description}</p>
+          ) : null}
+          {canWrite ? (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className={secondaryBtn}
+                disabled={suggestRoute.isPending}
+                onClick={() => suggestRoute.mutate()}
+              >
+                {suggestRoute.isPending ? 'Suggesting…' : 'Suggest corridor'}
+              </button>
+              {suggestion &&
+              suggestion.recommendedTemplateId !== tracking?.routeTemplate?.id ? (
+                <button
+                  type="button"
+                  className={primaryBtn}
+                  disabled={assignRoute.isPending}
+                  onClick={() => assignRoute.mutate(suggestion.recommendedTemplateId)}
+                >
+                  {assignRoute.isPending ? 'Applying…' : `Apply ${suggestion.name}`}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+          {suggestion ? (
+            <p className="mt-2 text-xs text-ink/65">
+              <span className="font-semibold">{suggestion.name}</span>
+              {` · ${Math.round(suggestion.confidence * 100)}% · ${suggestion.rationale}`}
+            </p>
+          ) : null}
+          {suggestRoute.error instanceof Error ? (
+            <div className="mt-2">
+              <ErrorBanner message={suggestRoute.error.message} />
+            </div>
           ) : null}
           {assignRoute.error instanceof Error ? (
             <div className="mt-2">

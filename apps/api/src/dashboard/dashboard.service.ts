@@ -8,6 +8,12 @@ import {
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import type { AuthUser } from '../auth/auth.types';
+import { AiTransport } from '../integrations/ai-transport';
+import {
+  applyTriagePolish,
+  enrichOpsAlertsHeuristic,
+  type EnrichedOpsAlert,
+} from './ops-alert-triage';
 import {
   buildNearDestinationAlert,
   buildStaleTrackerAlert,
@@ -26,6 +32,7 @@ export class DashboardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly ai: AiTransport,
   ) {}
 
   async get(user: AuthUser) {
@@ -195,6 +202,8 @@ export class DashboardService {
       {} as Record<JobStage, number>,
     );
 
+    const enrichedAlerts = await this.enrichOpsAlerts(opsAlerts);
+
     return {
       activeJobs: jobs.filter(
         (job) => !['COMPLETED', 'CANCELLED'].includes(job.status),
@@ -207,7 +216,50 @@ export class DashboardService {
       overdueTasks,
       upcomingDeliveries,
       offlineTrackers,
-      opsAlerts,
+      opsAlerts: enrichedAlerts,
     };
+  }
+
+  /** Heuristic triage always; optional OpenAI polish when keyed. Staff-only. */
+  private async enrichOpsAlerts(
+    opsAlerts: OpsAlert[],
+  ): Promise<EnrichedOpsAlert[]> {
+    const enriched = enrichOpsAlertsHeuristic(opsAlerts);
+    if (enriched.length === 0) {
+      return enriched;
+    }
+
+    const polish = await this.ai.completeJson<{
+      summaries?: Array<{
+        kind?: string;
+        importJobId?: string;
+        aiSummary?: string;
+      }>;
+    }>({
+      system:
+        'You are Harbour ops assist writing short staff-only Board triage notes. Never draft customer emails. Each note: why it matters + one next step pointing staff to Tracking.',
+      user: JSON.stringify({
+        alerts: enriched.map((a) => ({
+          kind: a.kind,
+          importJobId: a.importJobId,
+          reference: a.reference,
+          title: a.title,
+          detail: a.detail,
+          trackerSerial: a.trackerSerial,
+          heuristicSummary: a.aiSummary,
+        })),
+      }),
+      schemaHint:
+        '{ "summaries": Array<{ "kind": string, "importJobId": string, "aiSummary": string }> }',
+      logFallback: {
+        summaries: enriched.map((a) => ({
+          kind: a.kind,
+          importJobId: a.importJobId,
+          aiSummary: a.aiSummary,
+        })),
+      },
+    });
+
+    return applyTriagePolish(enriched, polish);
   }
 }
