@@ -76,6 +76,12 @@ export class ImportJobsController {
     return this.jobs.update(user, id, dto);
   }
 
+  @Post(':id/route-recommend')
+  @Roles(...STAFF_READ_ROLES)
+  recommendRoute(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.jobs.recommendRoute(user, id);
+  }
+
   @Post(':id/status')
   changeStatus(
     @CurrentUser() user: AuthUser,

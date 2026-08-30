@@ -23,6 +23,12 @@ import {
   buildCustomerNoteDraft,
   vehicleSummaryFromParts,
 } from './customer-note-draft';
+import {
+  pickValidatedRecommendation,
+  recommendCorridorHeuristic,
+  type CorridorRecommendation,
+  type CorridorTemplateInput,
+} from '../routes/corridor-recommend';
 import type { AuthUser } from '../auth/auth.types';
 import {
   ChangeStatusDto,
@@ -290,6 +296,107 @@ export class ImportJobsService {
       });
     }
     return this.present(job);
+  }
+
+  /**
+   * Staff-only corridor suggestion. Never auto-assigns — apply via PATCH.
+   * Offline heuristics always work; OpenAI optional when keyed.
+   */
+  async recommendRoute(
+    user: AuthUser,
+    id: string,
+  ): Promise<CorridorRecommendation> {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id, organisationId: user.organisationId },
+      select: {
+        id: true,
+        status: true,
+        routeTemplateId: true,
+        routeTemplate: {
+          select: { id: true, code: true, name: true, waypoints: true },
+        },
+        locationEvents: {
+          orderBy: { recordedAt: 'desc' },
+          take: 1,
+          select: { latitude: true, longitude: true },
+        },
+      },
+    });
+    if (!job) {
+      throw new NotFoundException('Import job not found');
+    }
+
+    const listed = await this.routes.list(user);
+    const templates: CorridorTemplateInput[] = listed.map((t) => ({
+      id: t.id,
+      code: t.code,
+      name: t.name,
+      waypoints: t.waypoints.map((w) => ({
+        latitude: w.latitude,
+        longitude: w.longitude,
+      })),
+    }));
+    if (templates.length === 0) {
+      throw new BadRequestException('No route templates available');
+    }
+
+    const lastEvent = job.locationEvents[0];
+    const lastPing = lastEvent
+      ? {
+          latitude: Number(lastEvent.latitude),
+          longitude: Number(lastEvent.longitude),
+        }
+      : null;
+    const heuristic = recommendCorridorHeuristic({
+      templates,
+      currentTemplateId: job.routeTemplateId,
+      lastPing,
+      status: job.status,
+    });
+
+    const modelPick = await this.ai.completeJson<{
+      recommendedTemplateId?: string;
+      rationale?: string;
+      confidence?: number;
+    }>({
+      system:
+        'You are Harbour ops assist. Recommend one UK→BG→GR corridor template for a vehicle import job. Use only the provided template ids. Staff will confirm before applying. Never invent GPS positions. Never draft customer emails.',
+      user: JSON.stringify({
+        status: job.status,
+        currentTemplateId: job.routeTemplateId,
+        currentTemplate: job.routeTemplate
+          ? {
+              id: job.routeTemplate.id,
+              code: job.routeTemplate.code,
+              name: job.routeTemplate.name,
+            }
+          : null,
+        lastPing,
+        templates: templates.map((t) => ({
+          id: t.id,
+          code: t.code,
+          name: t.name,
+          waypointCount: t.waypoints.length,
+          sampleWaypoints: t.waypoints.slice(0, 4),
+        })),
+      }),
+      schemaHint:
+        '{ "recommendedTemplateId": string, "rationale": string, "confidence": number }',
+      logFallback: {
+        recommendedTemplateId: heuristic.recommendedTemplateId,
+        rationale: heuristic.rationale,
+        confidence: heuristic.confidence,
+      },
+    });
+
+    return (
+      pickValidatedRecommendation(
+        templates,
+        modelPick.recommendedTemplateId,
+        modelPick.rationale,
+        modelPick.confidence,
+      ) ?? heuristic
+    );
   }
 
   async changeStatus(user: AuthUser, id: string, dto: ChangeStatusDto) {

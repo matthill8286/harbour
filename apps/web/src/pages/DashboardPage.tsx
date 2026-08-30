@@ -36,6 +36,7 @@ type Dashboard = {
     title: string;
     detail: string;
     trackerSerial?: string;
+    aiSummary?: string;
   }[];
 };
 
@@ -151,6 +152,9 @@ export function DashboardPage() {
                   {alert.title} · {alert.reference}
                 </Link>
                 <p className="text-ink/70">{alert.detail}</p>
+                {alert.aiSummary ? (
+                  <p className="mt-0.5 text-xs text-ink/55">{alert.aiSummary}</p>
+                ) : null}
               </li>
             ))}
           </ul>
