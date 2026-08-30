@@ -78,6 +78,14 @@ Status changes, customer-visible notes/files, and portal invites go through `Not
 
 Staff still get a copyable invite link after inviting a customer.
 
+## Harbour AI
+
+Staff-only helpers via `AiTransport` (`AI_PROVIDER=log|openai`). Never invents costs/IMEI, never auto-posts notes, and never emails customers.
+
+- Default: `AI_PROVIDER=log` — offline templates / heuristics (no network). Customer note **Draft with AI** still works.
+- Optional: `AI_PROVIDER=openai`, set `OPENAI_API_KEY` (and optionally `OPENAI_MODEL`, default `gpt-4o-mini`).
+- UI: Job Detail → Notes → enter intent → **Draft with AI** fills the body; staff must still **Add note**.
+
 ## Planned corridors
 
 Live fleet markers only appear from real GPS pings. Jobs can be assigned one of three curated UK → Bulgaria → Greece corridors (Central / Northern / Southern). Staff switch the corridor on the job’s Tracking tab when traffic or weather changes; the dashed map line follows the assigned template, never a fake vehicle position.

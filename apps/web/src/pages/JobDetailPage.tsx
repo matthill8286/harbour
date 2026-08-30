@@ -126,6 +126,9 @@ export function JobDetailPage() {
   const [cost, setCost] = useState({ category: 'TRANSPORT', description: '', amount: '' });
   const [charge, setCharge] = useState({ category: 'TRANSPORT', description: '', amount: '' });
   const [note, setNote] = useState({ body: '', visibility: 'INTERNAL' });
+  const [draftIntent, setDraftIntent] = useState('');
+  const [draftTone, setDraftTone] = useState('professional');
+  const [draftSource, setDraftSource] = useState<'log' | 'openai' | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job', id] });
 
@@ -201,7 +204,26 @@ export function JobDetailPage() {
       api(`/import-jobs/${id}/notes`, { method: 'POST', body: JSON.stringify(note) }),
     onSuccess: () => {
       setNote({ body: '', visibility: 'INTERNAL' });
+      setDraftSource(null);
       void invalidate();
+    },
+  });
+  const draftNoteMutation = useMutation({
+    mutationFn: () =>
+      api<{ draft: string; source: 'log' | 'openai' }>(`/import-jobs/${id}/draft-customer-note`, {
+        method: 'POST',
+        body: JSON.stringify({
+          intent: draftIntent.trim() || note.body.trim(),
+          tone: draftTone,
+        }),
+      }),
+    onSuccess: (result) => {
+      setNote((prev) => ({
+        ...prev,
+        body: result.draft,
+        visibility: 'CUSTOMER',
+      }));
+      setDraftSource(result.source);
     },
   });
 
@@ -618,10 +640,61 @@ export function JobDetailPage() {
           </ul>
           {canWrite ? (
             <>
+              <div className="mt-4 grid gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    className={`${fieldClass} min-w-[12rem] flex-1`}
+                    value={draftIntent}
+                    onChange={(event) => setDraftIntent(event.target.value)}
+                    placeholder="Intent for AI draft (e.g. ferry delayed overnight)"
+                  />
+                  <select
+                    className={`${fieldClass} w-auto`}
+                    aria-label="Draft tone"
+                    value={draftTone}
+                    onChange={(event) => setDraftTone(event.target.value)}
+                  >
+                    <option value="professional">Professional</option>
+                    <option value="warm">Warm</option>
+                    <option value="brief">Brief</option>
+                  </select>
+                  <button
+                    type="button"
+                    className={secondaryBtn}
+                    disabled={
+                      draftNoteMutation.isPending ||
+                      !(draftIntent.trim() || note.body.trim())
+                    }
+                    onClick={() => draftNoteMutation.mutate()}
+                  >
+                    {draftNoteMutation.isPending ? 'Drafting…' : 'Draft with AI'}
+                  </button>
+                  {draftSource ? (
+                    <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">
+                      Source: {draftSource}
+                    </span>
+                  ) : null}
+                </div>
+                {draftNoteMutation.isError ? (
+                  <ErrorBanner
+                    message={
+                      draftNoteMutation.error instanceof Error
+                        ? draftNoteMutation.error.message
+                        : 'Could not draft note'
+                    }
+                  />
+                ) : null}
+                <p className="text-xs text-ink/45">
+                  AI fills the text below — review it, then click Add note. Nothing is posted or emailed until you save.
+                </p>
+              </div>
               <textarea
-                className={`${fieldClass} mt-4 min-h-24`}
+                className={`${fieldClass} mt-2 min-h-24`}
                 value={note.body}
-                onChange={(event) => setNote({ ...note, body: event.target.value })}
+                onChange={(event) => {
+                  setNote({ ...note, body: event.target.value });
+                  setDraftSource(null);
+                }}
                 placeholder="Write an update"
               />
               <div className="mt-2 flex flex-wrap gap-2">
