@@ -28,6 +28,7 @@ import {
   CreateJourneyDto,
   CreateNoteDto,
   CreateTaskDto,
+  DraftCustomerNoteDto,
   UpdateFileVisibilityDto,
   UpdateImportJobDto,
   UpdateTaskDto,
@@ -119,6 +120,15 @@ export class ImportJobsController {
     @Body() dto: CreateChargeDto,
   ) {
     return this.jobs.addCharge(user, id, dto);
+  }
+
+  @Post(':id/draft-customer-note')
+  draftCustomerNote(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: DraftCustomerNoteDto,
+  ) {
+    return this.jobs.draftCustomerNote(user, id, dto);
   }
 
   @Post(':id/notes')
