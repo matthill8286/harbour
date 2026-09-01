@@ -1,14 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { isStaffRole, type UserRole } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 type InvitePreview = {
+  kind?: 'portal' | 'staff';
   email: string;
   firstName: string;
   lastName: string;
+  role?: UserRole;
+  roleLabel?: string;
   organisationName: string;
   organisationBrandName?: string;
   expiresAt: string;
@@ -32,6 +36,8 @@ export function InvitePage() {
 
   if (!token) return <Navigate to="/login" replace />;
 
+  const isStaffInvite = preview.data?.kind === 'staff';
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     if (password !== confirm) {
@@ -41,8 +47,8 @@ export function InvitePage() {
     setPending(true);
     setError(null);
     try {
-      await acceptInvite(token, password);
-      navigate('/portal');
+      const user = await acceptInvite(token, password);
+      navigate(isStaffRole(user.role) ? '/' : '/portal');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not activate this invite');
     } finally {
@@ -54,12 +60,15 @@ export function InvitePage() {
     <div className="min-h-svh bg-ink text-paper">
       <div className="mx-auto grid min-h-svh max-w-5xl md:grid-cols-2">
         <section className="hidden flex-col justify-between p-10 md:flex">
-          <p className="text-xs uppercase tracking-[0.28em] text-mist">Customer portal</p>
+          <p className="text-xs uppercase tracking-[0.28em] text-mist">
+            {isStaffInvite ? 'Team access' : 'Customer portal'}
+          </p>
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              Set a password to follow your vehicle. You will only see the job your importer assigned to you —
-              not anyone else’s.
+              {isStaffInvite
+                ? 'Set a password to join your importer’s desk. You will see jobs for this organisation only.'
+                : 'Set a password to follow your vehicle. You will only see the job your importer assigned to you — not anyone else’s.'}
             </p>
           </div>
           <Link to="/login" className="text-sm text-mist underline-offset-4 hover:underline">
@@ -87,7 +96,11 @@ export function InvitePage() {
                 </p>
                 <h2 className="display text-3xl">Welcome, {preview.data.firstName}</h2>
                 <p className="text-sm text-ink/60">
-                  Choose a password for {preview.data.email}. Then you will land on your import job.
+                  {isStaffInvite
+                    ? `Choose a password for ${preview.data.email}${
+                        preview.data.roleLabel ? ` as ${preview.data.roleLabel}` : ''
+                      }. Then you will land on the desk.`
+                    : `Choose a password for ${preview.data.email}. Then you will land on your import job.`}
                 </p>
                 <label className="block text-sm font-semibold">
                   Password
@@ -115,7 +128,13 @@ export function InvitePage() {
                 </label>
                 {error ? <ErrorBanner message={error} /> : null}
                 <button type="submit" disabled={pending || password.length < 10} className={`${primaryBtn} w-full py-3`}>
-                  {pending ? 'Opening portal…' : 'Activate portal'}
+                  {pending
+                    ? isStaffInvite
+                      ? 'Opening desk…'
+                      : 'Opening portal…'
+                    : isStaffInvite
+                      ? 'Join team'
+                      : 'Activate portal'}
                 </button>
               </form>
             ) : null}

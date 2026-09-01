@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
+import { isStaffRole, ROLE_LABELS, type UserRole } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { pickActiveMembership } from '../tenancy/membership';
 import type { AuthUser } from './auth.types';
@@ -15,6 +16,41 @@ import { LoginDto } from './dto/login.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { hashInviteToken } from './invite-token';
 import { AuditService } from '../audit/audit.service';
+
+type PortalInviteLoaded = {
+  kind: 'portal';
+  id: string;
+  userId: string;
+  organisationId: string;
+  customerId: string;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  user: { email: string; name: string };
+  customer: { firstName: string; lastName: string };
+  organisation: {
+    name: string;
+    status: string;
+    settings?: { brandName: string | null } | null;
+  };
+};
+
+type StaffInviteLoaded = {
+  kind: 'staff';
+  id: string;
+  userId: string;
+  organisationId: string;
+  role: UserRole;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+  user: { email: string; name: string };
+  organisation: {
+    name: string;
+    status: string;
+    settings?: { brandName: string | null } | null;
+  };
+};
+
+type LoadedInvite = PortalInviteLoaded | StaffInviteLoaded;
 
 @Injectable()
 export class AuthService {
@@ -51,21 +87,47 @@ export class AuthService {
 
   async previewInvite(token: string) {
     const invite = await this.loadInvite(token);
+    const organisationBrandName =
+      invite.organisation.settings?.brandName?.trim() ||
+      invite.organisation.name;
+    if (invite.kind === 'portal') {
+      return {
+        kind: 'portal' as const,
+        email: invite.user.email,
+        firstName: invite.customer.firstName,
+        lastName: invite.customer.lastName,
+        organisationName: invite.organisation.name,
+        organisationBrandName,
+        expiresAt: invite.expiresAt,
+      };
+    }
+    const [firstName, ...rest] = invite.user.name.trim().split(/\s+/);
     return {
+      kind: 'staff' as const,
       email: invite.user.email,
-      firstName: invite.customer.firstName,
-      lastName: invite.customer.lastName,
+      firstName: firstName || invite.user.name,
+      lastName: rest.join(' '),
+      role: invite.role,
+      roleLabel: ROLE_LABELS[invite.role],
       organisationName: invite.organisation.name,
-      organisationBrandName:
-        invite.organisation.settings?.brandName?.trim() ||
-        invite.organisation.name,
+      organisationBrandName,
       expiresAt: invite.expiresAt,
     };
   }
 
   async acceptInvite(token: string, dto: AcceptInviteDto) {
     const invite = await this.loadInvite(token);
-    const passwordHash = await hash(dto.password);
+    if (invite.kind === 'portal') {
+      return this.acceptPortalInvite(invite, dto.password);
+    }
+    return this.acceptStaffInvite(invite, dto.password);
+  }
+
+  private async acceptPortalInvite(
+    invite: PortalInviteLoaded,
+    password: string,
+  ) {
+    const passwordHash = await hash(password);
     const acceptedAt = new Date();
     const user = await this.prisma.$transaction(async (tx) => {
       await tx.portalInvite.update({
@@ -126,6 +188,69 @@ export class AuthService {
     return this.issueSession(user, membership);
   }
 
+  private async acceptStaffInvite(invite: StaffInviteLoaded, password: string) {
+    if (!isStaffRole(invite.role) || invite.role === 'CUSTOMER') {
+      throw new BadRequestException('Invalid staff invite role');
+    }
+    const passwordHash = await hash(password);
+    const acceptedAt = new Date();
+    const user = await this.prisma.$transaction(async (tx) => {
+      await tx.staffInvite.update({
+        where: { id: invite.id },
+        data: { acceptedAt },
+      });
+      await tx.staffInvite.updateMany({
+        where: {
+          userId: invite.userId,
+          acceptedAt: null,
+          id: { not: invite.id },
+        },
+        data: { expiresAt: acceptedAt },
+      });
+      await tx.organisationMembership.updateMany({
+        where: {
+          userId: invite.userId,
+          organisationId: invite.organisationId,
+          role: { not: 'CUSTOMER' },
+        },
+        data: { status: 'ACTIVE', role: invite.role },
+      });
+      return tx.user.update({
+        where: { id: invite.userId },
+        data: { passwordHash },
+        include: {
+          memberships: {
+            include: { organisation: { include: { settings: true } } },
+          },
+        },
+      });
+    });
+    const membership = user.memberships.find(
+      (item) =>
+        item.organisationId === invite.organisationId &&
+        item.role !== 'CUSTOMER' &&
+        item.status === 'ACTIVE',
+    );
+    if (!membership) {
+      throw new UnauthorizedException('No staff membership for this invite');
+    }
+    void this.audit.record(
+      buildAuthUser({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        membership,
+      }),
+      {
+        action: 'STAFF_INVITE_ACCEPTED',
+        entityType: 'OrganisationMembership',
+        entityId: membership.id,
+        metadata: { role: invite.role },
+      },
+    );
+    return this.issueSession(user, membership);
+  }
+
   private async issueSession(
     user: { id: string; email: string; name: string },
     membership: {
@@ -154,21 +279,43 @@ export class AuthService {
     return { accessToken, user: authUser };
   }
 
-  private async loadInvite(token: string) {
+  private async loadInvite(token: string): Promise<LoadedInvite> {
     if (!token) {
       throw new NotFoundException('Invite not found');
     }
-    const invite = await this.prisma.portalInvite.findUnique({
-      where: { tokenHash: hashInviteToken(token) },
+    const tokenHash = hashInviteToken(token);
+    const portal = await this.prisma.portalInvite.findUnique({
+      where: { tokenHash },
       include: {
         customer: true,
         organisation: { include: { settings: true } },
         user: true,
       },
     });
-    if (!invite) {
+    if (portal) {
+      this.assertInviteUsable(portal);
+      return { kind: 'portal', ...portal };
+    }
+
+    const staff = await this.prisma.staffInvite.findUnique({
+      where: { tokenHash },
+      include: {
+        organisation: { include: { settings: true } },
+        user: true,
+      },
+    });
+    if (!staff) {
       throw new NotFoundException('Invite not found');
     }
+    this.assertInviteUsable(staff);
+    return { kind: 'staff', ...staff };
+  }
+
+  private assertInviteUsable(invite: {
+    acceptedAt: Date | null;
+    expiresAt: Date;
+    organisation: { status: string };
+  }) {
     if (invite.acceptedAt) {
       throw new BadRequestException(
         'This invite has already been used. Sign in instead.',
@@ -176,12 +323,11 @@ export class AuthService {
     }
     if (invite.expiresAt.getTime() <= Date.now()) {
       throw new GoneException(
-        'This invite has expired. Ask your importer for a new link.',
+        'This invite has expired. Ask your team for a new link.',
       );
     }
     if (invite.organisation.status !== 'ACTIVE') {
       throw new UnauthorizedException('This organisation is not active');
     }
-    return invite;
   }
 }

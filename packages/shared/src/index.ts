@@ -23,6 +23,14 @@ export function canManageOrganisation(role: UserRole): boolean {
   return role === 'OWNER' || role === 'ADMIN';
 }
 
+/** Roles OWNER/ADMIN may invite onto the desk (not OWNER, not CUSTOMER). */
+export const INVITEABLE_STAFF_ROLES = [
+  'ADMIN',
+  'STAFF',
+  'VIEWER',
+] as const satisfies readonly UserRole[];
+export type InviteableStaffRole = (typeof INVITEABLE_STAFF_ROLES)[number];
+
 export const ROLE_LABELS: Record<UserRole, string> = {
   OWNER: 'Owner',
   ADMIN: 'Admin',
