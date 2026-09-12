@@ -17,6 +17,16 @@ describe('VehicleDataService', () => {
     });
   });
 
+  it('returns the demo BMW M3 for RJ14 XOO', async () => {
+    const service = make({});
+    await expect(service.lookup('rj14xoo')).resolves.toMatchObject({
+      registration: 'RJ14 XOO',
+      make: 'BMW',
+      model: 'M3',
+      source: 'mock',
+    });
+  });
+
   it('returns an empty mock shell for unknown plates', async () => {
     const service = make({});
     await expect(service.lookup('ZZ99ZZZ')).resolves.toMatchObject({
