@@ -38,7 +38,7 @@ export function LoginPage() {
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              Each importer is a workspace. Jobs, GPS, documents and customers stay inside that
+              Each importer is a workspace. Jobs, documents and customers stay inside that
               organisation — never mixed with another business.
             </p>
           </div>

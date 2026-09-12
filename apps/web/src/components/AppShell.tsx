@@ -2,9 +2,7 @@ import { useMemo, useState, type ComponentType } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
-  MapPinned,
   MoreHorizontal,
-  Radio,
   Settings,
   Ship,
   Users,
@@ -25,12 +23,10 @@ type NavItem = {
 const staffPrimary: NavItem[] = [
   { to: '/', label: 'Board', icon: LayoutDashboard, end: true, group: 'Today' },
   { to: '/jobs', label: 'Jobs', icon: Ship, group: 'Work' },
-  { to: '/tracking', label: 'Map', icon: MapPinned, group: 'Live' },
 ];
 
 const staffSecondary: NavItem[] = [
   { to: '/customers', label: 'Customers', icon: Users, group: 'Directory' },
-  { to: '/trackers', label: 'Trackers', icon: Radio, group: 'Hardware' },
 ];
 
 export function AppShell() {
@@ -40,8 +36,7 @@ export function AppShell() {
   const location = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const home = isPortal ? '/portal' : '/';
-  const fluidMain =
-    isStaff && (location.pathname === '/tracking' || location.pathname.startsWith('/jobs/'));
+  const fluidMain = isStaff && location.pathname.startsWith('/jobs/');
 
   const railLinks = useMemo((): NavItem[] => {
     if (isPortal) {
@@ -118,7 +113,7 @@ export function AppShell() {
         </div>
         {isStaff && !canWrite ? (
           <p className="border-t border-paper/10 px-4 py-1.5 text-center text-[11px] text-mist">
-            View access — you can look through this workspace, not change jobs, trackers, or customers.
+            View access — you can look through this workspace, not change jobs or customers.
           </p>
         ) : null}
       </header>

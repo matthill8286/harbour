@@ -13,8 +13,6 @@ import { CustomerDetailPage } from './pages/CustomerDetailPage';
 import { InvitePage } from './pages/InvitePage';
 import { PortalPage } from './pages/PortalPage';
 import { PortalJobPage } from './pages/PortalJobPage';
-import { TrackingPage } from './pages/TrackingPage';
-import { TrackersPage } from './pages/TrackersPage';
 import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { LoadingScreen } from './components/ui';
@@ -81,22 +79,6 @@ export default function App() {
           element={
             <Guard allow={staff}>
               <JobDetailPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="/tracking"
-          element={
-            <Guard allow={staff}>
-              <TrackingPage />
-            </Guard>
-          }
-        />
-        <Route
-          path="/trackers"
-          element={
-            <Guard allow={staff}>
-              <TrackersPage />
             </Guard>
           }
         />

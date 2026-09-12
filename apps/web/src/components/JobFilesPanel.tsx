@@ -59,7 +59,7 @@ export function JobJourneys({
   return (
     <Card>
       <h2 className="display text-2xl">Journeys</h2>
-      <p className="text-xs text-ink/45">Road and ferry legs for this import. Separate from GPS pings.</p>
+      <p className="text-xs text-ink/45">Road and ferry legs for this import.</p>
       <ol className="mt-4 space-y-3">
         {journeys.map((journey, index) => (
           <li key={journey.id} className="flex items-start gap-3 text-sm">

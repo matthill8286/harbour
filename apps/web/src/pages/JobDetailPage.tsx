@@ -2,8 +2,6 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
-  CHARGE_CATEGORIES,
-  COST_CATEGORIES,
   NOTE_VISIBILITIES,
   STATUS_TRANSITIONS,
   TASK_PRIORITIES,
@@ -12,14 +10,12 @@ import {
   type TaskPriority,
 } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
-import { formatCategory, formatDate, money } from '../lib/format';
-import { JobTrackingPanel } from '../components/JobTrackingPanel';
+import { formatCategory, formatDate } from '../lib/format';
 import { JobFilesPanel, JobJourneys } from '../components/JobFilesPanel';
 import { JobActivity } from '../components/JobActivity';
 import { JourneyStepper } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
-import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
-import { toLocationPoint } from '../lib/tracking';
+import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
 
 type JobDetail = {
@@ -30,7 +26,6 @@ type JobDetail = {
   destinationCountry: string;
   registrationCountry: string | null;
   expectedDeliveryDate: string | null;
-  totals: { totalCost: number; totalCharge: number; margin: number };
   customer: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
   vehicle: {
     make: string | null;
@@ -48,8 +43,6 @@ type JobDetail = {
     dueDate: string | null;
     createdAt?: string;
   }[];
-  costs: { id: string; category: string; description: string; amount: string }[];
-  charges: { id: string; category: string; description: string; amount: string }[];
   notes: { id: string; body: string; visibility: string; createdAt: string; author: { name: string } }[];
   journeys: { id: string; type: string; origin: string; destination: string; status: string }[];
   photos: {
@@ -69,22 +62,11 @@ type JobDetail = {
     customerVisible: boolean;
     createdAt: string;
   }[];
-  locationEvents?: Array<{
-    id?: string;
-    latitude: string | number;
-    longitude: string | number;
-    accuracy?: string | number | null;
-    speed?: string | number | null;
-    heading?: string | number | null;
-    recordedAt: string;
-  }>;
 };
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'tracking', label: 'Tracking' },
   { id: 'files', label: 'Files' },
-  { id: 'money', label: 'Money' },
   { id: 'activity', label: 'Activity' },
   { id: 'notes', label: 'Notes' },
 ] as const;
@@ -104,7 +86,7 @@ function toDateInputValue(value: string | null) {
 }
 
 export function JobDetailPage() {
-  const { canWrite, currency } = useSession();
+  const { canWrite } = useSession();
   const { id = '' } = useParams();
   const [params, setParams] = useSearchParams();
   const tabParam = params.get('tab');
@@ -123,12 +105,7 @@ export function JobDetailPage() {
     priority: TaskPriority;
     dueDate: string;
   }>({ title: '', priority: 'MEDIUM', dueDate: '' });
-  const [cost, setCost] = useState({ category: 'TRANSPORT', description: '', amount: '' });
-  const [charge, setCharge] = useState({ category: 'TRANSPORT', description: '', amount: '' });
   const [note, setNote] = useState({ body: '', visibility: 'INTERNAL' });
-  const [draftIntent, setDraftIntent] = useState('');
-  const [draftTone, setDraftTone] = useState('professional');
-  const [draftSource, setDraftSource] = useState<'log' | 'openai' | null>(null);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job', id] });
 
@@ -177,53 +154,12 @@ export function JobDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ['job', id] });
     },
   });
-  const costMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/costs`, {
-        method: 'POST',
-        body: JSON.stringify({ ...cost, amount: Number(cost.amount) }),
-      }),
-    onSuccess: () => {
-      setCost({ category: 'TRANSPORT', description: '', amount: '' });
-      void invalidate();
-    },
-  });
-  const chargeMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/charges`, {
-        method: 'POST',
-        body: JSON.stringify({ ...charge, amount: Number(charge.amount) }),
-      }),
-    onSuccess: () => {
-      setCharge({ category: 'TRANSPORT', description: '', amount: '' });
-      void invalidate();
-    },
-  });
   const noteMutation = useMutation({
     mutationFn: () =>
       api(`/import-jobs/${id}/notes`, { method: 'POST', body: JSON.stringify(note) }),
     onSuccess: () => {
       setNote({ body: '', visibility: 'INTERNAL' });
-      setDraftSource(null);
       void invalidate();
-    },
-  });
-  const draftNoteMutation = useMutation({
-    mutationFn: () =>
-      api<{ draft: string; source: 'log' | 'openai' }>(`/import-jobs/${id}/draft-customer-note`, {
-        method: 'POST',
-        body: JSON.stringify({
-          intent: draftIntent.trim() || note.body.trim(),
-          tone: draftTone,
-        }),
-      }),
-    onSuccess: (result) => {
-      setNote((prev) => ({
-        ...prev,
-        body: result.draft,
-        visibility: 'CUSTOMER',
-      }));
-      setDraftSource(result.source);
     },
   });
 
@@ -271,9 +207,6 @@ export function JobDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
         <Link to="/jobs" className="text-sm font-semibold text-harbour">
           ← All jobs
-        </Link>
-        <Link to={`/tracking?job=${job.id}`} className="text-sm font-semibold text-harbour">
-          Open on fleet map
         </Link>
       </div>
 
@@ -370,21 +303,6 @@ export function JobDetailPage() {
               <dd>{job.expectedDeliveryDate ? formatDate(job.expectedDeliveryDate) : 'Not set'}</dd>
             </div>
           </dl>
-
-          <section className="grid gap-3 sm:grid-cols-3">
-            <button type="button" className="rounded-2xl bg-paper p-4 text-left" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-ink/50">Internal cost</p>
-              <p className="display text-2xl">{money(job.totals.totalCost, currency)}</p>
-            </button>
-            <button type="button" className="rounded-2xl bg-paper p-4 text-left" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-ink/50">Customer charges</p>
-              <p className="display text-2xl">{money(job.totals.totalCharge, currency)}</p>
-            </button>
-            <button type="button" className="rounded-2xl bg-harbour p-4 text-left text-paper" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-mist">Gross margin</p>
-              <p className="display text-2xl">{money(job.totals.margin, currency)}</p>
-            </button>
-          </section>
 
           <Card>
             <div className="flex items-center justify-between gap-2">
@@ -504,122 +422,8 @@ export function JobDetailPage() {
         </div>
       ) : null}
 
-      {activeTab === 'tracking' ? (
-        <div className="space-y-4">
-          <JobTrackingPanel
-            jobId={job.id}
-            lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null}
-          />
-        </div>
-      ) : null}
-
       {activeTab === 'files' ? (
         <JobFilesPanel jobId={job.id} photos={job.photos ?? []} documents={job.documents ?? []} />
-      ) : null}
-
-      {activeTab === 'money' ? (
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <h2 className="font-semibold">Internal costs</h2>
-            <p className="text-xs text-ink/45">Never shown to the customer.</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {job.costs.map((item) => (
-                <li key={item.id} className="flex justify-between gap-3">
-                  <span>
-                    {item.description}
-                    <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
-                  </span>
-                  <span className="font-semibold">{money(item.amount, currency)}</span>
-                </li>
-              ))}
-            </ul>
-            {canWrite ? (
-              <div className="mt-4 grid gap-2">
-                <select
-                  className={fieldClass}
-                  value={cost.category}
-                  onChange={(event) => setCost({ ...cost, category: event.target.value })}
-                >
-                  {COST_CATEGORIES.map((item) => (
-                    <option key={item} value={item}>
-                      {formatCategory(item)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={fieldClass}
-                  placeholder="Description"
-                  value={cost.description}
-                  onChange={(event) => setCost({ ...cost, description: event.target.value })}
-                />
-                <input
-                  className={fieldClass}
-                  placeholder="Amount"
-                  value={cost.amount}
-                  onChange={(event) => setCost({ ...cost, amount: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  onClick={() => costMutation.mutate()}
-                  disabled={!cost.description || !cost.amount}
-                >
-                  Add cost
-                </button>
-              </div>
-            ) : null}
-          </Card>
-          <Card>
-            <h2 className="font-semibold">Customer charges</h2>
-            <p className="text-xs text-ink/45">What the customer is billed.</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {job.charges.map((item) => (
-                <li key={item.id} className="flex justify-between gap-3">
-                  <span>
-                    {item.description}
-                    <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
-                  </span>
-                  <span className="font-semibold">{money(item.amount, currency)}</span>
-                </li>
-              ))}
-            </ul>
-            {canWrite ? (
-              <div className="mt-4 grid gap-2">
-                <select
-                  className={fieldClass}
-                  value={charge.category}
-                  onChange={(event) => setCharge({ ...charge, category: event.target.value })}
-                >
-                  {CHARGE_CATEGORIES.map((item) => (
-                    <option key={item} value={item}>
-                      {formatCategory(item)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={fieldClass}
-                  placeholder="Description"
-                  value={charge.description}
-                  onChange={(event) => setCharge({ ...charge, description: event.target.value })}
-                />
-                <input
-                  className={fieldClass}
-                  placeholder="Amount"
-                  value={charge.amount}
-                  onChange={(event) => setCharge({ ...charge, amount: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  onClick={() => chargeMutation.mutate()}
-                  disabled={!charge.description || !charge.amount}
-                >
-                  Add charge
-                </button>
-              </div>
-            ) : null}
-          </Card>
-        </section>
       ) : null}
 
       {activeTab === 'activity' ? <JobActivity jobId={job.id} /> : null}
@@ -640,61 +444,10 @@ export function JobDetailPage() {
           </ul>
           {canWrite ? (
             <>
-              <div className="mt-4 grid gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    className={`${fieldClass} min-w-[12rem] flex-1`}
-                    value={draftIntent}
-                    onChange={(event) => setDraftIntent(event.target.value)}
-                    placeholder="Intent for AI draft (e.g. ferry delayed overnight)"
-                  />
-                  <select
-                    className={`${fieldClass} w-auto`}
-                    aria-label="Draft tone"
-                    value={draftTone}
-                    onChange={(event) => setDraftTone(event.target.value)}
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="warm">Warm</option>
-                    <option value="brief">Brief</option>
-                  </select>
-                  <button
-                    type="button"
-                    className={secondaryBtn}
-                    disabled={
-                      draftNoteMutation.isPending ||
-                      !(draftIntent.trim() || note.body.trim())
-                    }
-                    onClick={() => draftNoteMutation.mutate()}
-                  >
-                    {draftNoteMutation.isPending ? 'Drafting…' : 'Draft with AI'}
-                  </button>
-                  {draftSource ? (
-                    <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">
-                      Source: {draftSource}
-                    </span>
-                  ) : null}
-                </div>
-                {draftNoteMutation.isError ? (
-                  <ErrorBanner
-                    message={
-                      draftNoteMutation.error instanceof Error
-                        ? draftNoteMutation.error.message
-                        : 'Could not draft note'
-                    }
-                  />
-                ) : null}
-                <p className="text-xs text-ink/45">
-                  AI fills the text below — review it, then click Add note. Nothing is posted or emailed until you save.
-                </p>
-              </div>
               <textarea
-                className={`${fieldClass} mt-2 min-h-24`}
+                className={`${fieldClass} mt-4 min-h-24`}
                 value={note.body}
-                onChange={(event) => {
-                  setNote({ ...note, body: event.target.value });
-                  setDraftSource(null);
-                }}
+                onChange={(event) => setNote({ ...note, body: event.target.value })}
                 placeholder="Write an update"
               />
               <div className="mt-2 flex flex-wrap gap-2">

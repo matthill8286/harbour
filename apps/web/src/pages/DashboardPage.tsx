@@ -24,20 +24,6 @@ type Dashboard = {
     customer: { firstName: string; lastName: string };
     vehicle: { make: string | null; model: string | null };
   }[];
-  offlineTrackers: {
-    id: string;
-    serialNumber: string;
-    assignments: { importJob: { id: string; reference: string } }[];
-  }[];
-  opsAlerts: {
-    kind: 'STALE_TRACKER' | 'NEAR_DESTINATION';
-    importJobId: string;
-    reference: string;
-    title: string;
-    detail: string;
-    trackerSerial?: string;
-    aiSummary?: string;
-  }[];
 };
 
 export function DashboardPage() {
@@ -56,16 +42,11 @@ export function DashboardPage() {
         title="Board"
         description="What needs attention in this workspace today."
         actions={
-          <div className="flex flex-wrap gap-2">
-            <Link to="/tracking" className="rounded-xl border border-ink/15 bg-paper px-4 py-2 text-sm font-semibold">
-              Live map
+          canWrite ? (
+            <Link to="/jobs/new" className={primaryBtn}>
+              New job
             </Link>
-            {canWrite ? (
-              <Link to="/jobs/new" className={primaryBtn}>
-                New job
-              </Link>
-            ) : null}
-          </div>
+          ) : undefined
         }
       />
 
@@ -139,34 +120,12 @@ export function DashboardPage() {
         </Card>
       </section>
 
-      {data.opsAlerts.length > 0 ? (
-        <Card>
-          <h2 className="font-semibold">GPS ops alerts</h2>
-          <ul className="mt-2 space-y-2 text-sm">
-            {data.opsAlerts.map((alert) => (
-              <li key={`${alert.kind}-${alert.importJobId}`}>
-                <Link
-                  className="font-semibold text-harbour"
-                  to={`/jobs/${alert.importJobId}?tab=tracking`}
-                >
-                  {alert.title} · {alert.reference}
-                </Link>
-                <p className="text-ink/70">{alert.detail}</p>
-                {alert.aiSummary ? (
-                  <p className="mt-0.5 text-xs text-ink/55">{alert.aiSummary}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
       {data.activeJobs === 0 ? (
         <EmptyState
           title="No active import jobs"
           description={
             canWrite
-              ? 'Create a job to start tracking a vehicle from collection to delivery.'
+              ? 'Create a job to start an import from collection to delivery.'
               : 'No active imports in this workspace yet.'
           }
           action={

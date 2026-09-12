@@ -24,7 +24,6 @@ export function JobNewPage() {
   const [customerId, setCustomerId] = useState('');
   const [newCustomer, setNewCustomer] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [lookup, setLookup] = useState<VehicleLookupResult | null>(null);
-  const [scanMeta, setScanMeta] = useState<{ confidence: number; source: string } | null>(null);
   const [registration, setRegistration] = useState('');
   const [originCountry, setOriginCountry] = useState('GB');
   const [destinationCountry, setDestinationCountry] = useState(country);
@@ -90,32 +89,9 @@ export function JobNewPage() {
         body: JSON.stringify({ registration }),
       });
       setLookup(result);
-      setScanMeta(null);
       setStep(3);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Lookup failed');
-    }
-  }
-
-  async function scanPlate(file: File) {
-    const body = new FormData();
-    body.append('image', file);
-    setError(null);
-    try {
-      const result = await api<{
-        lookup: VehicleLookupResult;
-        confidence: number;
-        source: string;
-      }>('/vehicles/scan-plate', {
-        method: 'POST',
-        body,
-      });
-      setLookup(result.lookup);
-      setRegistration(result.lookup.registration);
-      setScanMeta({ confidence: result.confidence, source: result.source });
-      setStep(3);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Scan failed');
     }
   }
 
@@ -181,24 +157,11 @@ export function JobNewPage() {
         <form className="space-y-4 rounded-2xl bg-paper p-4" onSubmit={lookupPlate}>
           <h2 className="display text-2xl">Vehicle</h2>
           <p className="text-sm text-ink/60">
-            For {selectedCustomer?.firstName} {selectedCustomer?.lastName}. Scan a plate photo or type the
-            UK registration — Harbour looks it up via the configured vehicle data provider.
+            For {selectedCustomer?.firstName} {selectedCustomer?.lastName}. Type the UK registration —
+            Harbour looks it up via the configured vehicle data provider.
           </p>
           <label className="block text-sm font-semibold">
-            Scan number plate
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="mt-1 block w-full text-sm"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void scanPlate(file);
-              }}
-            />
-          </label>
-          <label className="block text-sm font-semibold">
-            Or type UK registration
+            UK registration
             <input
               className={`${fieldClass} mt-1`}
               placeholder="KN19 XPL"
@@ -228,9 +191,6 @@ export function JobNewPage() {
             </span>
             <span className="mt-1 block text-xs text-ink/45">
               Source: {lookup?.source ?? 'unknown'}
-              {scanMeta
-                ? ` · plate scan ${Math.round(scanMeta.confidence * 100)}% (${scanMeta.source})`
-                : ''}
             </span>
           </p>
           <div className="grid gap-3 sm:grid-cols-2">

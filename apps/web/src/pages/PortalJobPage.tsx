@@ -3,7 +3,6 @@ import { Link, useParams } from 'react-router-dom';
 import { getStatusLabel, isDestinationReached, type JobStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatCategory, formatDate, formatDateTime } from '../lib/format';
-import { PortalTrackingPanel } from '../components/PortalTrackingPanel';
 import { PortalFiles } from '../components/PortalFiles';
 import { JourneyStepper } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
@@ -93,7 +92,6 @@ export function PortalJobPage() {
           </ol>
         </Card>
       ) : null}
-      <PortalTrackingPanel jobId={job.id} destination={job.destinationCountry} />
       <Card>
         <h2 className="display text-2xl">Updates</h2>
         {job.notes.length === 0 && job.statusHistory.length === 0 ? (
