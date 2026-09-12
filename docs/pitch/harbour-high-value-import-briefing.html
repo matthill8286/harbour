@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harbour — Founding investment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0b1f33;
+        --harbour: #1c6b6a;
+        --sand: #f4ead7;
+        --paper: #fffaf2;
+        --mist: #d7e4e3;
+        --muted: rgba(11, 31, 51, 0.62);
+        --line: rgba(11, 31, 51, 0.12);
+        --slide-w: 13.333in;
+        --slide-h: 7.5in;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--mist);
+      }
+
+      .slide {
+        width: var(--slide-w);
+        height: var(--slide-h);
+        background: var(--paper);
+        padding: 0.58in 0.7in 0.5in;
+        position: relative;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
+        display: flex;
+        flex-direction: column;
+      }
+      .slide:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+
+      .slide.cover,
+      .slide.ask {
+        background: var(--ink);
+        color: var(--paper);
+        padding: 0.72in 0.72in 0.55in;
+      }
+
+      h1, h2, .display {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      h1 { font-size: 40px; line-height: 1.12; max-width: 11.2in; }
+      h2 { font-size: 32px; line-height: 1.18; max-width: 11.2in; }
+      p { margin: 0; }
+      .lede {
+        margin-top: 16px;
+        font-size: 20px;
+        line-height: 1.45;
+        max-width: 10.6in;
+        color: var(--muted);
+      }
+      .cover .lede,
+      .ask .lede { color: rgba(255, 250, 242, 0.8); }
+
+      .kicker {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--harbour);
+        margin-bottom: 14px;
+      }
+      .cover .kicker,
+      .ask .kicker { color: var(--sand); }
+
+      .foot {
+        position: absolute;
+        left: 0.7in;
+        right: 0.7in;
+        bottom: 0.28in;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .cover .foot,
+      .ask .foot { color: rgba(255, 250, 242, 0.45); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .stat {
+        background: var(--sand);
+        padding: 18px 20px 16px;
+        border-radius: 8px;
+      }
+      .stat b {
+        display: block;
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 26px;
+        font-weight: 500;
+        color: var(--harbour);
+      }
+      .stat span {
+        display: block;
+        margin-top: 6px;
+        font-size: 15px;
+        line-height: 1.35;
+        color: var(--muted);
+      }
+      .cover .stat { background: rgba(255, 250, 242, 0.08); }
+      .cover .stat b { color: var(--sand); }
+      .cover .stat span { color: rgba(255, 250, 242, 0.68); }
+
+      .cols-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 22px;
+      }
+      .cols-4 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 14px;
+        margin-top: 20px;
+      }
+      .card {
+        background: var(--sand);
+        border-radius: 8px;
+        padding: 18px 20px 20px;
+      }
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--harbour);
+      }
+      .card p, .card li {
+        font-size: 16px;
+        line-height: 1.4;
+      }
+      .card ul { margin: 0; padding-left: 1.15em; }
+      .card li + li { margin-top: 8px; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 18px;
+        font-size: 16px;
+      }
+      th {
+        text-align: left;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--harbour);
+        padding: 8px 12px 10px 0;
+        border-bottom: 1px solid var(--ink);
+      }
+      td {
+        padding: 10px 14px 10px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        line-height: 1.35;
+      }
+
+      .note {
+        margin-top: 16px;
+        padding: 14px 16px;
+        background: var(--mist);
+        border-left: 4px solid var(--harbour);
+        font-size: 16px;
+        line-height: 1.4;
+      }
+
+      .caption {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+        margin-top: 22px;
+      }
+      .step-num {
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 22px;
+        color: var(--harbour);
+        margin-bottom: 8px;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 32px;
+        margin-top: 22px;
+        align-items: center;
+      }
+      .legend { font-size: 17px; line-height: 1.5; color: rgba(255,250,242,0.9); }
+      .legend i {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        margin-right: 8px;
+      }
+      .legend p + p { margin-top: 12px; }
+
+      .hero-line {
+        margin-top: 22px;
+        font-size: 16px;
+        color: rgba(255, 250, 242, 0.7);
+      }
+
+      @media screen {
+        body { padding: 28px 0 48px; }
+        .slide {
+          margin: 0 auto 28px;
+          box-shadow: 0 12px 40px rgba(11, 31, 51, 0.18);
+        }
+      }
+
+      @media print {
+        body { background: none; }
+        .slide { box-shadow: none; }
+        * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+
+      @page {
+        size: 13.333in 7.5in;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide cover">
+      <p class="kicker">Founding investment · for you · August 2026</p>
+      <p class="display" style="font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sand); margin-bottom: 16px;">Harbour</p>
+      <h1 style="font-size: 36px;">The operating system for rare-car imports. I want you as the first investor.</h1>
+      <p class="lede">
+        Harbour is a company. Import desks will pay to run it. It is for
+        high-value cars, and cars the owner is precious about — whether that
+        car starts in Japan, ends in the UK, Cyprus, or anywhere else.
+      </p>
+      <div class="stats">
+        <div class="stat">
+          <b>€3,000</b>
+          <span>Your founding cheque. Not a trial fee.</span>
+        </div>
+        <div class="stat">
+          <b>Special cars</b>
+          <span>Expensive, rare, or just loved — cars people fret over</span>
+        </div>
+        <div class="stat">
+          <b>Any route</b>
+          <span>The trip is a list of stops. The product is the job.</span>
+        </div>
+      </div>
+      <p class="hero-line">You are not paying to “see if it works.” You are putting the first money into the business.</p>
+      <div class="foot">
+        <span>Private · founding cheque</span>
+        <span>1 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">The mess</p>
+      <h2>When the car is worth a house, WhatsApp is a bad tracking system.</h2>
+      <p class="lede">
+        This is not a supermarket hatchback. The owner already paid a fortune,
+        or cares about this car like it is one. They will ask where it is.
+        Today the answer lives in a spreadsheet, a chat, and a GPS login they
+        are not allowed to see.
+      </p>
+      <div class="cols-2">
+        <div class="card">
+          <h3>What goes wrong</h3>
+          <ul>
+            <li>A six-figure car, and nobody can show a clean trail</li>
+            <li>The owner gets a photo from a port, then silence for two weeks</li>
+            <li>Staff mix “what it cost us” with “what we told the customer”</li>
+            <li>The tracker moves onto the next job and the old history vanishes</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Why this car, not every car</h3>
+          <ul>
+            <li>High-value and special cars make people anxious. That is the job</li>
+            <li>High-value, rare, or just loved — few jobs, a lot riding on each one</li>
+            <li>The desk is trusted with someone else’s pride and joy</li>
+            <li>A cheap fleet van does not need this. A car someone is precious about does</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Who uses it:</strong> the people running the import. <strong>Who watches:</strong>
+        the owner, on a simple page that never shows costs, suppliers, or the
+        number on the tracker box.
+      </div>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>2 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">What Harbour is</p>
+      <h2>The car is the job. The route is just stops you type in.</h2>
+      <p class="lede">
+        One job is “this car, for this person, on this trip.” Staff see the
+        work. The owner sees progress. Where it started does not change the
+        software.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 28%">A stop (you set these)</th>
+            <th>What staff need</th>
+            <th>What the owner sees</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Bought / at the exporter</td><td>Paid, papers, ready to leave</td><td>Secured at origin</td></tr>
+          <tr><td>On the water</td><td>Vessel, eta, insurance</td><td>On the ship</td></tr>
+          <tr><td>At the destination port</td><td>Cleared, waiting, next truck</td><td>Landed</td></tr>
+          <tr><td>Registration / IVA / local rules</td><td>Paperwork in progress</td><td>Being made legal</td></tr>
+          <tr><td>Ready for the owner</td><td>Handover</td><td>Ready to collect</td></tr>
+        </tbody>
+      </table>
+      <div class="cols-4">
+        <div class="card">
+          <h3>Today’s board</h3>
+          <p>Which special car is stuck, which tracker is quiet, what is due this week.</p>
+        </div>
+        <div class="card">
+          <h3>A pin on a map</h3>
+          <p>A tracker on that job. A yard, a ship, a compound — same idea, wherever it is.</p>
+        </div>
+        <div class="card">
+          <h3>A customer page</h3>
+          <p>The desk’s brand. Status, files, a map. Not costs. Not someone else’s car.</p>
+        </div>
+        <div class="card">
+          <h3>The car itself</h3>
+          <p>Make, model, year, spec. The car is a named thing, not a blank row.</p>
+        </div>
+      </div>
+      <p class="caption">Japan → UK, Japan → Cyprus, UK → anywhere: those are examples, not a locked product.</p>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>3 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">Why bother</p>
+      <h2>Normal tools do not know this car matters to someone.</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 26%">What they use</th>
+            <th>Fine for</th>
+            <th>Bad for this job</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Spreadsheets and WhatsApp</td>
+            <td>A quick “it’s on the boat”</td>
+            <td>No trail a collector can trust. Easy to mix money and updates</td>
+          </tr>
+          <tr>
+            <td>Freight software</td>
+            <td>Containers and warehouses</td>
+            <td>Thinks in pallets. Does not think in “named car, named owner”</td>
+          </tr>
+          <tr>
+            <td>A normal GPS app</td>
+            <td>Where is the van?</td>
+            <td>Does not know whose car it is, or what the owner may see</td>
+          </tr>
+          <tr>
+            <td>Car dealer software</td>
+            <td>Selling cars on a forecourt</td>
+            <td>Wrong job. This is someone else’s car, in motion, for months</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        I want one place for the rare car: the job, the map, and a safe page
+        for the owner. The journey can change. The trust cannot.
+      </div>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>4 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">Is there a real need?</p>
+      <h2>People already pay for these cars. They wait in the dark.</h2>
+      <p class="lede">
+        High-value cars, rare cars, cars the owner is precious about — the
+        trade is smaller than “all used cars,” and that is the point. Fewer
+        jobs. Much more riding on each one.
+      </p>
+      <div class="stats">
+        <div class="stat">
+          <b>High stakes</b>
+          <span>These are cars people fly to see, or cannot sleep on. Losing the story of the trip is not a small bug.</span>
+        </div>
+        <div class="stat">
+          <b>Long waits</b>
+          <span>A long import can take weeks. Silence is what fills WhatsApp at midnight.</span>
+        </div>
+        <div class="stat">
+          <b>The money</b>
+          <span>Desks will pay Harbour every month to run this. That is the business. Your cheque founds it.</span>
+        </div>
+      </div>
+      <div class="note">
+        I am not building a tool for every car that crosses a border. I am
+        building the system for the cars people obsess over.
+      </div>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>5 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">The business</p>
+      <h2>Import desks pay Harbour. You own a piece of that from day one.</h2>
+      <p class="lede">
+        The product is software they subscribe to. Your €3,000 is not their
+        first invoice, and it is not a deposit to “have a go.” It is the
+        founding investment that gets the company standing.
+      </p>
+      <div class="cols-2">
+        <div class="card">
+          <h3>What desks will pay</h3>
+          <ul>
+            <li>Quiet month — about €150</li>
+            <li>Busy month — about €400</li>
+            <li>Packed month — about €800</li>
+            <li>Much bigger — quoted, from about €1,500</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>What your cheque is</h3>
+          <ul>
+            <li>First money into Harbour. You are in at the start</li>
+            <li>It funds building the product, not renting a trial</li>
+            <li>Trackers stay ordinary hardware. Harbour sells the software</li>
+            <li>Monthly prices above are a sketch of how the company earns</li>
+          </ul>
+        </div>
+      </div>
+      <p class="caption">You are backing the company. The desk that uses Harbour is the customer — not you buying a test drive.</p>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>6 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">What the company builds</p>
+      <h2>A product that can follow the car, wherever it started. Then it earns.</h2>
+      <p class="lede">
+        Harbour ships as a real system: jobs, owner page, map. The route is
+        whatever that car needs. Greece is not assumed. Neither is anywhere else.
+      </p>
+      <div class="steps">
+        <div class="card">
+          <div class="step-num">1. Build</div>
+          <p>The job, the car, the owner page, the map. Stops you can set. Built around cars people are precious about, not cheap runabouts.</p>
+        </div>
+        <div class="card">
+          <div class="step-num">2. Run live jobs</div>
+          <p>A desk uses it on real cars. That is the company operating, not a favour and not a science experiment.</p>
+        </div>
+        <div class="card">
+          <div class="step-num">3. Charge</div>
+          <p>The desk pays Harbour every month. That is how your investment is supposed to work — revenue, not another whip-round.</p>
+        </div>
+      </div>
+      <div class="note">
+        The product does not exist yet. That is why there is a founding cheque.
+        It still has to be a company, not a paid trial.
+      </div>
+      <div class="foot">
+        <span>Harbour · rare cars</span>
+        <span>7 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide ask">
+      <p class="kicker">The ask</p>
+      <h2>I want you in for €3,000.</h2>
+      <p class="lede">
+        First investor. Founding cheque. That money builds Harbour — so the
+        next precious car is a job in the product, not a WhatsApp thread.
+      </p>
+      <div class="split">
+        <svg viewBox="0 0 120 120" width="220" height="220" aria-label="Where the founding €3,000 goes">
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#3d5c5c" stroke-width="18" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#f4ead7" stroke-width="18"
+            stroke-dasharray="176 251.2" stroke-dashoffset="0" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#1c6b6a" stroke-width="18"
+            stroke-dasharray="50.2 251.2" stroke-dashoffset="-176" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#d7e4e3" stroke-width="18"
+            stroke-dasharray="25.1 251.2" stroke-dashoffset="-226.2" transform="rotate(-90 60 60)" />
+          <text x="60" y="56" text-anchor="middle" fill="#fffaf2" font-size="11" font-family="Nunito Sans, sans-serif">Founding</text>
+          <text x="60" y="72" text-anchor="middle" fill="#f4ead7" font-size="13" font-family="Fraunces, Georgia, serif">€3,000</text>
+        </svg>
+        <div class="legend">
+          <p><i style="background:#f4ead7"></i><strong>€2,100 — product</strong> — the job, the owner page, the map. Route is just stops.</p>
+          <p><i style="background:#1c6b6a"></i><strong>€600 — plumbing</strong> — maps and trackers. Buy them. Don’t invent them.</p>
+          <p><i style="background:#d7e4e3"></i><strong>€300 — the desk</strong> — get the job shape right with people who already move cars like this.</p>
+          <p style="font-size: 15px; color: rgba(255,250,242,0.55)">
+            This is not “chip in and we’ll see.” This is the first money into
+            the company. Exact terms we put in writing. I want you on that paper.
+          </p>
+        </div>
+      </div>
+      <div class="foot">
+        <span>Private · founding investment · Harbour</span>
+        <span>8 / 8</span>
+      </div>
+    </section>
+  </body>
+</html>
