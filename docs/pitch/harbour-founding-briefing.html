@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harbour — A note for one investor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ink: #0b1f33;
+        --harbour: #1c6b6a;
+        --sand: #f4ead7;
+        --paper: #fffaf2;
+        --mist: #d7e4e3;
+        --muted: rgba(11, 31, 51, 0.62);
+        --line: rgba(11, 31, 51, 0.12);
+        --slide-w: 13.333in;
+        --slide-h: 7.5in;
+      }
+
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+        color: var(--ink);
+        background: var(--mist);
+      }
+
+      .slide {
+        width: var(--slide-w);
+        height: var(--slide-h);
+        background: var(--paper);
+        padding: 0.58in 0.7in 0.5in;
+        position: relative;
+        overflow: hidden;
+        page-break-after: always;
+        break-after: page;
+        display: flex;
+        flex-direction: column;
+      }
+      .slide:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+
+      .slide.cover,
+      .slide.ask {
+        background: var(--ink);
+        color: var(--paper);
+        padding: 0.72in 0.72in 0.55in;
+      }
+
+      h1, h2, .display {
+        font-family: "Fraunces", Georgia, serif;
+        font-weight: 500;
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+      h1 { font-size: 44px; line-height: 1.12; max-width: 11.2in; }
+      h2 { font-size: 34px; line-height: 1.18; max-width: 11.2in; }
+      p { margin: 0; }
+      .lede {
+        margin-top: 16px;
+        font-size: 20px;
+        line-height: 1.45;
+        max-width: 10.6in;
+        color: var(--muted);
+      }
+      .cover .lede,
+      .ask .lede { color: rgba(255, 250, 242, 0.8); }
+
+      .kicker {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--harbour);
+        margin-bottom: 14px;
+      }
+      .cover .kicker,
+      .ask .kicker { color: var(--sand); }
+
+      .foot {
+        position: absolute;
+        left: 0.7in;
+        right: 0.7in;
+        bottom: 0.28in;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .cover .foot,
+      .ask .foot { color: rgba(255, 250, 242, 0.45); }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+        margin-top: 28px;
+      }
+      .stat {
+        background: var(--sand);
+        padding: 20px 22px 18px;
+        border-radius: 8px;
+      }
+      .stat b {
+        display: block;
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 28px;
+        font-weight: 500;
+        color: var(--harbour);
+      }
+      .stat span {
+        display: block;
+        margin-top: 6px;
+        font-size: 15px;
+        line-height: 1.35;
+        color: var(--muted);
+      }
+      .cover .stat { background: rgba(255, 250, 242, 0.08); }
+      .cover .stat b { color: var(--sand); }
+      .cover .stat span { color: rgba(255, 250, 242, 0.68); }
+
+      .cols-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 24px;
+      }
+      .cols-4 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 14px;
+        margin-top: 22px;
+      }
+      .card {
+        background: var(--sand);
+        border-radius: 8px;
+        padding: 18px 20px 20px;
+      }
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 15px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--harbour);
+      }
+      .card p, .card li {
+        font-size: 16px;
+        line-height: 1.4;
+      }
+      .card ul { margin: 0; padding-left: 1.15em; }
+      .card li + li { margin-top: 8px; }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+        font-size: 16px;
+      }
+      th {
+        text-align: left;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--harbour);
+        padding: 8px 12px 10px 0;
+        border-bottom: 1px solid var(--ink);
+      }
+      td {
+        padding: 11px 14px 11px 0;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+        line-height: 1.35;
+      }
+
+      .note {
+        margin-top: 18px;
+        padding: 14px 16px;
+        background: var(--mist);
+        border-left: 4px solid var(--harbour);
+        font-size: 16px;
+        line-height: 1.4;
+      }
+
+      .caption {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .steps {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 16px;
+        margin-top: 24px;
+      }
+      .step-num {
+        font-family: "Fraunces", Georgia, serif;
+        font-size: 22px;
+        color: var(--harbour);
+        margin-bottom: 8px;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 32px;
+        margin-top: 22px;
+        align-items: center;
+      }
+      .legend { font-size: 17px; line-height: 1.5; color: rgba(255,250,242,0.9); }
+      .legend i {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+        margin-right: 8px;
+      }
+      .legend p + p { margin-top: 12px; }
+
+      .hero-line {
+        margin-top: 24px;
+        font-size: 16px;
+        color: rgba(255, 250, 242, 0.7);
+      }
+
+      @media screen {
+        body { padding: 28px 0 48px; }
+        .slide {
+          margin: 0 auto 28px;
+          box-shadow: 0 12px 40px rgba(11, 31, 51, 0.18);
+        }
+      }
+
+      @media print {
+        body { background: none; }
+        .slide { box-shadow: none; }
+        * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+
+      @page {
+        size: 13.333in 7.5in;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="slide cover">
+      <p class="kicker">A private note · August 2026</p>
+      <p class="display" style="font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sand); margin-bottom: 18px;">Harbour</p>
+      <h1 style="font-size: 36px;">I want to build software for one import desk. I am asking you for €3,000 to start.</h1>
+      <p class="lede">
+        One place for the job, the tracking, and what that desk’s customer can
+        see. No more chasing a car across a spreadsheet, a WhatsApp chat, and a
+        separate GPS app.
+      </p>
+      <div class="stats">
+        <div class="stat">
+          <b>€3,000</b>
+          <span>What I am asking you for, to begin</span>
+        </div>
+        <div class="stat">
+          <b>One car = one job</b>
+          <span>Everything hangs off that, not a map app</span>
+        </div>
+        <div class="stat">
+          <b>Nothing built yet</b>
+          <span>This money is to start, not to scale</span>
+        </div>
+      </div>
+      <p class="hero-line">The route I would build around first: UK → Europe → Greece → Cyprus.</p>
+      <div class="foot">
+        <span>For you only · nothing is built yet</span>
+        <span>1 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">The mess</p>
+      <h2>The car is expensive. The system around it is sticky tape.</h2>
+      <p class="lede">
+        An import desk does not usually buy the car and sell it on. It collects
+        it, registers it, moves it, and hands it to the owner. When something
+        goes quiet, the whole day becomes phone calls.
+      </p>
+      <div class="cols-2">
+        <div class="card">
+          <h3>Today it looks like this</h3>
+          <ul>
+            <li>The job list lives in a spreadsheet</li>
+            <li>The customer lives in WhatsApp</li>
+            <li>The tracker lives in another login the customer must not see</li>
+            <li>What it cost you and what you charged them sit in the same mess</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Then this happens</h3>
+          <ul>
+            <li>The owner asks “where is my car?” and nobody has a clean answer</li>
+            <li>Staff cannot see which jobs are actually stuck this morning</li>
+            <li>You move the tracker onto the next car and lose the old trail</li>
+            <li>Number plates get typed in by hand, from a website or a photo</li>
+          </ul>
+        </div>
+      </div>
+      <div class="note">
+        <strong>Who uses it:</strong> the people running the desk.
+        <strong>Who watches:</strong> their customer, on a simple page that never
+        shows costs, suppliers, or the number on the tracker box.
+      </div>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>2 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">What Harbour is</p>
+      <h2>Staff get the full story. The customer gets a safe version.</h2>
+      <p class="lede">
+        Think of one job as “this BMW, for this person, on this trip.” Staff see
+        the work. The owner sees progress. Those two views must never mix.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 22%">Where the car is</th>
+            <th>What staff need</th>
+            <th>What the owner sees</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>UK</td><td>Collect it, confirm it, it’s moving</td><td>Collected / on the way</td></tr>
+          <tr><td>Registration</td><td>Arrived, paperwork in progress, done</td><td>Being registered</td></tr>
+          <tr><td>Greece</td><td>Waiting or moving toward the port</td><td>Heading to the port</td></tr>
+          <tr><td>On the water</td><td>Shipped</td><td>On the boat</td></tr>
+          <tr><td>Cyprus</td><td>Arrived, ready to collect</td><td>Ready to pick up</td></tr>
+        </tbody>
+      </table>
+      <div class="cols-4">
+        <div class="card">
+          <h3>Today’s board</h3>
+          <p>What’s late, what’s arriving, which tracker has gone quiet.</p>
+        </div>
+        <div class="card">
+          <h3>A pin on a map</h3>
+          <p>A tracker on that job. Move the box to the next car without losing history.</p>
+        </div>
+        <div class="card">
+          <h3>A customer page</h3>
+          <p>The desk’s brand. Status, files, a map. Not costs. Not someone else’s car.</p>
+        </div>
+        <div class="card">
+          <h3>Starting a job</h3>
+          <p>Look up a UK plate or snap a photo, instead of typing the car in from scratch.</p>
+        </div>
+      </div>
+      <p class="caption">That is the first version I would build with your money. Fancy extras can wait.</p>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>3 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">Why bother</p>
+      <h2>The tools people already have were built for someone else.</h2>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 26%">What they use</th>
+            <th>Fine for</th>
+            <th>Bad for this job</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Spreadsheets and WhatsApp</td>
+            <td>Quick messages</td>
+            <td>No map, no clean history, easy to mix up money and updates</td>
+          </tr>
+          <tr>
+            <td>Freight software</td>
+            <td>Lorries and warehouses</td>
+            <td>Does not know “collect, register, ship to Cyprus”</td>
+          </tr>
+          <tr>
+            <td>A normal GPS app</td>
+            <td>Where is the van?</td>
+            <td>Does not know whose car it is, or what the owner is allowed to see</td>
+          </tr>
+          <tr>
+            <td>Car dealer software</td>
+            <td>Selling cars on a forecourt</td>
+            <td>Wrong job. This desk usually moves a car for someone else</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        I want to fill that gap: one car, one customer, a long route, and a
+        tracker the desk can reuse. That is the whole first product.
+      </div>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>4 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">Is there a real need?</p>
+      <h2>Lots of cars move. The small firms still run on chat.</h2>
+      <p class="lede">
+        Britain brought in tens of billions of dollars of passenger cars last
+        year. A lot of that work is still run on chat and spreadsheets. I am
+        not asking you to fund “all of logistics.” I am asking you to fund one
+        tool for one desk.
+      </p>
+      <div class="stats">
+        <div class="stat">
+          <b>The work is real</b>
+          <span>Cars already move on this route. The pain is already there. I am not inventing a job.</span>
+        </div>
+        <div class="stat">
+          <b>The tools are wrong</b>
+          <span>Maps, WhatsApp, and freight software exist. None of them were made for this trip.</span>
+        </div>
+        <div class="stat">
+          <b>What I am aiming at</b>
+          <span>Get this desk off the sticky tape. That is the test of your €3,000.</span>
+        </div>
+      </div>
+      <div class="note">
+        The $62 billion UK import figure is only background, from public 2025
+        data. It is not a forecast of what Harbour would earn.
+      </div>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>5 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">How your money sits</p>
+      <h2>Your €3,000 starts the build. It is not a monthly fee.</h2>
+      <p class="lede">
+        Later, if the desk is actually using it, they would pay each month like
+        any other work tool. That is a later conversation. Right now I need
+        enough to make the first version exist.
+      </p>
+      <div class="cols-2">
+        <div class="card">
+          <h3>If it works, roughly</h3>
+          <ul>
+            <li>A quieter month — about €150</li>
+            <li>A busy month — about €400</li>
+            <li>A packed month — about €800</li>
+            <li>Quoted if it gets much bigger, from about €1,500</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Plain rules</h3>
+          <ul>
+            <li>Your €3,000 is the start-up money, not rent</li>
+            <li>Trackers are ordinary boxes you buy separately. I am not making gadgets</li>
+            <li>More cars through the books can mean a higher monthly bill later</li>
+            <li>Those monthly numbers are a sketch, not a price list</li>
+          </ul>
+        </div>
+      </div>
+      <p class="caption">Nothing is for sale until there is a product. I am not asking you to buy a subscription.</p>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>6 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide">
+      <p class="kicker">The order of events</p>
+      <h2>Build it. Use it. Then we talk again.</h2>
+      <p class="lede">
+        There is no product yet, and no money coming in. That is why I am
+        writing to you.
+      </p>
+      <div class="steps">
+        <div class="card">
+          <div class="step-num">1. Start</div>
+          <p>I build the first version: jobs, a customer page, a map, start a job from a plate or a photo. UK to Cyprus only.</p>
+        </div>
+        <div class="card">
+          <div class="step-num">2. Prove it</div>
+          <p>Keep what the desk actually uses. Drop what they ignore. Success is fewer phone calls, not a pretty demo.</p>
+        </div>
+        <div class="card">
+          <div class="step-num">3. Then we talk</div>
+          <p>If it is in daily use, we sit down about what comes next. I am not asking you to fund that now.</p>
+        </div>
+      </div>
+      <div class="note">
+        I am not asking you to believe in a finished app. I am asking you to
+        fund the first version, with a real desk in the room.
+      </div>
+      <div class="foot">
+        <span>Harbour · for you</span>
+        <span>7 / 8</span>
+      </div>
+    </section>
+
+    <section class="slide ask">
+      <p class="kicker">What I am asking you for</p>
+      <h2>€3,000 to start</h2>
+      <p class="lede">
+        Not a big investment round. Enough for me to begin, with the desk in
+        the room so I build the real job, not a guess.
+      </p>
+      <div class="split">
+        <svg viewBox="0 0 120 120" width="220" height="220" aria-label="Where the first €3,000 goes">
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#3d5c5c" stroke-width="18" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#f4ead7" stroke-width="18"
+            stroke-dasharray="176 251.2" stroke-dashoffset="0" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#1c6b6a" stroke-width="18"
+            stroke-dasharray="50.2 251.2" stroke-dashoffset="-176" transform="rotate(-90 60 60)" />
+          <circle cx="60" cy="60" r="40" fill="none" stroke="#d7e4e3" stroke-width="18"
+            stroke-dasharray="25.1 251.2" stroke-dashoffset="-226.2" transform="rotate(-90 60 60)" />
+          <text x="60" y="56" text-anchor="middle" fill="#fffaf2" font-size="11" font-family="Nunito Sans, sans-serif">First €3k</text>
+          <text x="60" y="72" text-anchor="middle" fill="#f4ead7" font-size="13" font-family="Fraunces, Georgia, serif">70 / 20 / 10</text>
+        </svg>
+        <div class="legend">
+          <p><i style="background:#f4ead7"></i><strong>Most of it (€2,100)</strong> — build the first version: the job list, the customer page, the map.</p>
+          <p><i style="background:#1c6b6a"></i><strong>Some of it (€600)</strong> — plug in maps, trackers, and UK car lookup. Buy those. Don’t invent them.</p>
+          <p><i style="background:#d7e4e3"></i><strong>A bit (€300)</strong> — sit with the desk and get the steps of the trip right.</p>
+          <p style="font-size: 15px; color: rgba(255,250,242,0.55)">
+            €3,000 gets me started. It is not a year of wages. If the desk is
+            actually using it, you and I can talk again.
+          </p>
+        </div>
+      </div>
+      <div class="foot">
+        <span>For you only · nothing is built yet · Harbour</span>
+        <span>8 / 8</span>
+      </div>
+    </section>
+  </body>
+</html>

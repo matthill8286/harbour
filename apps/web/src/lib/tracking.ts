@@ -2,8 +2,8 @@ import type { JobStatus, LocationPoint, MapConfig } from '@vip/shared';
 
 export const FALLBACK_MAP: MapConfig = {
   provider: 'osm',
-  tileUrl: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  attribution: '© OpenStreetMap © CARTO',
+  tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '© OpenStreetMap contributors',
   maxZoom: 19,
 };
 

@@ -42,6 +42,21 @@ const KNOWN: Record<string, VehicleLookupResult> = {
     countryOfRegistration: 'GB',
     source: 'mock',
   },
+  RJ14XOO: {
+    registration: 'RJ14 XOO',
+    vin: 'WBS3C9C50E5A14001',
+    make: 'BMW',
+    model: 'M3',
+    variant: 'F80',
+    year: 2014,
+    colour: 'Mineral Grey',
+    fuelType: 'Petrol',
+    engineSize: '2979cc',
+    bodyType: 'Saloon',
+    mileage: 48620,
+    countryOfRegistration: 'GB',
+    source: 'mock',
+  },
 };
 
 @Injectable()
