@@ -1,7 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrganisationsService } from './organisations.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -44,7 +41,8 @@ describe('OrganisationsService staff invites', () => {
 
   const audit = { record: jest.fn() };
   const config = {
-    get: (_key: string, fallback?: string) => fallback ?? 'http://localhost:5173',
+    get: (_key: string, fallback?: string) =>
+      fallback ?? 'http://localhost:5173',
   };
 
   const service = new OrganisationsService(
