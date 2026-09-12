@@ -5,21 +5,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  INVITEABLE_STAFF_ROLES,
-  type InviteableStaffRole,
-  type UserRole,
-} from '@vip/shared';
+import { INVITEABLE_STAFF_ROLES, type InviteableStaffRole } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { presentOrganisation } from './organisation.view';
 import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
-import {
-  createInviteToken,
-  inviteExpiresAt,
-} from '../auth/invite-token';
+import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
 
 const organisationInclude = {
   settings: true,
@@ -100,7 +93,7 @@ export class OrganisationsService {
   }
 
   async inviteStaff(user: AuthUser, dto: InviteStaffDto) {
-    const role = dto.role as InviteableStaffRole;
+    const role = dto.role;
     if (!(INVITEABLE_STAFF_ROLES as readonly string[]).includes(role)) {
       throw new BadRequestException('That role cannot be invited');
     }
@@ -192,12 +185,11 @@ export class OrganisationsService {
       metadata: { email, role, expiresAt: expiresAt.toISOString() },
     });
 
-    const presented = await this.prisma.organisationMembership.findUniqueOrThrow(
-      {
+    const presented =
+      await this.prisma.organisationMembership.findUniqueOrThrow({
         where: { id: membership.id },
         select: memberSelect,
-      },
-    );
+      });
     return { member: presented, inviteUrl, expiresAt };
   }
 
@@ -216,14 +208,17 @@ export class OrganisationsService {
     if (member.role === 'OWNER') {
       throw new ForbiddenException('Owner membership cannot be changed here');
     }
-    if (dto.role && (INVITEABLE_STAFF_ROLES as readonly string[]).includes(dto.role) === false) {
+    if (
+      dto.role &&
+      (INVITEABLE_STAFF_ROLES as readonly string[]).includes(dto.role) === false
+    ) {
       throw new BadRequestException('That role is not allowed');
     }
 
     const updated = await this.prisma.organisationMembership.update({
       where: { id: member.id },
       data: {
-        ...(dto.role ? { role: dto.role as UserRole } : {}),
+        ...(dto.role ? { role: dto.role } : {}),
         ...(dto.status ? { status: dto.status } : {}),
       },
       select: memberSelect,
@@ -246,11 +241,7 @@ export class OrganisationsService {
     if (member.status !== 'INVITED') {
       throw new BadRequestException('Only pending invites can be resent');
     }
-    if (
-      !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(
-        member.role as InviteableStaffRole,
-      )
-    ) {
+    if (!(INVITEABLE_STAFF_ROLES as readonly string[]).includes(member.role)) {
       throw new BadRequestException('That role cannot be re-invited');
     }
 
@@ -279,7 +270,10 @@ export class OrganisationsService {
       action: 'STAFF_INVITE_RESENT',
       entityType: 'OrganisationMembership',
       entityId: member.id,
-      metadata: { email: member.user.email, expiresAt: expiresAt.toISOString() },
+      metadata: {
+        email: member.user.email,
+        expiresAt: expiresAt.toISOString(),
+      },
     });
     return { member, inviteUrl, expiresAt };
   }
