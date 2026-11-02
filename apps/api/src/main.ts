@@ -21,7 +21,8 @@ async function bootstrap() {
     }),
   );
   const port = Number(process.env.PORT ?? 3001);
-  await app.listen(port, '127.0.0.1');
+  // Containers set HOST=0.0.0.0 so the reverse proxy can reach the API.
+  await app.listen(port, process.env.HOST ?? '127.0.0.1');
 }
 
 void bootstrap();
