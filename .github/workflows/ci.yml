@@ -12,7 +12,8 @@ concurrency:
 jobs:
   build-and-test:
     name: Build and test
-    runs-on: ubuntu-latest
+    # The netcup self-hosted runner: no Docker, no sudo, capped by ci.slice.
+    runs-on: [self-hosted, netcup]
     timeout-minutes: 15
 
     steps:
