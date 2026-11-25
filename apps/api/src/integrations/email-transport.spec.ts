@@ -40,7 +40,7 @@ describe('EmailTransport', () => {
     const [url, request] = fetchMock.mock.calls[0];
     expect(url).toBe('https://api.brevo.com/v3/smtp/email');
     expect(request?.headers).toMatchObject({ 'api-key': 'test-key' });
-    expect(JSON.parse(String(request?.body))).toMatchObject({
+    expect(JSON.parse(request?.body as string)).toMatchObject({
       sender: { name: 'Harbour', email: 'verified@example.com' },
       to: [{ email: 'customer@example.com' }],
       textContent: 'Updated',
