@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { isPortalRole } from '@vip/shared';
-import { useAuth } from '../lib/auth';
+import { homePath, useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 export function LoginPage() {
@@ -13,7 +12,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
 
   if (ready && user) {
-    return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -21,8 +20,8 @@ export function LoginPage() {
     setPending(true);
     setError(null);
     try {
-      const signedIn = await login(email, password);
-      navigate(isPortalRole(signedIn.role) ? '/portal' : '/');
+      const result = await login(email, password);
+      navigate(result.kind === 'two-factor' ? '/two-factor' : homePath(result.user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in');
     } finally {

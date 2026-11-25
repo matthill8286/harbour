@@ -18,6 +18,7 @@ describe('OrganisationsService staff invites', () => {
     organisationBrandName: 'Demo',
     organisationCurrency: 'EUR',
     organisationCountry: 'CY',
+    twoFactorEnabled: true,
   };
 
   const prisma = {

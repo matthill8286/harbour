@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   Radio,
   Settings,
+  ShieldCheck,
   Ship,
   Users,
   X,
@@ -45,12 +46,16 @@ export function AppShell() {
 
   const railLinks = useMemo((): NavItem[] => {
     if (isPortal) {
-      return [{ to: '/portal', label: 'My vehicle', icon: Ship, end: true }];
+      return [
+        { to: '/portal', label: 'My vehicle', icon: Ship, end: true },
+        { to: '/security', label: 'Security', icon: ShieldCheck },
+      ];
     }
     const links: NavItem[] = [...staffPrimary, ...staffSecondary];
     if (canManage) {
       links.push({ to: '/organisation', label: 'Workspace', icon: Settings, group: 'Admin' });
     }
+    links.push({ to: '/security', label: 'Security', icon: ShieldCheck, group: 'Account' });
     return links;
   }, [canManage, isPortal]);
 
@@ -64,6 +69,7 @@ export function AppShell() {
     if (canManage) {
       links.push({ to: '/organisation', label: 'Workspace', icon: Settings, group: 'Admin' });
     }
+    links.push({ to: '/security', label: 'Security', icon: ShieldCheck, group: 'Account' });
     return links;
   }, [canManage, isPortal]);
 

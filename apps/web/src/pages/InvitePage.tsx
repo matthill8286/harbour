@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { isStaffRole, type UserRole } from '@vip/shared';
+import type { UserRole } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { homePath, useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 type InvitePreview = {
@@ -47,8 +47,8 @@ export function InvitePage() {
     setPending(true);
     setError(null);
     try {
-      const user = await acceptInvite(token, password);
-      navigate(isStaffRole(user.role) ? '/' : '/portal');
+      const result = await acceptInvite(token, password);
+      navigate(result.kind === 'two-factor' ? '/two-factor' : homePath(result.user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not activate this invite');
     } finally {
