@@ -16,6 +16,8 @@ import { LoginDto } from './dto/login.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { hashInviteToken } from './invite-token';
 import { AuditService } from '../audit/audit.service';
+import { TwoFactorService } from './two-factor/two-factor.service';
+import { issuedBeforePasswordChange } from './jwt.strategy';
 
 type PortalInviteLoaded = {
   kind: 'portal';
@@ -52,12 +54,26 @@ type StaffInviteLoaded = {
 
 type LoadedInvite = PortalInviteLoaded | StaffInviteLoaded;
 
+type SessionMembership = {
+  id: string;
+  organisationId: string;
+  role: AuthUser['role'];
+  customerId: string | null;
+  organisation: {
+    name: string;
+    currency?: string;
+    country?: string;
+    settings?: { brandName: string | null } | null;
+  };
+};
+
 @Injectable()
 export class AuthService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
+    private readonly twoFactor: TwoFactorService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -80,6 +96,41 @@ export class AuthService {
     if (!membership) {
       throw new UnauthorizedException(
         'No active organisation for this account',
+      );
+    }
+    return this.completeSignIn(user, membership);
+  }
+
+  /** Second step for accounts with two-factor on: a valid code turns the challenge into a session. */
+  async completeTwoFactorChallenge(input: {
+    challengeToken: string;
+    code?: string;
+    backupCode?: string;
+  }) {
+    const challenge = await this.twoFactor.readChallenge(input.challengeToken);
+    await this.twoFactor.verifySignIn(challenge.sub, input);
+    const user = await this.prisma.user.findUnique({
+      where: { id: challenge.sub },
+      include: {
+        memberships: {
+          include: { organisation: { include: { settings: true } } },
+        },
+      },
+    });
+    const membership = user?.memberships.find(
+      (item) =>
+        item.id === challenge.membershipId &&
+        item.status === 'ACTIVE' &&
+        item.organisation.status === 'ACTIVE',
+    );
+    if (!user || !membership) {
+      throw new UnauthorizedException(
+        'No active organisation for this account',
+      );
+    }
+    if (issuedBeforePasswordChange(challenge.iat, user.passwordChangedAt)) {
+      throw new UnauthorizedException(
+        'This sign-in has expired. Enter your email and password again.',
       );
     }
     return this.issueSession(user, membership);
@@ -185,7 +236,7 @@ export class AuthService {
         metadata: { customerId: invite.customerId },
       },
     );
-    return this.issueSession(user, membership);
+    return this.completeSignIn(user, membership);
   }
 
   private async acceptStaffInvite(invite: StaffInviteLoaded, password: string) {
@@ -248,28 +299,39 @@ export class AuthService {
         metadata: { role: invite.role },
       },
     );
+    return this.completeSignIn(user, membership);
+  }
+
+  /** An account with two-factor on gets a challenge, never a session, from its password alone. */
+  private async completeSignIn(
+    user: {
+      id: string;
+      email: string;
+      name: string;
+      twoFactorEnabled: boolean;
+    },
+    membership: SessionMembership,
+  ) {
+    if (user.twoFactorEnabled) {
+      return this.twoFactor.createChallenge(user.id, membership.id);
+    }
     return this.issueSession(user, membership);
   }
 
   private async issueSession(
-    user: { id: string; email: string; name: string },
-    membership: {
+    user: {
       id: string;
-      organisationId: string;
-      role: AuthUser['role'];
-      customerId: string | null;
-      organisation: {
-        name: string;
-        currency?: string;
-        country?: string;
-        settings?: { brandName: string | null } | null;
-      };
+      email: string;
+      name: string;
+      twoFactorEnabled?: boolean;
     },
+    membership: SessionMembership,
   ) {
     const authUser = buildAuthUser({
       id: user.id,
       email: user.email,
       name: user.name,
+      twoFactorEnabled: user.twoFactorEnabled,
       membership,
     });
     const accessToken = await this.jwt.signAsync({

@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { isPortalRole } from '@vip/shared';
-import { api, setToken, type LoginResponse } from '../lib/api';
-import { useAuth } from '../lib/auth';
+import { api, setToken, type SessionResponse } from '../lib/api';
+import { homePath, useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 /** Self-serve sign-up: a new importer gets their own workspace on a trial, as its owner. */
@@ -18,7 +17,7 @@ export function SignupPage() {
   const [pending, setPending] = useState(false);
 
   if (ready && user) {
-    return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -30,13 +29,13 @@ export function SignupPage() {
     setPending(true);
     setError(null);
     try {
-      const result = await api<LoginResponse>('/auth/signup', {
+      const result = await api<SessionResponse>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify({ organisationName, name, email, password }),
       });
       setToken(result.accessToken);
       useAuth.setState({ user: result.user, ready: true });
-      navigate('/');
+      navigate(homePath(result.user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not create your workspace');
     } finally {

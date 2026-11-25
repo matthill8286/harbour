@@ -5,6 +5,7 @@ import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { CurrentUser } from './current-user.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthUser } from './auth.types';
+import { AllowWithoutTwoFactor } from './two-factor/allow-without-two-factor.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -17,6 +18,8 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
+  // Allowed before two-factor setup, so the web app knows where to send the user next.
+  @AllowWithoutTwoFactor()
   me(@CurrentUser() user: AuthUser) {
     return user;
   }

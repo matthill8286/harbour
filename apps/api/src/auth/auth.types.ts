@@ -12,4 +12,5 @@ export type AuthUser = {
   name: string;
   role: UserRole;
   customerId: string | null;
+  twoFactorEnabled: boolean;
 };

@@ -10,6 +10,10 @@ import type { AuthUser } from './auth.types';
 export type JwtPayload = {
   sub: string;
   membershipId?: string;
+  /** Set on short-lived tokens that are not sessions, such as the two-factor challenge. */
+  purpose?: string;
+  /** Issued-at, in seconds, added by the JWT library. */
+  iat?: number;
 };
 
 @Injectable()
@@ -29,6 +33,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload): Promise<AuthUser> {
+    if (payload.purpose) {
+      throw new UnauthorizedException();
+    }
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
       include: {
@@ -37,7 +44,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         },
       },
     });
-    if (!user) {
+    if (
+      !user ||
+      issuedBeforePasswordChange(payload.iat, user.passwordChangedAt)
+    ) {
       throw new UnauthorizedException();
     }
     const membership = payload.membershipId
@@ -54,7 +64,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: user.id,
       email: user.email,
       name: user.name,
+      twoFactorEnabled: user.twoFactorEnabled,
       membership,
     });
   }
+}
+
+/** A password reset ends every session that was started with the old password. */
+export function issuedBeforePasswordChange(
+  issuedAtSeconds: number | undefined,
+  passwordChangedAt: Date | null | undefined,
+): boolean {
+  if (!passwordChangedAt) return false;
+  return (
+    (issuedAtSeconds ?? 0) < Math.floor(passwordChangedAt.getTime() / 1000)
+  );
 }
