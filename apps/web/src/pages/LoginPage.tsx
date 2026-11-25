@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { isPortalRole } from '@vip/shared';
 import { useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
@@ -71,6 +71,12 @@ export function LoginPage() {
             <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
               {pending ? 'Signing in…' : 'Continue'}
             </button>
+            <p className="text-sm text-ink/60">
+              New to Harbour?{' '}
+              <Link to="/signup" className="font-semibold text-harbour">
+                Create a workspace
+              </Link>
+            </p>
             <details className="text-xs text-ink/60">
               <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
               <p className="mt-2">
