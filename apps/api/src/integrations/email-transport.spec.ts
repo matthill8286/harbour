@@ -7,6 +7,8 @@ describe('EmailTransport', () => {
       get: (key: string, fallback?: string) => env[key] ?? fallback,
     } as ConfigService);
 
+  afterEach(() => jest.restoreAllMocks());
+
   it('defaults to log', () => {
     expect(make({}).provider()).toBe('log');
   });
@@ -16,6 +18,48 @@ describe('EmailTransport', () => {
       make({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' }).provider(),
     ).toBe('resend');
     expect(make({ EMAIL_PROVIDER: 'resend' }).provider()).toBe('log');
+  });
+
+  it('sends the email through Brevo with its authenticated sender', async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({ ok: true } as Response);
+    const transport = make({
+      EMAIL_PROVIDER: 'brevo',
+      BREVO_API_KEY: 'test-key',
+      EMAIL_FROM: 'Harbour <verified@example.com>',
+    });
+    await expect(
+      transport.send({
+        to: 'customer@example.com',
+        subject: 'Update',
+        text: 'Updated',
+        html: '<p>Updated</p>',
+      }),
+    ).resolves.toEqual({ provider: 'brevo' });
+    const [url, request] = fetchMock.mock.calls[0];
+    expect(url).toBe('https://api.brevo.com/v3/smtp/email');
+    expect(request?.headers).toMatchObject({ 'api-key': 'test-key' });
+    expect(JSON.parse(String(request?.body))).toMatchObject({
+      sender: { name: 'Harbour', email: 'verified@example.com' },
+      to: [{ email: 'customer@example.com' }],
+      textContent: 'Updated',
+    });
+  });
+
+  it('surfaces Brevo rejection without logging provider response data', async () => {
+    jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue({ ok: false, status: 429 } as Response);
+    await expect(
+      make({ EMAIL_PROVIDER: 'brevo', BREVO_API_KEY: 'test-key' }).send({
+        to: 'customer@example.com',
+        subject: 'Update',
+        text: 'Updated',
+        html: '',
+      }),
+    ).rejects.toThrow('Brevo returned 429');
+    expect(make({ EMAIL_PROVIDER: 'brevo' }).provider()).toBe('log');
   });
 
   it('logs instead of calling Resend when provider is log', async () => {

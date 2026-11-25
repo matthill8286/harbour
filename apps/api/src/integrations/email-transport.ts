@@ -14,11 +14,14 @@ export class EmailTransport {
 
   constructor(private readonly config: ConfigService) {}
 
-  provider(): 'log' | 'resend' {
+  provider(): 'log' | 'resend' | 'brevo' {
     const configured = this.config
       .get<string>('EMAIL_PROVIDER', 'log')
       .trim()
       .toLowerCase();
+    if (configured === 'brevo' && this.brevoKey()) {
+      return 'brevo';
+    }
     if (configured === 'resend' && this.resendKey()) {
       return 'resend';
     }
@@ -35,6 +38,10 @@ export class EmailTransport {
 
   async send(email: OutboundEmail) {
     const provider = this.provider();
+    if (provider === 'brevo') {
+      await this.sendBrevo(email);
+      return { provider };
+    }
     if (provider === 'resend') {
       await this.sendResend(email);
       return { provider };
@@ -44,6 +51,37 @@ export class EmailTransport {
     );
     this.logger.debug(email.text);
     return { provider };
+  }
+
+  private brevoKey() {
+    return this.config.get<string>('BREVO_API_KEY')?.trim() || '';
+  }
+
+  private async sendBrevo(email: OutboundEmail) {
+    const from = this.fromAddress();
+    const match = /^(.*?)\s*<([^<>]+)>$/.exec(from);
+    const sender = match
+      ? { name: match[1].trim(), email: match[2].trim() }
+      : { email: from };
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': this.brevoKey(),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender,
+        to: [{ email: email.to }],
+        subject: email.subject,
+        textContent: email.text,
+        htmlContent: email.html,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) {
+      // Provider responses can contain addresses or account details.
+      throw new Error(`Brevo returned ${response.status}`);
+    }
   }
 
   private resendKey() {
