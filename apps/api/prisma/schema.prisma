@@ -272,9 +272,12 @@ model User {
   email        String    @unique
   passwordHash String?
   name         String
+  /// True once the user has confirmed an authenticator code. Staff must turn this on.
+  twoFactorEnabled Boolean @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
+  twoFactor            TwoFactor?
   memberships          OrganisationMembership[]
   platformAdmin        PlatformAdmin?
   supportAccessGrants  SupportAccessGrant[]
@@ -288,6 +291,23 @@ model User {
   createdPortalInvites PortalInvite[]      @relation("PortalInviteCreator")
   staffInvites         StaffInvite[]
   createdStaffInvites  StaffInvite[]       @relation("StaffInviteCreator")
+}
+
+/// Authenticator (TOTP) secret and backup codes for one user. Both are stored encrypted.
+model TwoFactor {
+  id                      String    @id @default(cuid())
+  userId                  String    @unique
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// AES-256-GCM ciphertext of the base32 TOTP secret.
+  secret                  String
+  /// AES-256-GCM ciphertext of the JSON array of unused backup codes.
+  backupCodes             String
+  /// False until the user proves the authenticator works by entering a code.
+  verified                Boolean   @default(false)
+  failedVerificationCount Int       @default(0)
+  lockedUntil             DateTime?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 }
 
 model Customer {
