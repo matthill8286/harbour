@@ -17,6 +17,7 @@ import { TrackingPage } from './pages/TrackingPage';
 import { TrackersPage } from './pages/TrackersPage';
 import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { SignupPage } from './pages/SignupPage';
 import { LoadingScreen } from './components/ui';
 
 function Guard({
@@ -45,6 +46,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route
         element={
           <Guard allow={() => true}>
