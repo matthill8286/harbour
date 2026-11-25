@@ -22,6 +22,7 @@ import { SecuritySetupPage } from './pages/SecuritySetupPage';
 import { SecurityPage } from './pages/SecurityPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { SignupPage } from './pages/SignupPage';
 import { LoadingScreen } from './components/ui';
 
 function Guard({
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/security/setup" element={<SecuritySetupPage />} />
+      <Route path="/signup" element={<SignupPage />} />
       <Route
         element={
           <Guard allow={() => true}>
