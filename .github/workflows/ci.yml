@@ -1,9 +1,11 @@
 name: CI
 
+# CI runs on the self-hosted runner on the netcup server, which is also
+# production. To keep that load down it runs on pull requests and by hand,
+# not again on pushes or when a checked pull request is merged to main.
 on:
-  push:
-    branches: [main, develop, 'feature/**']
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
