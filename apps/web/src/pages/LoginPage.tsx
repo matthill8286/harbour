@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { isPortalRole } from '@vip/shared';
-import { useAuth } from '../lib/auth';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { homePath, useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 export function LoginPage() {
@@ -13,7 +12,7 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
 
   if (ready && user) {
-    return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
 
   async function onSubmit(event: FormEvent) {
@@ -21,8 +20,8 @@ export function LoginPage() {
     setPending(true);
     setError(null);
     try {
-      const signedIn = await login(email, password);
-      navigate(isPortalRole(signedIn.role) ? '/portal' : '/');
+      const result = await login(email, password);
+      navigate(result.kind === 'two-factor' ? '/two-factor' : homePath(result.user));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to sign in');
     } finally {
@@ -71,6 +70,9 @@ export function LoginPage() {
             <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
               {pending ? 'Signing in…' : 'Continue'}
             </button>
+            <Link to="/forgot-password" className="block text-sm font-semibold text-harbour">
+              Forgot your password?
+            </Link>
             <details className="text-xs text-ink/60">
               <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
               <p className="mt-2">

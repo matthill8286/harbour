@@ -326,6 +326,8 @@ export type PublicUser = {
   name: string;
   role: UserRole;
   customerId: string | null;
+  /** Staff cannot use the workspace until this is true. */
+  twoFactorEnabled: boolean;
 };
 
 export type VehicleLookupResult = {
