@@ -32,6 +32,7 @@ export type ChallengePayload = {
   sub: string;
   membershipId: string;
   purpose: typeof CHALLENGE_PURPOSE;
+  iat?: number;
 };
 
 type TwoFactorRow = {

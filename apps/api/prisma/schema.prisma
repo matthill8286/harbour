@@ -274,10 +274,13 @@ model User {
   name         String
   /// True once the user has confirmed an authenticator code. Staff must turn this on.
   twoFactorEnabled Boolean @default(false)
+  /// Sessions issued before this time stop working, so a password reset signs out other devices.
+  passwordChangedAt DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
   twoFactor            TwoFactor?
+  passwordResets       PasswordReset[]
   memberships          OrganisationMembership[]
   platformAdmin        PlatformAdmin?
   supportAccessGrants  SupportAccessGrant[]
@@ -308,6 +311,19 @@ model TwoFactor {
   lockedUntil             DateTime?
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
+}
+
+/// A one-time link that lets a user choose a new password. Only a hash of the token is kept.
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
 }
 
 model Customer {

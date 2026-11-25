@@ -17,6 +17,7 @@ import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { hashInviteToken } from './invite-token';
 import { AuditService } from '../audit/audit.service';
 import { TwoFactorService } from './two-factor/two-factor.service';
+import { issuedBeforePasswordChange } from './jwt.strategy';
 
 type PortalInviteLoaded = {
   kind: 'portal';
@@ -125,6 +126,11 @@ export class AuthService {
     if (!user || !membership) {
       throw new UnauthorizedException(
         'No active organisation for this account',
+      );
+    }
+    if (issuedBeforePasswordChange(challenge.iat, user.passwordChangedAt)) {
+      throw new UnauthorizedException(
+        'This sign-in has expired. Enter your email and password again.',
       );
     }
     return this.issueSession(user, membership);

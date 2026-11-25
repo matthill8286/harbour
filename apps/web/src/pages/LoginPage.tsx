@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { homePath, useAuth } from '../lib/auth';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
@@ -70,6 +70,9 @@ export function LoginPage() {
             <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
               {pending ? 'Signing in…' : 'Continue'}
             </button>
+            <Link to="/forgot-password" className="block text-sm font-semibold text-harbour">
+              Forgot your password?
+            </Link>
             <details className="text-xs text-ink/60">
               <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
               <p className="mt-2">
