@@ -49,4 +49,4 @@ CMD ["node", "dist/src/main"]
 
 FROM caddy:2.10-alpine AS web
 COPY --from=build /app/apps/web/dist /srv
-RUN printf ':80 {\n\troot * /srv\n\tencode zstd gzip\n\ttry_files {path} /index.html\n\tfile_server\n}\n' > /etc/caddy/Caddyfile
+COPY apps/web/Caddyfile /etc/caddy/Caddyfile
