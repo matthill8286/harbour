@@ -17,6 +17,7 @@ export function buildAuthUser(input: {
   id: string;
   email: string;
   name: string;
+  twoFactorEnabled?: boolean;
   membership: {
     id: string;
     organisationId: string;
@@ -38,5 +39,6 @@ export function buildAuthUser(input: {
     name: input.name,
     role: input.membership.role,
     customerId: input.membership.customerId,
+    twoFactorEnabled: Boolean(input.twoFactorEnabled),
   };
 }
