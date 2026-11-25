@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { canManageOrganisation, canWriteStaff, isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
-import { useAuth } from './lib/auth';
+import { homePath, useAuth } from './lib/auth';
 import { AppShell } from './components/AppShell';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -17,6 +17,9 @@ import { TrackingPage } from './pages/TrackingPage';
 import { TrackersPage } from './pages/TrackersPage';
 import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { TwoFactorPage } from './pages/TwoFactorPage';
+import { SecuritySetupPage } from './pages/SecuritySetupPage';
+import { SecurityPage } from './pages/SecurityPage';
 import { LoadingScreen } from './components/ui';
 
 function Guard({
@@ -29,8 +32,12 @@ function Guard({
   const { user, ready } = useAuth();
   if (!ready) return <LoadingScreen label="Opening workspace…" />;
   if (!user) return <Navigate to="/login" replace />;
+  // Staff set up two-factor sign-in before they see any workspace data, as in Kleidi.
+  if (isStaffRole(user.role) && !user.twoFactorEnabled) {
+    return <Navigate to="/security/setup" replace />;
+  }
   if (!allow(user)) {
-    return <Navigate to={isPortalRole(user.role) ? '/portal' : '/'} replace />;
+    return <Navigate to={homePath(user)} replace />;
   }
   return children;
 }
@@ -45,6 +52,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/two-factor" element={<TwoFactorPage />} />
+      <Route path="/security/setup" element={<SecuritySetupPage />} />
       <Route
         element={
           <Guard allow={() => true}>
@@ -137,6 +146,14 @@ export default function App() {
           element={
             <Guard allow={customer}>
               <PortalJobPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/security"
+          element={
+            <Guard allow={() => true}>
+              <SecurityPage />
             </Guard>
           }
         />

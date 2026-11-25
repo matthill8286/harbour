@@ -29,13 +29,18 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`/api${path}`, { ...init, headers });
   if (!response.ok) {
     let message = response.statusText;
+    let code: string | undefined;
     try {
-      const body = (await response.json()) as { message?: string | string[] };
+      const body = (await response.json()) as { message?: string | string[]; code?: string };
       message = Array.isArray(body.message) ? body.message.join(', ') : body.message ?? message;
+      code = body.code;
     } catch {
       /* ignore */
     }
-    if (response.status === 401 && path !== '/auth/login') {
+    if (response.status === 403 && code === 'two_factor_required') {
+      window.dispatchEvent(new Event('harbour:two-factor-required'));
+    }
+    if (response.status === 401 && path !== '/auth/login' && !path.startsWith('/auth/two-factor')) {
       setToken(null);
       window.dispatchEvent(new Event('harbour:unauthorized'));
     }
@@ -70,7 +75,31 @@ export async function downloadApiFile(path: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export type LoginResponse = {
+export type SessionResponse = {
   accessToken: string;
   user: PublicUser;
+};
+
+/** The password was right, but the account has two-factor sign-in on and a code is due. */
+export type TwoFactorChallenge = {
+  twoFactorRequired: true;
+  challengeToken: string;
+  expiresIn: number;
+};
+
+export type LoginResponse = SessionResponse | TwoFactorChallenge;
+
+export function isChallenge(result: LoginResponse): result is TwoFactorChallenge {
+  return 'twoFactorRequired' in result && result.twoFactorRequired === true;
+}
+
+export type TwoFactorSetup = {
+  totpURI: string;
+  secret: string;
+  backupCodes: string[];
+};
+
+export type TwoFactorStatus = {
+  enabled: boolean;
+  backupCodesRemaining: number;
 };
