@@ -73,6 +73,12 @@ export function LoginPage() {
             <Link to="/forgot-password" className="block text-sm font-semibold text-harbour">
               Forgot your password?
             </Link>
+            <p className="text-sm text-ink/60">
+              New to Harbour?{' '}
+              <Link to="/signup" className="font-semibold text-harbour">
+                Create a workspace
+              </Link>
+            </p>
             <details className="text-xs text-ink/60">
               <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
               <p className="mt-2">
