@@ -1,8 +1,7 @@
 name: CI
 
-# CI runs on the self-hosted runner on the netcup server, which is also
-# production. To keep that load down it runs on pull requests and by hand,
-# not again on pushes or when a checked pull request is merged to main.
+# CI runs on pull requests and by hand only, not again on pushes or when a
+# checked pull request is merged to main.
 on:
   pull_request:
   workflow_dispatch:
@@ -14,8 +13,7 @@ concurrency:
 jobs:
   build-and-test:
     name: Build and test
-    # The netcup self-hosted runner: no Docker, no sudo, capped by ci.slice.
-    runs-on: [self-hosted, netcup]
+    runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
