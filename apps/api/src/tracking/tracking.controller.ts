@@ -23,6 +23,12 @@ export class TrackingController {
     return this.tracking.live(user);
   }
 
+  @Get('tracking/live/:jobId/trail')
+  @Roles(...STAFF_ROLES)
+  liveTrail(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
+    return this.tracking.liveTrail(user, jobId);
+  }
+
   @Get('import-jobs/:jobId/tracking')
   @Roles(...STAFF_ROLES)
   forJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {

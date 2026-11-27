@@ -1,7 +1,8 @@
-import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsIn, IsString, MinLength, MaxLength } from 'class-validator';
 import { TrimmedEmail } from '../../common/trimmed-email';
 import { INVITEABLE_STAFF_ROLES } from '@vip/shared';
 import { UpdateOrganisationDto } from './organisation.dto';
+import { IfSent } from '../../common/validators';
 
 export { UpdateOrganisationDto };
 
@@ -11,6 +12,7 @@ export class InviteStaffDto {
 
   @IsString()
   @MinLength(2)
+  @MaxLength(120)
   name!: string;
 
   @IsIn([...INVITEABLE_STAFF_ROLES])
@@ -18,11 +20,11 @@ export class InviteStaffDto {
 }
 
 export class UpdateMemberDto {
-  @IsOptional()
+  @IfSent()
   @IsIn([...INVITEABLE_STAFF_ROLES])
   role?: (typeof INVITEABLE_STAFF_ROLES)[number];
 
-  @IsOptional()
+  @IfSent()
   @IsIn(['ACTIVE', 'DISABLED'])
   status?: 'ACTIVE' | 'DISABLED';
 }

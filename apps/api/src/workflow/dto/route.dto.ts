@@ -11,6 +11,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { IfSent, IsCountryCode } from '../../common/validators';
 
 export class CreateRouteDto {
   @IsString()
@@ -23,44 +24,49 @@ export class CreateRouteDto {
 
   @IsString()
   @Length(2, 2)
+  @IsCountryCode()
   originCountry!: string;
 
   @IsString()
   @Length(2, 2)
+  @IsCountryCode()
   destinationCountry!: string;
 
   /** Start as a copy of this route's stages and statuses. Empty when left out. */
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   copyFromId?: string;
 }
 
 export class UpdateRouteDto {
-  @IsOptional()
+  @IfSent()
   @IsString()
   @Length(2, 60)
   name?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @Length(1, 16)
   shortLabel?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @Length(2, 2)
+  @IsCountryCode()
   originCountry?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @Length(2, 2)
+  @IsCountryCode()
   destinationCountry?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsBoolean()
   active?: boolean;
 
-  @IsOptional()
+  @IfSent()
   @IsBoolean()
   isDefault?: boolean;
 }
@@ -69,6 +75,7 @@ export class StageStatusDto {
   /** Left out for a new status; kept for one being renamed or reordered. */
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   code?: string;
 
   @IsString()
@@ -101,6 +108,8 @@ export class SaveStageDto {
 export class ReorderStagesDto {
   @IsArray()
   @IsString({ each: true })
+  @ArrayMaxSize(100)
+  @MaxLength(64, { each: true })
   stageIds!: string[];
 }
 
@@ -108,5 +117,6 @@ export class RemoveStageDto {
   /** Where the stage's jobs go. Needed only when some jobs are at its statuses. */
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   moveTo?: string;
 }

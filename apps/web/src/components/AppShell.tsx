@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AppShell as Shell, Avatar, Button, Menu, SideNav, TabBar, TextInput } from '@atomic-ui/ui-react';
 import type { ShellNavItem } from '@atomic-ui/ui';
@@ -8,6 +8,7 @@ import { useSession } from '../lib/session';
 import { ErrorBoundary } from './ErrorBoundary';
 import { SignOutDialog } from '../pages/account/SignOutDialog';
 import { PhoneHeaderSlot } from '../lib/phone-header';
+import { LoadingScreen } from './ui';
 import './AppShell.css';
 
 /** The owner's places, in the order of the Figma sidebar. */
@@ -121,7 +122,7 @@ export function AppShell() {
       </div>
 
       {isStaff ? (
-        <div slot="search" role="search" className="harbour-search">
+        <div slot="search" role="search" aria-label="All jobs" className="harbour-search">
           <TextInput
             type="search"
             label="Search jobs"
@@ -181,8 +182,10 @@ export function AppShell() {
       </div>
 
       <PhoneHeaderSlot.Provider value={slot}>
-        <ErrorBoundary>
-          <Outlet />
+        <ErrorBoundary resetKey={here}>
+          <Suspense fallback={<LoadingScreen />}>
+            <Outlet />
+          </Suspense>
         </ErrorBoundary>
       </PhoneHeaderSlot.Provider>
 

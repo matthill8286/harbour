@@ -4,7 +4,7 @@ import {
   WORKSPACE_DAILY_NOTIFICATIONS,
 } from './notifications.service';
 import { RateLimiter } from '../rate-limit/rate-limiter';
-import { EmailTransport } from './email-transport';
+import { EmailSendError, EmailTransport } from './email-transport';
 import { PrismaService } from '../prisma/prisma.service';
 
 describe('NotificationsService', () => {
@@ -114,6 +114,27 @@ describe('NotificationsService', () => {
     await expect(service.sendPortalInvite(portalInvite('org-1'))).resolves.toBe(
       false,
     );
+  });
+
+  it('tries a failed notification again later, but never an invite', async () => {
+    jest.useFakeTimers();
+    prisma.customer.findFirst.mockResolvedValue(customer);
+    const retry = jest.fn().mockResolvedValue({ provider: 'brevo' });
+    const refusal = () =>
+      Object.assign(new EmailSendError('Brevo returned 429', true), { retry });
+    send.mockRejectedValueOnce(refusal()).mockRejectedValueOnce(refusal());
+
+    await service.sendPortalInvite(portalInvite('org-retry'));
+    service.notify({
+      type: 'CUSTOMER_NOTE',
+      organisationId: 'org-retry',
+      customerId: 'cust-1',
+      message: 'Hello',
+    });
+    await jest.advanceTimersByTimeAsync(24 * 60 * 60 * 1000);
+
+    expect(retry).toHaveBeenCalledTimes(1);
+    jest.useRealTimers();
   });
 
   it('says whether a staff invite went', async () => {

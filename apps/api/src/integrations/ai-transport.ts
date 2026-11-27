@@ -1,5 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OutboundStatusError, outboundCall } from './outbound-call';
+
+/** A written answer can take a while. */
+export const OPENAI_TIMEOUT_MS = 30_000;
 
 export type AiProvider = 'log' | 'openai';
 
@@ -102,31 +106,36 @@ export class AiTransport {
     user: string;
     json: boolean;
   }) {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.openaiKey()}`,
-        'Content-Type': 'application/json',
+    return outboundCall(this.logger, {
+      service: 'OpenAI',
+      url: 'https://api.openai.com/v1/chat/completions',
+      timeoutMs: OPENAI_TIMEOUT_MS,
+      unavailable:
+        'The writing assistant is not answering. Please try again shortly.',
+      init: {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.openaiKey()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model(),
+          temperature: 0.4,
+          ...(args.json ? { response_format: { type: 'json_object' } } : {}),
+          messages: [
+            { role: 'system', content: args.system },
+            { role: 'user', content: args.user },
+          ],
+        }),
       },
-      body: JSON.stringify({
-        model: this.model(),
-        temperature: 0.4,
-        ...(args.json ? { response_format: { type: 'json_object' } } : {}),
-        messages: [
-          { role: 'system', content: args.system },
-          { role: 'user', content: args.user },
-        ],
-      }),
+      read: async (response) => {
+        if (!response.ok) throw new OutboundStatusError(response.status);
+        const payload = (await response.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        return payload.choices?.[0]?.message?.content?.trim() ?? '';
+      },
     });
-    if (!response.ok) {
-      const detail = await response.text();
-      this.logger.warn(`OpenAI ${response.status}: ${detail.slice(0, 240)}`);
-      throw new Error(`OpenAI returned ${response.status}`);
-    }
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
-    return payload.choices?.[0]?.message?.content?.trim() ?? '';
   }
 }
 

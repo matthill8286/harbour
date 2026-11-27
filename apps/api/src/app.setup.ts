@@ -1,6 +1,9 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { json, urlencoded } from 'express';
+import { ApiExceptionFilter } from './logging/api-exception.filter';
+import type { ErrorReporter } from './logging/error-reporter';
+import { requestLog, requestScope } from './logging/request-context';
 
 /** The only route that takes large bodies: Flespi sends GPS messages in batches. */
 export const FLESPI_WEBHOOK_PATH = '/api/integrations/gps/flespi';
@@ -33,20 +36,28 @@ export function corsOrigins(env: NodeJS.ProcessEnv): string[] {
 export function configureApp(
   app: NestExpressApplication,
   env: NodeJS.ProcessEnv = process.env,
+  options: { errorReporter?: ErrorReporter } = {},
 ) {
   app.disable('x-powered-by');
   app.set('trust proxy', trustedProxyHops(env));
   app.setGlobalPrefix('api');
-  // First, because a body that has been read is not read again.
+  // Before the parsers, so a request they refuse is logged too.
+  app.use(requestLog());
+  // First of the parsers, because a body that has been read is not read again.
   app.use(FLESPI_WEBHOOK_PATH, json({ limit: FLESPI_BODY_LIMIT }));
   app.use(json({ limit: BODY_LIMIT }));
   app.use(urlencoded({ extended: true, limit: BODY_LIMIT }));
+  app.use(requestScope);
   app.enableCors({ origin: corsOrigins(env), credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      // No implicit conversion: it reads the string "false" as true. A field
+      // that arrives as text, such as a query number, says how to convert it.
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
     }),
+  );
+  app.useGlobalFilters(
+    new ApiExceptionFilter(app.getHttpAdapter(), options.errorReporter),
   );
 }
