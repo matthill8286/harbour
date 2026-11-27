@@ -20,16 +20,6 @@
   min-inline-size: 220px;
 }
 
-/* The status filter needs no visible label beside "All statuses"; the label stays for screen readers. */
-.jobs-status::part(label) {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .jobs-filters {
   /* The containing block for the chips' screen-reader words, so a chip scrolled
      out of the row cannot widen the page on a phone. */
