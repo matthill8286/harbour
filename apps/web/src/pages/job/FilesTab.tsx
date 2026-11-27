@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Alert, Badge, Button, Card, FileUpload, Heading, Row, SegmentedControl, Select, Text } from '@atomic-ui/ui-react';
+import { Alert, Badge, Button, Card, Dialog, FileUpload, Heading, Row, SegmentedControl, Select, Text } from '@atomic-ui/ui-react';
 import type { ImpaktFileUpload } from '@atomic-ui/ui';
 import { DOCUMENT_TYPES, PHOTO_CATEGORIES } from '@vip/shared';
 import { api, downloadApiFile } from '../../lib/api';
@@ -23,8 +23,9 @@ const VISIBILITY_OPTIONS = [
 const PHOTO_OPTIONS = PHOTO_CATEGORIES.map((value) => ({ value, label: formatCategory(value) }));
 const DOCUMENT_OPTIONS = DOCUMENT_TYPES.map((value) => ({ value, label: formatCategory(value) }));
 const ACCEPT: Record<Kind, string> = {
-  photos: 'image/jpeg,image/png,image/webp',
-  documents: 'application/pdf,image/jpeg,image/png,image/webp',
+  // The extensions are for browsers that do not know the HEIC types.
+  photos: 'image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif',
+  documents: 'application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif',
 };
 
 /** The short file kind shown on a document, from its type: PDF, JPG, PNG. */
@@ -72,6 +73,19 @@ export function FilesTab({ job }: { job: JobDetail }) {
   const download = useMutation({
     mutationFn: (doc: JobDetail['documents'][number]) => downloadApiFile(`/import-jobs/${job.id}/documents/${doc.id}`, doc.name),
   });
+
+  const [doomed, setDoomed] = useState<{ kind: Kind; id: string; name: string; customerVisible: boolean } | null>(null);
+  const remove = useMutation({
+    mutationFn: ({ kind, id }: { kind: Kind; id: string }) => api(`/import-jobs/${job.id}/${kind}/${id}`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await refresh();
+      setDoomed(null);
+    },
+  });
+  const askToDelete = (target: NonNullable<typeof doomed>) => {
+    remove.reset();
+    setDoomed(target);
+  };
 
   const visiblePhotos = job.photos.filter((p) => p.customerVisible).length;
   const shareLabel = (on: boolean, name: string) => (on ? `Hide ${name} from the customer` : `Share ${name} with the customer`);
@@ -157,7 +171,7 @@ export function FilesTab({ job }: { job: JobDetail }) {
               {job.photos.map((photo) => (
                 <li key={photo.id} className="job-photo">
                   <AuthenticatedImage
-                    path={`/import-jobs/${job.id}/photos/${photo.id}`}
+                    path={`/import-jobs/${job.id}/photos/${photo.id}?size=thumb`}
                     alt={`${formatCategory(photo.category)} photo, ${photo.filename}`}
                     className="job-photo-image"
                   />
@@ -166,15 +180,26 @@ export function FilesTab({ job }: { job: JobDetail }) {
                   </span>
                   <span className="job-photo-bottom">
                     {photo.customerVisible ? <Badge tone="solid">Visible to customer</Badge> : <Badge>Internal</Badge>}
-                    {editable ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        icon={photo.customerVisible ? 'lock' : 'eye'}
-                        label={shareLabel(photo.customerVisible, `the ${formatCategory(photo.category).toLowerCase()} photo`)}
-                        onClick={() => share.mutate({ kind: 'photos', id: photo.id, customerVisible: !photo.customerVisible })}
-                      />
-                    ) : null}
+                    <span className="job-photo-actions">
+                      {editable ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon={photo.customerVisible ? 'lock' : 'eye'}
+                          label={shareLabel(photo.customerVisible, `the ${formatCategory(photo.category).toLowerCase()} photo`)}
+                          onClick={() => share.mutate({ kind: 'photos', id: photo.id, customerVisible: !photo.customerVisible })}
+                        />
+                      ) : null}
+                      {editable ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          icon="trash"
+                          label={`Delete ${photo.filename}`}
+                          onClick={() => askToDelete({ kind: 'photos', id: photo.id, name: photo.filename, customerVisible: photo.customerVisible })}
+                        />
+                      ) : null}
+                    </span>
                   </span>
                 </li>
               ))}
@@ -218,6 +243,15 @@ export function FilesTab({ job }: { job: JobDetail }) {
                       </Button>
                     ) : null}
                     <Button size="sm" variant="ghost" icon="download" label={`Download ${doc.name}`} onClick={() => download.mutate(doc)} />
+                    {editable ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon="trash"
+                        label={`Delete ${doc.name}`}
+                        onClick={() => askToDelete({ kind: 'documents', id: doc.id, name: doc.name, customerVisible: doc.customerVisible })}
+                      />
+                    ) : null}
                   </span>
                 </Row>
               ))}
@@ -225,6 +259,30 @@ export function FilesTab({ job }: { job: JobDetail }) {
           )}
         </Card>
       </div>
+
+      {doomed ? (
+        <Dialog open heading={doomed.kind === 'photos' ? 'Delete this photo?' : 'Delete this document?'} onClose={() => setDoomed(null)}>
+          <div className="job-dialog">
+            <Text>
+              <strong className="job-file-name">{doomed.name}</strong> will be deleted for good.
+              {doomed.customerVisible ? ' The customer will no longer see it.' : ''} This cannot be undone.
+            </Text>
+            {remove.isError ? (
+              <Alert tone="danger" heading="It was not deleted">
+                {remove.error instanceof Error ? remove.error.message : 'Try again.'}
+              </Alert>
+            ) : null}
+            <div className="job-dialog-actions">
+              <Button variant="secondary" onClick={() => setDoomed(null)}>
+                Cancel
+              </Button>
+              <Button variant="danger" busy={remove.isPending} busyLabel="Deleting" onClick={() => remove.mutate(doomed)}>
+                Delete
+              </Button>
+            </div>
+          </div>
+        </Dialog>
+      ) : null}
     </div>
   );
 }

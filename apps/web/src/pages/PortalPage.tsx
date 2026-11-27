@@ -21,7 +21,7 @@ function VehicleCard({ job }: { job: PortalVehicle }) {
     <Card className="portal-card portal-vehicle" padding="none">
       <a className="portal-vehicle-photo" href={`/portal/${job.id}`} tabIndex={-1} aria-hidden="true">
         {job.coverPhotoId ? (
-          <AuthenticatedImage path={`/portal/jobs/${job.id}/photos/${job.coverPhotoId}`} alt="" className="portal-cover" />
+          <AuthenticatedImage path={`/portal/jobs/${job.id}/photos/${job.coverPhotoId}?size=thumb`} alt="" className="portal-cover" />
         ) : (
           <span className="portal-no-photo">No photos shared yet</span>
         )}
