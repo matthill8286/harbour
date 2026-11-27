@@ -4,9 +4,12 @@ const TOKEN_KEY = 'harbour.token';
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** A machine-readable reason, when the api sends one. */
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -40,11 +43,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     if (response.status === 403 && code === 'two_factor_required') {
       window.dispatchEvent(new Event('harbour:two-factor-required'));
     }
-    if (response.status === 401 && path !== '/auth/login' && !path.startsWith('/auth/two-factor')) {
+    // On these routes a 401 is about what was typed, not about the current session.
+    const signingIn = path === '/auth/login' || path.startsWith('/auth/two-factor') || path.startsWith('/auth/invites/');
+    if (response.status === 401 && !signingIn) {
       setToken(null);
       window.dispatchEvent(new Event('harbour:unauthorized'));
     }
-    throw new ApiError(response.status, message);
+    throw new ApiError(response.status, message, code);
   }
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;

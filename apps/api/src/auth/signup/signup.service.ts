@@ -99,6 +99,7 @@ export class SignupService {
           userId: user.id,
           role: 'ADMIN',
           status: 'ACTIVE',
+          acceptedAt: new Date(),
         },
         include: { organisation: { include: { settings: true } } },
       });
