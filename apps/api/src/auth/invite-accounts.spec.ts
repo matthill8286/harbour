@@ -177,6 +177,7 @@ function memoryDatabase() {
     customer: model('customer'),
     staffInvite: model('staffInvite'),
     portalInvite: model('portalInvite'),
+    $executeRaw: async () => 0,
     $transaction: async <T>(work: (tx: unknown) => Promise<T>): Promise<T> => {
       const names = Object.keys(tables) as Table[];
       const before = names.map((name) =>
