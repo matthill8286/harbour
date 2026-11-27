@@ -39,7 +39,12 @@ describe('OrganisationsService staff invites', () => {
       updateMany: jest.fn(),
       create: jest.fn(),
     },
+    $executeRaw: jest.fn(),
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation((work: (tx: unknown) => unknown) =>
+    work(prisma),
+  );
 
   const audit = { record: jest.fn() };
   const config = {
