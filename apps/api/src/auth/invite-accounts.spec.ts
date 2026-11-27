@@ -11,6 +11,8 @@ import { hash, verify } from 'argon2';
 import { AuditService } from '../audit/audit.service';
 import { CustomersService } from '../customers/customers.service';
 import { NotificationsService } from '../integrations/notifications.service';
+import { EmailTransport } from '../integrations/email-transport';
+import { RateLimiter } from '../rate-limit/rate-limiter';
 import { OrganisationsService } from '../organisations/organisations.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthService } from './auth.service';
@@ -203,7 +205,13 @@ describe('invites between two organisations', () => {
     victimHash = await hash(VICTIM_PASSWORD);
   });
 
-  function world(options: { twoFactor?: boolean } = {}) {
+  function world(
+    options: {
+      twoFactor?: boolean;
+      production?: boolean;
+      mailDown?: boolean;
+    } = {},
+  ) {
     const db = memoryDatabase();
     const prisma = db.client as unknown as PrismaService;
     const audit = { record: jest.fn() } as unknown as AuditService;
@@ -225,11 +233,40 @@ describe('invites between two organisations', () => {
       jwt,
       audit,
       twoFactor as unknown as TwoFactorService,
+      new RateLimiter(),
     );
-    const team = new OrganisationsService(prisma, audit, config);
-    const customers = new CustomersService(prisma, config, audit, {
-      notify: jest.fn(),
-    } as unknown as NotificationsService);
+    // What reached an invitee's mailbox.
+    const mailbox: { to?: string; inviteUrl: string }[] = [];
+    const notifications = {
+      sendStaffInvite: jest.fn(
+        async (to: string, invite: { inviteUrl: string }) => {
+          mailbox.push({ to, inviteUrl: invite.inviteUrl });
+          return !options.mailDown;
+        },
+      ),
+      sendPortalInvite: jest.fn(async (event: { inviteUrl: string }) => {
+        mailbox.push({ inviteUrl: event.inviteUrl });
+        return !options.mailDown;
+      }),
+    } as unknown as NotificationsService;
+    // Local development hands the link back, which these tests accept with.
+    const email = {
+      localDelivery: () => !options.production,
+    } as unknown as EmailTransport;
+    const team = new OrganisationsService(
+      prisma,
+      audit,
+      config,
+      notifications,
+      email,
+    );
+    const customers = new CustomersService(
+      prisma,
+      config,
+      audit,
+      notifications,
+      email,
+    );
 
     function organisation(name: string): AuthUser {
       const org = db.insert('organisation', { name, status: 'ACTIVE' });
@@ -301,7 +338,7 @@ describe('invites between two organisations', () => {
       );
     const byEmail = (email: string) =>
       db.tables.user.find((u) => u.email === email);
-    const tokenOf = (inviteUrl: string) => inviteUrl.split('/invite/')[1];
+    const tokenOf = (inviteUrl?: string) => inviteUrl!.split('/invite/')[1];
 
     return {
       db,
@@ -318,6 +355,7 @@ describe('invites between two organisations', () => {
       membershipIn,
       byEmail,
       tokenOf,
+      mailbox,
     };
   }
 
@@ -448,6 +486,62 @@ describe('invites between two organisations', () => {
         w.auth.acceptInvite(token, { password: ATTACKER_PASSWORD }),
       ).rejects.toThrow('already been used');
     });
+  });
+
+  describe.each(routes)('$kind invite in production', ({ send }) => {
+    it('goes to the invitee only, so the sender cannot set the password', async () => {
+      const w = world({ production: true });
+      const sent = await send(w, w.other);
+
+      expect(sent).toMatchObject({ emailSent: true });
+      expect(w.mailbox).toHaveLength(1);
+      const token = w.tokenOf(w.mailbox[0].inviteUrl);
+      expect(sent).not.toHaveProperty('inviteUrl');
+      expect(JSON.stringify(sent)).not.toContain(token);
+    });
+
+    it('says when the email did not go, and still keeps the link back', async () => {
+      const w = world({ production: true, mailDown: true });
+      const sent = await send(w, w.other);
+
+      expect(sent).toMatchObject({ emailSent: false });
+      expect(sent).not.toHaveProperty('inviteUrl');
+    });
+  });
+
+  it('keeps a resent staff invite from its sender too', async () => {
+    const w = world({ production: true });
+    const { member } = (await routes[0].send(w, w.other)) as {
+      member: { id: string };
+    };
+    const resent = await w.team.resendInvite(w.other, member.id);
+
+    expect(resent).not.toHaveProperty('inviteUrl');
+    expect(w.mailbox.map((mail) => mail.to)).toEqual([VICTIM, VICTIM]);
+  });
+
+  it('counts password guesses by account, across both organisations’ links', async () => {
+    const w = world();
+    const user = w.victim();
+    const links = [
+      await routes[0].send(w, w.own),
+      await routes[0].send(w, w.other),
+    ].map((sent) => w.tokenOf(sent.inviteUrl));
+
+    for (let i = 0; i < 10; i += 1) {
+      await expect(
+        w.auth.acceptInvite(links[i % 2], { password: ATTACKER_PASSWORD }),
+      ).rejects.toThrow('not the password');
+    }
+
+    await expect(
+      w.auth.acceptInvite(links[0], { password: VICTIM_PASSWORD }),
+    ).rejects.toThrow('Too many attempts');
+    // The same count guards sign-in.
+    await expect(
+      w.auth.login({ email: VICTIM, password: VICTIM_PASSWORD }),
+    ).rejects.toThrow('Too many attempts');
+    expect(w.account(user.id).passwordHash).toBe(victimHash);
   });
 
   it('keeps the other organisation’s link working, and still protects the account', async () => {

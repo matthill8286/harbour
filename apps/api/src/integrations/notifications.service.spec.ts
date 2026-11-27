@@ -1,5 +1,9 @@
 import { ConfigService } from '@nestjs/config';
-import { NotificationsService } from './notifications.service';
+import {
+  NotificationsService,
+  WORKSPACE_DAILY_NOTIFICATIONS,
+} from './notifications.service';
+import { RateLimiter } from '../rate-limit/rate-limiter';
 import { EmailTransport } from './email-transport';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -20,7 +24,8 @@ describe('NotificationsService', () => {
     {
       get: (_key: string, fallback?: string) => fallback,
     } as ConfigService,
-    { send } as unknown as EmailTransport,
+    { deliver: send } as unknown as EmailTransport,
+    new RateLimiter(),
   );
 
   beforeEach(() => {
@@ -84,6 +89,63 @@ describe('NotificationsService', () => {
     expect(send.mock.calls[0][0].text).toContain(
       'Your vehicle is now: Arrived',
     );
+  });
+
+  const customer = {
+    email: 'maria@example.com',
+    firstName: 'Maria',
+    lastName: 'Example',
+    organisation: { name: 'Demo Imports Ltd', settings: null },
+  };
+  const portalInvite = (organisationId: string) => ({
+    type: 'PORTAL_INVITE' as const,
+    organisationId,
+    customerId: 'cust-1',
+    inviteUrl: 'http://localhost:5173/invite/tok',
+    message: 'Portal invite',
+  });
+
+  it('says whether a portal invite went', async () => {
+    prisma.customer.findFirst.mockResolvedValue(customer);
+    await expect(service.sendPortalInvite(portalInvite('org-1'))).resolves.toBe(
+      true,
+    );
+    send.mockRejectedValueOnce(new Error('Brevo returned 429'));
+    await expect(service.sendPortalInvite(portalInvite('org-1'))).resolves.toBe(
+      false,
+    );
+  });
+
+  it('says whether a staff invite went', async () => {
+    const invite = {
+      brandName: 'Demo',
+      roleLabel: 'Staff',
+      inviteUrl: 'http://localhost:5173/invite/tok',
+    };
+    await expect(
+      service.sendStaffInvite('sam@example.com', invite),
+    ).resolves.toBe(true);
+    expect(send.mock.calls[0][0].text).toContain(invite.inviteUrl);
+    send.mockRejectedValueOnce(new Error('provider down'));
+    await expect(
+      service.sendStaffInvite('sam@example.com', invite),
+    ).resolves.toBe(false);
+  });
+
+  it('stops one workspace at its daily limit without touching another', async () => {
+    prisma.customer.findFirst.mockResolvedValue(customer);
+    const note = (organisationId: string) => ({
+      type: 'CUSTOMER_NOTE' as const,
+      organisationId,
+      customerId: 'cust-1',
+      message: 'Hello',
+    });
+    for (let i = 0; i < WORKSPACE_DAILY_NOTIFICATIONS; i += 1) {
+      await deliver(note('org-a'));
+    }
+    await expect(deliver(note('org-a'))).rejects.toThrow('daily email limit');
+    await deliver(note('org-b'));
+    expect(send).toHaveBeenCalledTimes(WORKSPACE_DAILY_NOTIFICATIONS + 1);
   });
 
   it('includes the invite URL for portal invites', async () => {

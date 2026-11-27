@@ -97,9 +97,12 @@ The customer portal never receives the IMEI. Unassigned pings only update last-s
 Status changes, customer-visible notes/files, and portal invites go through `NotificationsService`.
 
 - Default: `EMAIL_PROVIDER=log` — writes to the API console (no outbound mail).
-- Production: `EMAIL_PROVIDER=resend`, set `RESEND_API_KEY`, and a verified `EMAIL_FROM` address.
+- Production: `EMAIL_PROVIDER=brevo` with `BREVO_API_KEY`, or `resend` with `RESEND_API_KEY`, and a verified `EMAIL_FROM` address. Without a provider, production sends nothing and says so, so sign-up and invites do not work.
+- Harbour sends at most `EMAIL_DAILY_LIMIT` emails a day (default 200).
 
-Staff still get a copyable invite link after inviting a customer.
+Staff and portal invites go to the invitee's email only. The person inviting sees whether the email went. A copyable link appears only in local development with `EMAIL_PROVIDER=log`.
+
+Sign-up is open and creates nothing until the person opens the emailed link and chooses a password. Sign-in, two-factor, sign-up, password reset and invite routes are rate limited (`apps/api/src/rate-limit/policies.ts`). The counts are held in memory, so they assume one API process and start again after a restart.
 
 ## Harbour AI
 

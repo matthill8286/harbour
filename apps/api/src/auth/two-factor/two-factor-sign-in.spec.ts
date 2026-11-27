@@ -1,3 +1,4 @@
+import { RateLimiter } from '../../rate-limit/rate-limiter';
 import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
@@ -68,6 +69,7 @@ describe('two-step sign-in', () => {
       jwt,
       { record: jest.fn() } as unknown as AuditService,
       twoFactor as unknown as TwoFactorService,
+      new RateLimiter(),
     );
     const strategy = new JwtStrategy(
       config,

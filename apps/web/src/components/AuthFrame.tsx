@@ -1,7 +1,17 @@
 import type { ReactNode } from 'react';
 
 /** The two-column sign-in frame shared by the login, two-factor and setup screens. */
-export function AuthFrame({ eyebrow, lead, children }: { eyebrow: string; lead: string; children: ReactNode }) {
+export function AuthFrame({
+  eyebrow,
+  lead,
+  note = 'Sign in to your organisation workspace.',
+  children,
+}: {
+  eyebrow: string;
+  lead: string;
+  note?: string;
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-svh bg-ink text-paper">
       <div className="mx-auto grid min-h-svh max-w-5xl md:grid-cols-2">
@@ -11,7 +21,7 @@ export function AuthFrame({ eyebrow, lead, children }: { eyebrow: string; lead: 
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">{lead}</p>
           </div>
-          <p className="text-sm text-mist">Sign in to your organisation workspace.</p>
+          <p className="text-sm text-mist">{note}</p>
         </section>
         <section className="flex items-center bg-sand p-6 text-ink md:p-12">
           <div className="w-full max-w-md space-y-4">

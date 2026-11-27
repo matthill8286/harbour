@@ -1,5 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { RateLimiter } from '../rate-limit/rate-limiter';
+
+/**
+ * Brevo's free allowance is 300 emails a day, shared with other products and
+ * their alerts. Harbour stops here, so it cannot use all of it.
+ */
+export const DEFAULT_EMAIL_DAILY_LIMIT = 200;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type OutboundEmail = {
   to: string;
@@ -11,6 +19,7 @@ export type OutboundEmail = {
 @Injectable()
 export class EmailTransport {
   private readonly logger = new Logger(EmailTransport.name);
+  private readonly sent = new RateLimiter();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -36,8 +45,41 @@ export class EmailTransport {
     );
   }
 
+  /**
+   * Development without a mail provider. Nothing is sent, so the api may hand a
+   * link to whoever is testing. Never true in production.
+   */
+  localDelivery() {
+    return this.provider() === 'log' && !this.production();
+  }
+
+  /** Throws unless the email was handed on. In production, logging it is not. */
+  async deliver(email: OutboundEmail) {
+    if (this.provider() === 'log' && this.production()) {
+      throw new Error('No email provider is configured');
+    }
+    return this.send(email);
+  }
+
+  private production() {
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
+  private dailyLimit() {
+    const configured = Number(this.config.get<string>('EMAIL_DAILY_LIMIT'));
+    return Number.isInteger(configured) && configured > 0
+      ? configured
+      : DEFAULT_EMAIL_DAILY_LIMIT;
+  }
+
   async send(email: OutboundEmail) {
     const provider = this.provider();
+    if (
+      provider !== 'log' &&
+      !this.sent.take('all-email', this.dailyLimit(), DAY_MS)
+    ) {
+      throw new Error('Harbour has reached its daily email limit');
+    }
     if (provider === 'brevo') {
       await this.sendBrevo(email);
       return { provider };
@@ -49,7 +91,8 @@ export class EmailTransport {
     this.logger.log(
       `email[log] to=${email.to} subject=${JSON.stringify(email.subject)}`,
     );
-    this.logger.debug(email.text);
+    // The text can hold sign-in links, which do not belong in a server's logs.
+    if (!this.production()) this.logger.debug(email.text);
     return { provider };
   }
 

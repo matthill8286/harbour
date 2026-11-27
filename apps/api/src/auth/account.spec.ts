@@ -1,3 +1,4 @@
+import { RateLimiter } from '../rate-limit/rate-limiter';
 import { BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
@@ -66,6 +67,7 @@ describe('account self-service', () => {
       jwt,
       audit as unknown as AuditService,
       {} as TwoFactorService,
+      new RateLimiter(),
     );
     return { auth, prisma, audit };
   }

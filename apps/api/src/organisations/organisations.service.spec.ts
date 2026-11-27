@@ -56,6 +56,8 @@ describe('OrganisationsService staff invites', () => {
     prisma as unknown as PrismaService,
     audit as unknown as AuditService,
     config as ConfigService,
+    { sendStaffInvite: jest.fn().mockResolvedValue(true) } as never,
+    { localDelivery: () => true } as never,
   );
 
   beforeEach(() => {

@@ -15,6 +15,7 @@ import { OrganisationsModule } from './organisations/organisations.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { RouteTemplatesModule } from './routes/route-templates.module';
 import { TenancyModule } from './tenancy/tenancy.module';
+import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -24,6 +25,7 @@ import { HealthController } from './health.controller';
       envFilePath: ['.env', '../../.env'],
     }),
     PrismaModule,
+    RateLimitModule,
     TenancyModule,
     AuditModule,
     IntegrationsModule,

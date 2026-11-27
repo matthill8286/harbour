@@ -16,6 +16,7 @@ import { useAuth } from '../lib/auth';
 import { useRoutes } from './routes/routes';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
+import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
 import './account/Account.css';
 
 type OrganisationView = {
@@ -44,7 +45,7 @@ type Member = {
   user: { id: string; name: string; email: string };
 };
 
-type InviteResult = { member: Member; inviteUrl: string; expiresAt: string };
+type InviteResult = InviteDelivery & { member: Member; expiresAt: string };
 
 type Settings = Pick<OrganisationView, 'legalName' | 'brandName' | 'timezone' | 'currency' | 'country'>;
 
@@ -209,14 +210,8 @@ function Team() {
     role: 'STAFF' as InviteableStaffRole,
   });
   const [tried, setTried] = useState(false);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState<InviteResult | null>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['organisation-members'] });
-  const showLink = (result: InviteResult) => {
-    setInviteUrl(result.inviteUrl);
-    setCopied(false);
-  };
-
   const invite = useMutation({
     mutationFn: () =>
       api<InviteResult>('/organisation/members/invite', {
@@ -224,7 +219,7 @@ function Team() {
         body: JSON.stringify(form),
       }),
     onSuccess: async (result) => {
-      showLink(result);
+      setSent(result);
       setForm({ name: '', email: '', role: 'STAFF' });
       setTried(false);
       await refresh();
@@ -244,7 +239,7 @@ function Team() {
         method: 'POST',
       }),
     onSuccess: async (result) => {
-      showLink(result);
+      setSent(result);
       await refresh();
     },
   });
@@ -266,7 +261,7 @@ function Team() {
           event.preventDefault();
           setTried(true);
           if (form.name.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(form.email.trim())) {
-            setInviteUrl(null);
+            setSent(null);
             invite.mutate();
           }
         }}
@@ -301,7 +296,7 @@ function Team() {
             setForm((f) => ({ ...f, role: value }));
           }}
         />
-        <Button type="submit" busy={invite.isPending} busyLabel="Creating the invite">
+        <Button type="submit" busy={invite.isPending} busyLabel="Sending the invite">
           Invite
         </Button>
       </form>
@@ -311,22 +306,7 @@ function Team() {
           {message(failure)}
         </Alert>
       ) : null}
-      {inviteUrl ? (
-        <div className="invite-link">
-          <Text size="sm">Copy this link now if they need it. Harbour keeps only a fingerprint of it, so it cannot be shown again.</Text>
-          <code>{inviteUrl}</code>
-          <Button
-            variant="secondary"
-            size="sm"
-            iconBefore={copied ? 'check' : 'document'}
-            onClick={() => {
-              void navigator.clipboard.writeText(inviteUrl).then(() => setCopied(true));
-            }}
-          >
-            {copied ? 'Copied' : 'Copy link'}
-          </Button>
-        </div>
-      ) : null}
+      {sent ? <InviteOutcome key={sent.expiresAt} delivery={sent} email={sent.member.user.email} className="invite-link" /> : null}
 
       {members.isLoading ? (
         <LoadingScreen label="Loading the team…" />
@@ -394,7 +374,16 @@ function Team() {
                     </Button>
                   ) : null}
                   {editable && member.status === 'INVITED' ? (
-                    <Button variant="secondary" size="sm" busy={resend.isPending} busyLabel="Resending" onClick={() => resend.mutate(member.id)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      busy={resend.isPending}
+                      busyLabel="Resending"
+                      onClick={() => {
+                        setSent(null);
+                        resend.mutate(member.id);
+                      }}
+                    >
                       Resend invite
                     </Button>
                   ) : null}

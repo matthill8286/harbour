@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
+import { LimitInviteSending } from '../rate-limit/rate-limit.guard';
 
 @Controller('customers')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -50,6 +51,7 @@ export class CustomersController {
   }
 
   @Post(':id/invite')
+  @LimitInviteSending()
   invite(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.customers.invite(user, id);
   }

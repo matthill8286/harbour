@@ -8,6 +8,7 @@ import { useSession } from '../lib/session';
 import { useWorkflows } from '../lib/workflows';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
+import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
 import { PORTAL_LABEL, PORTAL_TONE, type PortalStatus } from './customers/portal';
 import './customers/Customers.css';
 
@@ -35,7 +36,7 @@ type Contact = { firstName: string; lastName: string; email: string; phone: stri
 /** What the Portal card says and offers in each state, after the Figma frames "Customer record · …". */
 const PORTAL: Record<PortalStatus, { body: string; action: string }> = {
   NONE: {
-    body: 'Invite them with the email on this record. Harbour emails the invite when mail is set up, and shows a link here to copy.',
+    body: 'Invite them with the email on this record. Harbour emails them a link to open their portal.',
     action: 'Invite to portal',
   },
   INVITED: {
@@ -57,8 +58,7 @@ export function CustomerDetailPage() {
   const query = useQuery({ queryKey: ['customer', id], queryFn: () => api<CustomerDetail>(`/customers/${id}`), enabled: Boolean(id) });
   const customer = query.data;
   const [edits, setEdits] = useState<Partial<Contact>>({});
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [sent, setSent] = useState<(InviteDelivery & { expiresAt: string }) | null>(null);
 
   const refresh = () =>
     Promise.all([queryClient.invalidateQueries({ queryKey: ['customer', id] }), queryClient.invalidateQueries({ queryKey: ['customers'] })]);
@@ -82,10 +82,9 @@ export function CustomerDetailPage() {
     },
   });
   const invite = useMutation({
-    mutationFn: () => api<{ inviteUrl: string }>(`/customers/${id}/invite`, { method: 'POST' }),
+    mutationFn: () => api<InviteDelivery & { expiresAt: string }>(`/customers/${id}/invite`, { method: 'POST' }),
     onSuccess: async (result) => {
-      setInviteUrl(result.inviteUrl);
-      setCopied(false);
+      setSent(result);
       await refresh();
     },
   });
@@ -215,31 +214,21 @@ export function CustomerDetailPage() {
                   full
                   disabled={!customer.email}
                   busy={invite.isPending}
-                  busyLabel="Creating the link"
-                  onClick={() => invite.mutate()}
+                  busyLabel="Sending the invite"
+                  onClick={() => {
+                    setSent(null);
+                    invite.mutate();
+                  }}
                 >
                   {portal.action}
                 </Button>
               </div>
             ) : null}
-            {inviteUrl ? (
-              <div className="customer-link">
-                <Text size="sm">Copy this link now if they need it. Harbour keeps only a fingerprint of it, so it cannot be shown again.</Text>
-                <code>{inviteUrl}</code>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  iconBefore={copied ? 'check' : 'document'}
-                  onClick={() => {
-                    void navigator.clipboard.writeText(inviteUrl).then(() => setCopied(true));
-                  }}
-                >
-                  {copied ? 'Copied' : 'Copy link'}
-                </Button>
-              </div>
+            {sent && customer.portal.email ? (
+              <InviteOutcome key={sent.expiresAt} delivery={sent} email={customer.portal.email} className="customer-link" />
             ) : null}
             {invite.isError ? (
-              <Alert tone="danger" heading="No link was created">
+              <Alert tone="danger" heading="No invite was sent">
                 {invite.error instanceof Error ? invite.error.message : 'Try again.'}
               </Alert>
             ) : null}
