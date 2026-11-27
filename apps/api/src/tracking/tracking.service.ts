@@ -10,6 +10,7 @@ import {
   journeyStatusesForJob,
   type JobStatus,
   type LocationPoint,
+  UK_CYPRUS_ROUTE_KEY,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { GpsProviderService } from '../integrations/gps-provider.service';
@@ -189,6 +190,13 @@ export class TrackingService {
     status: JobStatus,
   ) {
     if (status === 'CANCELLED') return;
+    // Only the seeded UK → Cyprus route's statuses map onto its GPS corridor.
+    // A job not yet given a route is on that one.
+    const job = await this.prisma.importJob.findUnique({
+      where: { id: jobId },
+      select: { route: { select: { systemKey: true } } },
+    });
+    if (job?.route && job.route.systemKey !== UK_CYPRUS_ROUTE_KEY) return;
     await this.syncJourneys(jobId, status);
     await this.trimGpsToStatus(jobId, organisationId, status);
     await this.catchUpGps(jobId, organisationId, status);

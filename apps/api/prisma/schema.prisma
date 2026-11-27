@@ -161,6 +161,7 @@ model Organisation {
   vehicles         Vehicle[]
   importJobs       ImportJob[]
   routeTemplates   RouteTemplate[]
+  routes             Route[]
   trackers         Tracker[]
   trackerAssignments TrackerAssignment[]
   workflowStatuses WorkflowStatus[]
@@ -398,6 +399,64 @@ model VehicleRegistration {
   @@index([organisationId])
 }
 
+/// A workspace's route, such as UK → Cyprus, with its own stages and statuses.
+model Route {
+  id                 String       @id @default(cuid())
+  organisationId     String
+  organisation       Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  name               String
+  /// Short form for narrow columns, such as "GB → CY".
+  shortLabel         String
+  originCountry      String
+  destinationCountry String
+  /// New jobs use this route unless someone picks another. One per workspace.
+  isDefault          Boolean      @default(false)
+  /// Off while it is a draft, so New job does not offer it.
+  active             Boolean      @default(false)
+  /// Set only on the seeded UK → Cyprus route, whose statuses drive the GPS corridor.
+  systemKey          String?
+  sortOrder          Int          @default(0)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  stages   RouteStage[]
+  statuses RouteStatus[]
+  jobs     ImportJob[]
+
+  @@index([organisationId, sortOrder])
+}
+
+model RouteStage {
+  id              String  @id @default(cuid())
+  routeId         String
+  route           Route   @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  name            String
+  /// What the customer portal calls this stage.
+  customerName    String
+  /// Off: the customer sees it as part of the next visible stage.
+  customerVisible Boolean @default(true)
+  sortOrder       Int
+
+  statuses RouteStatus[]
+
+  @@index([routeId, sortOrder])
+}
+
+model RouteStatus {
+  id        String     @id @default(cuid())
+  routeId   String
+  route     Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  stageId   String
+  stage     RouteStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  /// Stored on jobs as their status. Stays the same when the label is renamed.
+  code      String
+  label     String
+  sortOrder Int
+
+  @@unique([routeId, code])
+  @@index([stageId, sortOrder])
+}
+
 model WorkflowStatus {
   id             String       @id @default(cuid())
   organisationId String
@@ -420,6 +479,9 @@ model ImportJob {
   vehicle              Vehicle      @relation(fields: [vehicleId], references: [id], onDelete: Restrict)
   reference            String
   status               String       @default("NEW")
+  /// The route this job follows. Null only until startup assigns the workspace's default route.
+  routeId              String?
+  route                Route?         @relation(fields: [routeId], references: [id], onDelete: Restrict)
   originCountry        String       @default("GB")
   destinationCountry   String       @default("CY")
   registrationCountry  String?
@@ -450,6 +512,7 @@ model ImportJob {
   @@index([customerId])
   @@index([vehicleId])
   @@index([routeTemplateId])
+  @@index([routeId, status])
 }
 
 /// Curated UK→BG→GR corridors staff assign on a job. Platform templates have null organisationId.
