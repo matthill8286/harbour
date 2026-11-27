@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import QRCode from 'qrcode';
-import { api, type TwoFactorSetup } from '../lib/api';
+import { api, setToken, type SessionResponse, type TwoFactorSetup } from '../lib/api';
 import { ErrorBanner, fieldClass, primaryBtn } from './ui';
 import { BackupCodeList } from './BackupCodeList';
 
@@ -41,10 +41,12 @@ export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<voi
     setPending(true);
     setError(null);
     try {
-      await api('/auth/two-factor/verify', {
+      const session = await api<SessionResponse>('/auth/two-factor/verify', {
         method: 'POST',
         body: JSON.stringify({ code: code.replace(/\s/g, '') }),
       });
+      // Turning two-factor on ends every older session, so this device takes the new one.
+      setToken(session.accessToken);
       await onEnabled();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code is not right.');

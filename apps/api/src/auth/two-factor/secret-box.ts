@@ -13,12 +13,13 @@ const VERSION = 'v1';
  */
 export class SecretBox {
   private readonly key: Buffer;
+  private readonly readKeys: Buffer[];
 
-  constructor(serverSecret: string) {
+  /** `previousSecrets` open older values, but never encrypt new ones. */
+  constructor(serverSecret: string, previousSecrets: string[] = []) {
     if (!serverSecret) throw new Error('A server secret is required');
-    this.key = Buffer.from(
-      hkdfSync('sha256', serverSecret, '', 'harbour-two-factor', 32),
-    );
+    this.key = deriveKey(serverSecret);
+    this.readKeys = [this.key, ...previousSecrets.map(deriveKey)];
   }
 
   encrypt(plaintext: string): string {
@@ -37,17 +38,29 @@ export class SecretBox {
     if (version !== VERSION || !iv || !tag || !body) {
       throw new Error('Unreadable two-factor secret');
     }
-    const decipher = createDecipheriv(
-      'aes-256-gcm',
-      this.key,
-      Buffer.from(iv, 'base64url'),
-    );
-    decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-    return Buffer.concat([
-      decipher.update(Buffer.from(body, 'base64url')),
-      decipher.final(),
-    ]).toString('utf8');
+    let failure: unknown;
+    for (const key of this.readKeys) {
+      try {
+        const decipher = createDecipheriv(
+          'aes-256-gcm',
+          key,
+          Buffer.from(iv, 'base64url'),
+        );
+        decipher.setAuthTag(Buffer.from(tag, 'base64url'));
+        return Buffer.concat([
+          decipher.update(Buffer.from(body, 'base64url')),
+          decipher.final(),
+        ]).toString('utf8');
+      } catch (error) {
+        failure = error;
+      }
+    }
+    throw failure;
   }
+}
+
+function deriveKey(secret: string) {
+  return Buffer.from(hkdfSync('sha256', secret, '', 'harbour-two-factor', 32));
 }
 
 function encode(part: string | Buffer): string {

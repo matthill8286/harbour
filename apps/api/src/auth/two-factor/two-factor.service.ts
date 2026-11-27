@@ -17,8 +17,9 @@ import {
   generateTotpSecret,
   normaliseBackupCode,
   totpUri,
-  verifyTotp,
+  matchTotpStep,
 } from './totp';
+import { twoFactorKeys } from '../secrets';
 
 export const TWO_FACTOR_ISSUER = 'Harbour';
 
@@ -47,9 +48,27 @@ export function authenticatorIssuer(webOrigin: string | undefined): string {
 /** How long the sign-in challenge stays valid, matching Kleidi's ten-minute window. */
 export const CHALLENGE_TTL_SECONDS = 10 * 60;
 export const CHALLENGE_PURPOSE = 'two-factor';
-/** After this many wrong codes the account refuses codes for the lockout period. */
+/**
+ * After this many wrong codes the account refuses codes for the lockout period.
+ * Wrong passwords on the two-factor settings are limited the same way.
+ */
 export const MAX_FAILED_ATTEMPTS = 10;
 export const LOCKOUT_MS = 15 * 60 * 1000;
+
+/** Matches a counter that still has an attempt left and is not locked. */
+function notLocked(countField: string, lockField: string, now: Date) {
+  return {
+    [countField]: { lt: MAX_FAILED_ATTEMPTS },
+    OR: [{ [lockField]: null }, { [lockField]: { lte: now } }],
+  };
+}
+
+function tooManyAttempts(what: 'codes' | 'passwords') {
+  return new HttpException(
+    `Too many wrong ${what}. Try again in a few minutes.`,
+    HttpStatus.TOO_MANY_REQUESTS,
+  );
+}
 
 export type ChallengePayload = {
   sub: string;
@@ -58,13 +77,13 @@ export type ChallengePayload = {
   iat?: number;
 };
 
+type SecondFactor = { code?: string; backupCode?: string };
+
 type TwoFactorRow = {
   id: string;
   secret: string;
   backupCodes: string;
   verified: boolean;
-  failedVerificationCount: number;
-  lockedUntil: Date | null;
 };
 
 @Injectable()
@@ -79,10 +98,8 @@ export class TwoFactorService {
     private readonly audit: AuditService,
     config: ConfigService,
   ) {
-    const key =
-      config.get<string>('TWO_FACTOR_ENCRYPTION_KEY') ||
-      config.get<string>('JWT_SECRET', 'replace-with-a-long-random-secret');
-    this.box = new SecretBox(key);
+    const keys = twoFactorKeys(config);
+    this.box = new SecretBox(keys.current, keys.previous);
     this.issuer = authenticatorIssuer(config.get<string>('WEB_ORIGIN'));
   }
 
@@ -113,6 +130,7 @@ export class TwoFactorService {
       verified: false,
       failedVerificationCount: 0,
       lockedUntil: null,
+      lastUsedStep: null,
     };
     await this.prisma.twoFactor.upsert({
       where: { userId: user.id },
@@ -130,7 +148,10 @@ export class TwoFactorService {
     };
   }
 
-  /** Step two of setup: a working code from the authenticator switches two-factor on. */
+  /**
+   * Step two of setup: a working code from the authenticator switches two-factor
+   * on. Every session started before then ends, and this device gets a new one.
+   */
   async verifyEnrolment(user: AuthUser, code: string) {
     const row = await this.prisma.twoFactor.findUnique({
       where: { userId: user.id },
@@ -138,15 +159,18 @@ export class TwoFactorService {
     if (!row) {
       throw new BadRequestException('Start two-factor setup first.');
     }
+    if (row.verified && user.twoFactorEnabled) {
+      throw new BadRequestException('Two-factor sign-in is already on.');
+    }
     await this.checkCode(row, { code });
     await this.prisma.$transaction([
       this.prisma.twoFactor.update({
         where: { id: row.id },
-        data: { verified: true, failedVerificationCount: 0, lockedUntil: null },
+        data: { verified: true },
       }),
       this.prisma.user.update({
         where: { id: user.id },
-        data: { twoFactorEnabled: true },
+        data: { twoFactorEnabled: true, sessionsRevokedAt: new Date() },
       }),
     ]);
     void this.audit.record(user, {
@@ -154,11 +178,27 @@ export class TwoFactorService {
       entityType: 'User',
       entityId: user.id,
     });
-    return { enabled: true };
+    // Signed after the cut-off above, so it is the one session that survives.
+    const accessToken = await this.jwt.signAsync({
+      sub: user.id,
+      membershipId: user.membershipId,
+    });
+    return {
+      enabled: true,
+      accessToken,
+      user: { ...user, twoFactorEnabled: true },
+    };
   }
 
-  async disable(user: AuthUser, password: string) {
-    await this.requirePassword(user.id, password);
+  /** Needs the password and, while two-factor is on, a code that proves the second factor. */
+  async disable(user: AuthUser, password: string, input: SecondFactor) {
+    const account = await this.requirePassword(user.id, password);
+    const row = await this.prisma.twoFactor.findUnique({
+      where: { userId: user.id },
+    });
+    if (account.twoFactorEnabled && row?.verified) {
+      await this.requireCode(row, input);
+    }
     await this.prisma.$transaction([
       this.prisma.twoFactor.deleteMany({ where: { userId: user.id } }),
       this.prisma.user.update({
@@ -174,7 +214,12 @@ export class TwoFactorService {
     return { enabled: false };
   }
 
-  async regenerateBackupCodes(user: AuthUser, password: string) {
+  /** Needs a code too: a new backup code would otherwise be enough to turn two-factor off. */
+  async regenerateBackupCodes(
+    user: AuthUser,
+    password: string,
+    input: SecondFactor,
+  ) {
     const account = await this.requirePassword(user.id, password);
     const row = await this.prisma.twoFactor.findUnique({
       where: { userId: user.id },
@@ -182,6 +227,7 @@ export class TwoFactorService {
     if (!account.twoFactorEnabled || !row?.verified) {
       throw new BadRequestException('Turn on two-factor sign-in first.');
     }
+    await this.requireCode(row, input);
     const backupCodes = generateBackupCodes();
     await this.prisma.twoFactor.update({
       where: { id: row.id },
@@ -232,49 +278,82 @@ export class TwoFactorService {
   }
 
   /** Checks the second step of sign-in. A backup code works once and is then removed. */
-  async verifySignIn(
-    userId: string,
-    input: { code?: string; backupCode?: string },
-  ) {
+  async verifySignIn(userId: string, input: SecondFactor) {
     const row = await this.prisma.twoFactor.findUnique({ where: { userId } });
     if (!row?.verified) {
       throw new UnauthorizedException('Two-factor sign-in is not set up.');
     }
     await this.checkCode(row, input);
+  }
+
+  private async requireCode(row: TwoFactorRow, input: SecondFactor) {
+    if (!input.code && !input.backupCode) {
+      throw new BadRequestException(
+        'Enter a code from your authenticator app, or a backup code.',
+      );
+    }
+    await this.checkCode(row, input);
+  }
+
+  /**
+   * Takes an attempt from the counter before looking at the code. The database
+   * does both in one step, so guesses sent together cannot share an attempt.
+   */
+  private async checkCode(row: TwoFactorRow, input: SecondFactor) {
+    const claimed = await this.prisma.twoFactor.updateMany({
+      where: {
+        id: row.id,
+        ...notLocked('failedVerificationCount', 'lockedUntil', new Date()),
+      },
+      data: { failedVerificationCount: { increment: 1 } },
+    });
+    if (claimed.count !== 1) {
+      await this.lockCodesIfSpent(row.id);
+      throw tooManyAttempts('codes');
+    }
+    let ok = false;
+    if (input.code) {
+      ok = await this.consumeTotp(row, input.code);
+    } else if (input.backupCode && row.verified) {
+      ok = await this.consumeBackupCode(row, input.backupCode);
+    }
+    if (!ok) {
+      await this.lockCodesIfSpent(row.id);
+      throw new UnauthorizedException('That code is not right.');
+    }
     await this.prisma.twoFactor.update({
       where: { id: row.id },
       data: { failedVerificationCount: 0, lockedUntil: null },
     });
   }
 
-  private async checkCode(
-    row: TwoFactorRow,
-    input: { code?: string; backupCode?: string },
-  ) {
-    if (row.lockedUntil && row.lockedUntil.getTime() > Date.now()) {
-      throw new HttpException(
-        'Too many wrong codes. Try again in a few minutes.',
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
-    let ok = false;
-    if (input.code) {
-      ok = verifyTotp(this.box.decrypt(row.secret), input.code);
-    } else if (input.backupCode && row.verified) {
-      ok = await this.consumeBackupCode(row, input.backupCode);
-    }
-    if (ok) return;
-
-    const failed = row.failedVerificationCount + 1;
-    const locked = failed >= MAX_FAILED_ATTEMPTS;
-    await this.prisma.twoFactor.update({
-      where: { id: row.id },
+  private async lockCodesIfSpent(id: string) {
+    await this.prisma.twoFactor.updateMany({
+      where: { id, failedVerificationCount: { gte: MAX_FAILED_ATTEMPTS } },
       data: {
-        failedVerificationCount: locked ? 0 : failed,
-        lockedUntil: locked ? new Date(Date.now() + LOCKOUT_MS) : null,
+        failedVerificationCount: 0,
+        lockedUntil: new Date(Date.now() + LOCKOUT_MS),
       },
     });
-    throw new UnauthorizedException('That code is not right.');
+  }
+
+  /** A code works once. Neither it nor an earlier one is accepted again. */
+  private async consumeTotp(row: TwoFactorRow, code: string) {
+    const step = matchTotpStep(this.box.decrypt(row.secret), code);
+    if (step === null) return false;
+    const result = await this.prisma.twoFactor.updateMany({
+      where: {
+        id: row.id,
+        OR: [{ lastUsedStep: null }, { lastUsedStep: { lt: step } }],
+      },
+      data: { lastUsedStep: step },
+    });
+    if (result.count !== 1) {
+      throw new UnauthorizedException(
+        'That code has already been used. Wait for your app to show a new one.',
+      );
+    }
+    return true;
   }
 
   private async consumeBackupCode(row: TwoFactorRow, code: string) {
@@ -298,7 +377,23 @@ export class TwoFactorService {
       : [];
   }
 
+  /** Checks the password, with the same limit on wrong tries as codes have. */
   private async requirePassword(userId: string, password: string) {
+    const claimed = await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+        ...notLocked(
+          'passwordCheckFailedCount',
+          'passwordCheckLockedUntil',
+          new Date(),
+        ),
+      },
+      data: { passwordCheckFailedCount: { increment: 1 } },
+    });
+    if (claimed.count !== 1) {
+      await this.lockPasswordIfSpent(userId);
+      throw tooManyAttempts('passwords');
+    }
     const account = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -306,8 +401,26 @@ export class TwoFactorService {
       !account?.passwordHash ||
       !(await verify(account.passwordHash, password))
     ) {
+      await this.lockPasswordIfSpent(userId);
       throw new UnauthorizedException('That password is not right.');
     }
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordCheckFailedCount: 0, passwordCheckLockedUntil: null },
+    });
     return account;
+  }
+
+  private async lockPasswordIfSpent(userId: string) {
+    await this.prisma.user.updateMany({
+      where: {
+        id: userId,
+        passwordCheckFailedCount: { gte: MAX_FAILED_ATTEMPTS },
+      },
+      data: {
+        passwordCheckFailedCount: 0,
+        passwordCheckLockedUntil: new Date(Date.now() + LOCKOUT_MS),
+      },
+    });
   }
 }
