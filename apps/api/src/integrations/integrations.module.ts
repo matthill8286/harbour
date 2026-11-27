@@ -6,6 +6,7 @@ import { AiTransport } from './ai-transport';
 import { EmailTransport } from './email-transport';
 import { NotificationsService } from './notifications.service';
 import { StorageService } from './storage.service';
+import { FileDeliveryService } from './file-delivery.service';
 import { VehicleDataService } from './vehicle-data.service';
 import { FlespiGpsClient } from './flespi-gps.client';
 import { FlespiIngestService } from './flespi-ingest.service';
@@ -16,6 +17,7 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
 @Module({
   providers: [
     StorageService,
+    FileDeliveryService,
     VehicleDataService,
     AnprService,
     MapsService,
@@ -30,6 +32,7 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
   controllers: [FlespiGpsController],
   exports: [
     StorageService,
+    FileDeliveryService,
     VehicleDataService,
     AnprService,
     MapsService,
