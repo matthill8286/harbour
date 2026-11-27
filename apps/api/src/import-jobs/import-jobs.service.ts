@@ -29,6 +29,7 @@ import {
   type RouteRow,
 } from '../workflow/workflow-routes.service';
 import { AiTransport } from '../integrations/ai-transport';
+import { jobReferencePrefix } from './job-reference';
 import {
   buildCustomerNoteDraft,
   vehicleSummaryFromParts,
@@ -226,6 +227,8 @@ export class ImportJobsService {
       throw new BadRequestException(`${route.name} has no statuses yet.`);
     }
     const routeTemplateId = await this.routes.defaultTemplateId();
+    const destinationCountry =
+      dto.destinationCountry ?? route.destinationCountry;
 
     const job = await this.prisma.$transaction(async (tx) => {
       await this.workflows.holdStatus(
@@ -234,7 +237,11 @@ export class ImportJobsService {
         route.id,
         startStatus,
       );
-      const reference = await this.nextReference(tx, user.organisationId);
+      const reference = await this.nextReference(
+        tx,
+        user.organisationId,
+        jobReferencePrefix(destinationCountry, user.organisationCountry),
+      );
       const vehicleId =
         dto.vehicleId || (await this.createVehicle(tx, user, dto)).id;
       const created = await tx.importJob.create({
@@ -246,8 +253,7 @@ export class ImportJobsService {
           routeId: route.id,
           status: startStatus,
           originCountry: dto.originCountry ?? route.originCountry,
-          destinationCountry:
-            dto.destinationCountry ?? route.destinationCountry,
+          destinationCountry,
           registrationCountry: dto.registrationCountry,
           routeTemplateId: routeTemplateId ?? undefined,
           expectedDeliveryDate: dto.expectedDeliveryDate
@@ -283,15 +289,16 @@ export class ImportJobsService {
   }
 
   /**
-   * The workspace's next job reference for this year: one more than the highest
-   * so far. The lock lasts until the transaction ends, so a second creation
+   * The workspace's next job reference for this country and year: one more than
+   * the highest so far. The lock lasts until the transaction ends, so a second creation
    * waits and then sees this job.
    */
   private async nextReference(
     tx: Prisma.TransactionClient,
     organisationId: string,
+    country: string,
   ) {
-    const prefix = `CY-${new Date().getFullYear()}-`;
+    const prefix = `${country}-${new Date().getFullYear()}-`;
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`job-reference:${organisationId}`}))`;
     const [{ highest }] = await tx.$queryRaw<[{ highest: bigint | null }]>`
       SELECT max(substring("reference" from '[0-9]+$')::bigint) AS highest
