@@ -142,6 +142,30 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
     return route;
   }
 
+  /**
+   * Call inside the transaction that puts a job at a status. It stops stages
+   * being removed from the route until the transaction ends, and refuses a
+   * status that was removed after it was checked.
+   */
+  async holdStatus(
+    tx: Tx,
+    organisationId: string,
+    routeId: string,
+    code: string,
+  ) {
+    await tx.$queryRaw`SELECT "id" FROM "Route" WHERE "id" = ${routeId} AND "organisationId" = ${organisationId} FOR SHARE`;
+    if ((TERMINAL_STATUSES as readonly string[]).includes(code)) return;
+    const status = await tx.routeStatus.findFirst({
+      where: { routeId, code, route: { organisationId } },
+      select: { id: true },
+    });
+    if (!status) {
+      throw new ConflictException(
+        'This route has just changed. Reload and try again.',
+      );
+    }
+  }
+
   async list(user: AuthUser) {
     await this.ensureDefault(user.organisationId);
     const [routes, counts] = await Promise.all([
@@ -395,90 +419,97 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
     return this.one(user.organisationId, routeId);
   }
 
-  /** Removes a stage. Jobs at its statuses move to `moveTo`, with a line in their history. */
+  /**
+   * Removes a stage. Jobs at its statuses move to `moveTo`, with a line in their
+   * history. It all happens in one transaction, with the route locked so no job
+   * can be created on it or moved along it part way through.
+   */
   async removeStage(
     user: AuthUser,
     routeId: string,
     stageId: string,
     moveTo?: string,
   ) {
-    const route = await this.find(user.organisationId, routeId);
-    const stage = route.stages.find((item) => item.id === stageId);
-    if (!stage) throw new NotFoundException('Stage not found');
-    if (route.active && route.stages.length === 1) {
-      throw new BadRequestException(
-        'A route that is switched on needs at least one stage.',
-      );
-    }
-    const codes = stage.statuses.map((s) => s.code);
-    const jobs = await this.prisma.importJob.findMany({
-      where: {
-        organisationId: user.organisationId,
-        routeId,
-        status: { in: codes },
-      },
-      select: { id: true, status: true },
-    });
-    if (jobs.length) {
-      const target = route.stages
-        .filter((s) => s.id !== stageId)
-        .flatMap((s) => s.statuses)
-        .find((s) => s.code === moveTo);
-      if (!target) {
-        throw new BadRequestException(
-          `${plural(jobs.length, 'job is', 'jobs are')} in ${stage.name}. Choose a status in another stage for them.`,
-        );
-      }
-      const note = `Moved to ${target.label} because the ${stage.name} stage was removed`;
-      // Each entry lands after the job's latest one, as status moves do, so history stays in order.
-      const latest = await this.prisma.jobStatusHistory.groupBy({
-        by: ['importJobId'],
-        where: { importJobId: { in: jobs.map((j) => j.id) } },
-        _max: { createdAt: true },
-      });
-      const after = new Map(
-        latest.map((row) => [
-          row.importJobId,
-          row._max.createdAt?.getTime() ?? 0,
-        ]),
-      );
-      const now = Date.now();
-      await this.prisma.$transaction([
-        this.prisma.importJob.updateMany({
-          where: { id: { in: jobs.map((j) => j.id) } },
-          data: { status: target.code },
-        }),
-        this.prisma.jobStatusHistory.createMany({
-          data: jobs.map((job) => ({
+    const removed = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Route" WHERE "id" = ${routeId} AND "organisationId" = ${user.organisationId} FOR UPDATE`;
+        const route = await this.find(user.organisationId, routeId, tx);
+        const stage = route.stages.find((item) => item.id === stageId);
+        if (!stage) throw new NotFoundException('Stage not found');
+        if (route.active && route.stages.length === 1) {
+          throw new BadRequestException(
+            'A route that is switched on needs at least one stage.',
+          );
+        }
+        const codes = stage.statuses.map((s) => s.code);
+        const jobs = await tx.importJob.findMany({
+          where: {
             organisationId: user.organisationId,
-            importJobId: job.id,
-            fromStatus: job.status,
-            toStatus: target.code,
-            changedById: user.id,
-            note,
-            createdAt: new Date(
-              Math.max(now, (after.get(job.id) ?? 0) + 60_000),
-            ),
-          })),
-        }),
-      ]);
-    }
-    await this.prisma.$transaction([
-      this.prisma.routeStage.delete({ where: { id: stageId } }),
-      ...route.stages
-        .filter((s) => s.id !== stageId)
-        .map((s, index) =>
-          this.prisma.routeStage.update({
-            where: { id: s.id },
+            routeId,
+            status: { in: codes },
+          },
+          select: { id: true, status: true },
+        });
+        if (jobs.length) {
+          const target = route.stages
+            .filter((s) => s.id !== stageId)
+            .flatMap((s) => s.statuses)
+            .find((s) => s.code === moveTo);
+          if (!target) {
+            throw new BadRequestException(
+              `${plural(jobs.length, 'job is', 'jobs are')} in ${stage.name}. Choose a status in another stage for them.`,
+            );
+          }
+          const note = `Moved to ${target.label} because the ${stage.name} stage was removed`;
+          // Each entry lands after the job's latest one, as status moves do, so history stays in order.
+          const latest = await tx.jobStatusHistory.groupBy({
+            by: ['importJobId'],
+            where: { importJobId: { in: jobs.map((j) => j.id) } },
+            _max: { createdAt: true },
+          });
+          const after = new Map(
+            latest.map((row) => [
+              row.importJobId,
+              row._max.createdAt?.getTime() ?? 0,
+            ]),
+          );
+          const now = Date.now();
+          await tx.importJob.updateMany({
+            where: { id: { in: jobs.map((j) => j.id) } },
+            data: { status: target.code },
+          });
+          await tx.jobStatusHistory.createMany({
+            data: jobs.map((job) => ({
+              organisationId: user.organisationId,
+              importJobId: job.id,
+              fromStatus: job.status,
+              toStatus: target.code,
+              changedById: user.id,
+              note,
+              createdAt: new Date(
+                Math.max(now, (after.get(job.id) ?? 0) + 60_000),
+              ),
+            })),
+          });
+        }
+        await tx.routeStage.delete({ where: { id: stageId } });
+        for (const [index, other] of route.stages
+          .filter((s) => s.id !== stageId)
+          .entries()) {
+          await tx.routeStage.update({
+            where: { id: other.id },
             data: { sortOrder: index },
-          }),
-        ),
-    ]);
+          });
+        }
+        return { stage: stage.name, jobsMoved: jobs.length };
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
     await this.audit.record(user, {
       action: 'ROUTE_STAGE_REMOVED',
       entityType: 'Route',
       entityId: routeId,
-      metadata: { stage: stage.name, jobsMoved: jobs.length, moveTo },
+      metadata: { ...removed, moveTo },
     });
     return this.one(user.organisationId, routeId);
   }
@@ -487,8 +518,8 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
     return toWorkflow(await this.find(organisationId, id));
   }
 
-  private async find(organisationId: string, id: string) {
-    const route = await this.prisma.route.findFirst({
+  private async find(organisationId: string, id: string, db: Tx = this.prisma) {
+    const route = await db.route.findFirst({
       where: { id, organisationId },
       include: routeInclude,
     });

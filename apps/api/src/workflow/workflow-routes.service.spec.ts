@@ -52,7 +52,7 @@ function setup(
   jobs: Array<{ id: string; status: string }> = [],
 ) {
   const tx = {
-    routeStage: { update: jest.fn(), create: jest.fn() },
+    routeStage: { update: jest.fn(), create: jest.fn(), delete: jest.fn() },
     routeStatus: {
       deleteMany: jest.fn(),
       update: jest.fn(),
@@ -66,7 +66,7 @@ function setup(
       update: jest.fn(),
       updateMany: jest.fn(),
     },
-    routeStage: { delete: jest.fn(), update: jest.fn() },
+    routeStage: tx.routeStage,
     importJob: {
       findMany: jest.fn().mockResolvedValue(jobs),
       groupBy: jest.fn().mockResolvedValue([
@@ -91,6 +91,13 @@ function setup(
         : Promise.all(arg as unknown[]),
     ),
   };
+  // The rest of the client behaves the same inside a transaction.
+  Object.assign(tx, {
+    route: prisma.route,
+    importJob: prisma.importJob,
+    jobStatusHistory: prisma.jobStatusHistory,
+    $queryRaw: jest.fn().mockResolvedValue([]),
+  });
   const audit = { record: jest.fn() };
   const service = new WorkflowRoutesService(
     prisma as unknown as PrismaService,
