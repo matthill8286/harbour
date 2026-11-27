@@ -39,7 +39,19 @@
   color: var(--impakt-color-text-muted);
 }
 
-.harbour-account:hover {
+/* The account menu's trigger, shaped like the workspace chip. */
+.harbour-account-menu::part(trigger) {
+  min-block-size: 48px;
+  padding: 6px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--impakt-color-surface-card);
+  box-shadow: none;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.harbour-account-menu::part(trigger):hover {
   background: var(--impakt-color-surface-inset);
 }
 
