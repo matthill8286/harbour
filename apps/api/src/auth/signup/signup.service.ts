@@ -97,7 +97,7 @@ export class SignupService {
         data: {
           organisationId: organisation.id,
           userId: user.id,
-          role: 'OWNER',
+          role: 'ADMIN',
           status: 'ACTIVE',
         },
         include: { organisation: { include: { settings: true } } },

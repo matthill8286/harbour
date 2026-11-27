@@ -157,7 +157,7 @@ describe('two-factor enforcement', () => {
   };
 
   it('requires every staff role to set up two-factor, but not customers', () => {
-    for (const role of ['OWNER', 'ADMIN', 'STAFF', 'VIEWER'] as UserRole[]) {
+    for (const role of ['ADMIN', 'STAFF'] as UserRole[]) {
       expect(mustSetUpTwoFactor({ ...base, role })).toBe(true);
       expect(
         mustSetUpTwoFactor({ ...base, role, twoFactorEnabled: true }),

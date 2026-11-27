@@ -8,7 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -24,13 +24,13 @@ export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
   @Get()
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
     return this.customers.list(user, search);
   }
 
   @Get(':id')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.customers.get(user, id);
   }

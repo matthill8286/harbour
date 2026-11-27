@@ -3,30 +3,33 @@ import {
   canWriteStaff,
   isPortalRole,
   isStaffRole,
+  normaliseRole,
+  USER_ROLES,
 } from '@vip/shared';
 
 describe('organisation roles', () => {
-  it('treats OWNER as staff with write access', () => {
-    expect(isStaffRole('OWNER')).toBe(true);
-    expect(canWriteStaff('OWNER')).toBe(true);
-    expect(isPortalRole('OWNER')).toBe(false);
+  it('has three roles: Admin, Staff and Customer', () => {
+    expect(USER_ROLES).toEqual(['ADMIN', 'STAFF', 'CUSTOMER']);
   });
 
-  it('treats VIEWER as staff without write access', () => {
-    expect(isStaffRole('VIEWER')).toBe(true);
-    expect(canWriteStaff('VIEWER')).toBe(false);
-  });
-
-  it('reserves organisation settings for owners and admins', () => {
-    expect(canManageOrganisation('OWNER')).toBe(true);
+  it('lets Admin and Staff work on jobs, and only Admin manage the workspace', () => {
+    expect(canWriteStaff('ADMIN')).toBe(true);
+    expect(canWriteStaff('STAFF')).toBe(true);
     expect(canManageOrganisation('ADMIN')).toBe(true);
     expect(canManageOrganisation('STAFF')).toBe(false);
-    expect(canManageOrganisation('VIEWER')).toBe(false);
   });
 
-  it('keeps CUSTOMER on the portal permission model', () => {
+  it('keeps customers on the portal', () => {
     expect(isStaffRole('CUSTOMER')).toBe(false);
     expect(isPortalRole('CUSTOMER')).toBe(true);
     expect(canWriteStaff('CUSTOMER')).toBe(false);
+    expect(canManageOrganisation('CUSTOMER')).toBe(false);
+  });
+
+  it('reads a retired Owner as Admin and Viewer as Staff', () => {
+    expect(normaliseRole('OWNER')).toBe('ADMIN');
+    expect(normaliseRole('VIEWER')).toBe('STAFF');
+    expect(normaliseRole('STAFF')).toBe('STAFF');
+    expect(() => normaliseRole('SUPERUSER')).toThrow(/Unknown role/);
   });
 });

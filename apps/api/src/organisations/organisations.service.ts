@@ -1,11 +1,14 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { INVITEABLE_STAFF_ROLES, type InviteableStaffRole } from '@vip/shared';
+import {
+  INVITEABLE_STAFF_ROLES,
+  normaliseRole,
+  type InviteableStaffRole,
+} from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
@@ -205,14 +208,34 @@ export class OrganisationsService {
     if (member.userId === user.id && dto.status === 'DISABLED') {
       throw new BadRequestException('You cannot disable your own access');
     }
-    if (member.role === 'OWNER') {
-      throw new ForbiddenException('Owner membership cannot be changed here');
+    if (member.userId === user.id && dto.role && dto.role !== 'ADMIN') {
+      throw new BadRequestException('You cannot change your own role');
     }
     if (
       dto.role &&
       (INVITEABLE_STAFF_ROLES as readonly string[]).includes(dto.role) === false
     ) {
       throw new BadRequestException('That role is not allowed');
+    }
+    // A workspace always keeps one active Admin, so someone can manage it.
+    const losesAdmin =
+      normaliseRole(member.role) === 'ADMIN' &&
+      member.status === 'ACTIVE' &&
+      ((dto.role && dto.role !== 'ADMIN') || dto.status === 'DISABLED');
+    if (losesAdmin) {
+      const otherAdmins = await this.prisma.organisationMembership.count({
+        where: {
+          organisationId: user.organisationId,
+          id: { not: member.id },
+          role: { in: ['ADMIN', 'OWNER'] },
+          status: 'ACTIVE',
+        },
+      });
+      if (otherAdmins === 0) {
+        throw new BadRequestException(
+          'This is the only active Admin. Make someone else an Admin first.',
+        );
+      }
     }
 
     const updated = await this.prisma.organisationMembership.update({
@@ -241,7 +264,11 @@ export class OrganisationsService {
     if (member.status !== 'INVITED') {
       throw new BadRequestException('Only pending invites can be resent');
     }
-    if (!(INVITEABLE_STAFF_ROLES as readonly string[]).includes(member.role)) {
+    if (
+      !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(
+        normaliseRole(member.role),
+      )
+    ) {
       throw new BadRequestException('That role cannot be re-invited');
     }
 

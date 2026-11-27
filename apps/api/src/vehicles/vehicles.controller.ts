@@ -11,7 +11,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -31,26 +31,26 @@ export class VehiclesController {
   constructor(private readonly vehicles: VehiclesService) {}
 
   @Get()
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
     return this.vehicles.list(user, search);
   }
 
   @Post('lookup')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   lookup(@Body() dto: LookupVehicleDto) {
     return this.vehicles.lookup(dto.registration);
   }
 
   @Post('scan-plate')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   @UseInterceptors(FileInterceptor('image'))
   scanPlate(@UploadedFile() file?: Express.Multer.File) {
     return this.vehicles.scanPlate(file);
   }
 
   @Get(':id')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.vehicles.get(user, id);
   }
