@@ -603,16 +603,23 @@ model Tracker {
   organisationId String
   organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   serialNumber   String
-  provider       String        @default("generic")
+  provider       String        @default("flespi")
   status         TrackerStatus @default(AVAILABLE)
   batteryLevel   Int?
   lastSeenAt     DateTime?
+  /// Set only by the platform operator once the workspace has shown it holds
+  /// this real unit. No gateway position reaches the tracker until then.
+  ownershipConfirmedAt DateTime?
+  /// Set while this claim on a real IMEI is disputed. It receives nothing.
+  imeiConflictAt       DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
   assignments    TrackerAssignment[]
   locationEvents LocationEvent[]
 
+  /// A real IMEI is also unique across all workspaces. GpsIndexesService makes
+  /// that partial index, because adding it here would stop `db push`.
   @@unique([organisationId, serialNumber])
 }
 
@@ -653,7 +660,12 @@ model LocationEvent {
   heading        Decimal?      @db.Decimal(6, 2)
   recordedAt     DateTime
   receivedAt     DateTime      @default(now())
+  /// A second copy of a tracker's ping, saved before pings were made unique.
+  /// It is kept, left out of trails, and left out of the unique index.
+  isDuplicate    Boolean       @default(false)
 
+  /// GpsIndexesService also makes a partial unique index on
+  /// (trackerId, recordedAt).
   @@index([importJobId, recordedAt])
   @@index([vehicleId, recordedAt])
   @@index([organisationId, recordedAt])

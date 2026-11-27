@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { LocationEvent } from '@prisma/client';
+import type { LocationEvent, Prisma } from '@prisma/client';
 import {
   bearingDegrees,
   journeyStatusesForJob,
@@ -13,8 +13,10 @@ import {
   UK_CYPRUS_ROUTE_KEY,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { lockedTransaction, trackerLock } from '../prisma/locked-transaction';
 import { GpsProviderService } from '../integrations/gps-provider.service';
 import { isSimulatedGpsProvider } from '../integrations/gps-providers';
+import { DEMO_WORKSPACE_SLUGS } from '../integrations/sample-data';
 import { MapsService } from '../integrations/maps.service';
 import { plannedRouteForJob } from '../routes/planned-route';
 import type { AuthUser } from '../auth/auth.types';
@@ -29,6 +31,17 @@ const trackingJobInclude = {
     take: 1,
   },
 } as const;
+
+const latestTrail = (take: number) =>
+  ({
+    where: { isDuplicate: false },
+    orderBy: { recordedAt: 'desc' },
+    take,
+  }) as const;
+
+const PING_GAP_MS = 5 * 60 * 1000;
+
+type Tx = Prisma.TransactionClient;
 
 @Injectable()
 export class TrackingService {
@@ -46,7 +59,7 @@ export class TrackingService {
       },
       include: {
         ...trackingJobInclude,
-        locationEvents: { orderBy: { recordedAt: 'desc' }, take: 80 },
+        locationEvents: latestTrail(80),
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -70,25 +83,13 @@ export class TrackingService {
       },
       include: {
         ...trackingJobInclude,
-        locationEvents: { orderBy: { recordedAt: 'desc' }, take: 300 },
+        locationEvents: latestTrail(300),
       },
     });
     if (!job) {
       throw new NotFoundException('Import job not found');
     }
-    await this.alignToStatus(
-      job.id,
-      job.organisationId,
-      job.status as JobStatus,
-    );
-    const aligned = await this.prisma.importJob.findFirst({
-      where: { id: job.id, organisationId: user.organisationId },
-      include: {
-        ...trackingJobInclude,
-        locationEvents: { orderBy: { recordedAt: 'desc' }, take: 300 },
-      },
-    });
-    const tracking = this.toVehicleTracking(aligned ?? job, !customerView);
+    const tracking = this.toVehicleTracking(job, !customerView);
     if (customerView) {
       return { map: this.maps.getConfig(), ...tracking };
     }
@@ -112,94 +113,114 @@ export class TrackingService {
     };
   }
 
+  /** The explicit "Advance GPS" action on a simulated tracker. */
   async advance(user: AuthUser, jobId: string) {
-    const job = await this.prisma.importJob.findFirst({
-      where: { id: jobId, organisationId: user.organisationId },
-      include: {
-        trackerAssignments: {
-          where: { removedAt: null },
-          include: { tracker: true },
-          take: 1,
-        },
-        locationEvents: { orderBy: { recordedAt: 'desc' }, take: 1 },
+    // The lock stops two requests, or a reassignment, running alongside.
+    return lockedTransaction(
+      this.prisma,
+      trackerLock(user.organisationId),
+      async (tx) => {
+        const job = await tx.importJob.findFirst({
+          where: { id: jobId, organisationId: user.organisationId },
+          include: {
+            trackerAssignments: {
+              where: { removedAt: null },
+              include: { tracker: true },
+              take: 1,
+            },
+          },
+        });
+        if (!job) {
+          throw new NotFoundException('Import job not found');
+        }
+        const assignment = job.trackerAssignments[0];
+        if (!assignment) {
+          throw new NotFoundException('No tracker assigned to this job');
+        }
+        if (!isSimulatedGpsProvider(assignment.tracker.provider)) {
+          throw new BadRequestException(
+            'Live GPS units cannot use demo Advance GPS',
+          );
+        }
+        const last = await this.latestPing(tx, { importJobId: job.id });
+        const lastPoint = last ? this.coordinates(last) : null;
+        if (
+          this.gps.pointsTowardAnchor(job.status as JobStatus, lastPoint)
+            .length === 0
+        ) {
+          if (!last) {
+            throw new BadRequestException('No GPS position to advance');
+          }
+          return this.serializePoint(last);
+        }
+        const next = this.gps.nextPoint(lastPoint);
+        // Append after the latest trail ping. Wall-clock "now" can fall in the
+        // middle of a seeded historical journey and close the polyline on itself.
+        const after = await this.latestTime(tx, assignment.trackerId, last);
+        const recordedAt = after
+          ? new Date(after.getTime() + PING_GAP_MS)
+          : new Date();
+        const event = await tx.locationEvent.create({
+          data: {
+            organisationId: user.organisationId,
+            trackerId: assignment.trackerId,
+            vehicleId: job.vehicleId,
+            importJobId: job.id,
+            latitude: next.latitude,
+            longitude: next.longitude,
+            accuracy: next.accuracy,
+            speed: next.speed,
+            heading: next.heading,
+            recordedAt,
+          },
+        });
+        await tx.tracker.update({
+          where: { id: assignment.trackerId },
+          data: {
+            lastSeenAt: event.recordedAt,
+            status: 'ASSIGNED',
+            batteryLevel: Math.max(
+              12,
+              (assignment.tracker.batteryLevel ?? 80) - 1,
+            ),
+          },
+        });
+        return this.serializePoint(event);
       },
-    });
-    if (!job) {
-      throw new NotFoundException('Import job not found');
-    }
-    const assignment = job.trackerAssignments[0];
-    if (!assignment) {
-      throw new NotFoundException('No tracker assigned to this job');
-    }
-    if (!isSimulatedGpsProvider(assignment.tracker.provider)) {
-      throw new BadRequestException(
-        'Live GPS units cannot use demo Advance GPS',
-      );
-    }
-    const last = job.locationEvents[0];
-    const lastPoint = last
-      ? { latitude: Number(last.latitude), longitude: Number(last.longitude) }
-      : null;
-    if (
-      this.gps.pointsTowardAnchor(job.status as JobStatus, lastPoint).length ===
-      0
-    ) {
-      if (!last) {
-        throw new BadRequestException('No GPS position to advance');
-      }
-      return this.serializePoint(last);
-    }
-    const next = this.gps.nextPoint(lastPoint);
-    // Append after the latest trail ping. Wall-clock "now" can fall in the
-    // middle of a seeded historical journey and close the polyline on itself.
-    const recordedAt = last
-      ? new Date(last.recordedAt.getTime() + 5 * 60 * 1000)
-      : new Date();
-    const event = await this.prisma.locationEvent.create({
-      data: {
-        organisationId: user.organisationId,
-        trackerId: assignment.trackerId,
-        vehicleId: job.vehicleId,
-        importJobId: job.id,
-        latitude: next.latitude,
-        longitude: next.longitude,
-        accuracy: next.accuracy,
-        speed: next.speed,
-        heading: next.heading,
-        recordedAt,
-      },
-    });
-    await this.prisma.tracker.update({
-      where: { id: assignment.trackerId },
-      data: {
-        lastSeenAt: event.recordedAt,
-        status: 'ASSIGNED',
-        batteryLevel: Math.max(12, (assignment.tracker.batteryLevel ?? 80) - 1),
-      },
-    });
-    return this.serializePoint(event);
+    );
   }
 
   mapConfig() {
     return this.maps.getConfig();
   }
 
+  /**
+   * Call after a job's status changes, never when a job is read. It brings the
+   * journeys into line. In the demo workspaces only, it also moves the
+   * simulated GPS trail to match, which adds and removes made-up positions.
+   */
   async alignToStatus(
     jobId: string,
     organisationId: string,
     status: JobStatus,
   ) {
     if (status === 'CANCELLED') return;
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId, organisationId },
+      select: {
+        route: { select: { systemKey: true } },
+        organisation: { select: { slug: true } },
+      },
+    });
     // Only the seeded UK → Cyprus route's statuses map onto its GPS corridor.
     // A job not yet given a route is on that one.
-    const job = await this.prisma.importJob.findUnique({
-      where: { id: jobId },
-      select: { route: { select: { systemKey: true } } },
-    });
-    if (job?.route && job.route.systemKey !== UK_CYPRUS_ROUTE_KEY) return;
+    if (!job) return;
+    if (job.route && job.route.systemKey !== UK_CYPRUS_ROUTE_KEY) return;
     await this.syncJourneys(jobId, status);
-    await this.trimGpsToStatus(jobId, organisationId, status);
-    await this.catchUpGps(jobId, organisationId, status);
+    if (!DEMO_WORKSPACE_SLUGS.has(job.organisation.slug)) return;
+    await lockedTransaction(this.prisma, trackerLock(organisationId), (tx) =>
+      this.simulateToStatus(tx, jobId, organisationId, status),
+    );
   }
 
   private async syncJourneys(jobId: string, status: JobStatus) {
@@ -231,100 +252,137 @@ export class TrackingService {
     );
   }
 
-  private async trimGpsToStatus(
+  private async simulateToStatus(
+    tx: Tx,
     jobId: string,
     organisationId: string,
     status: JobStatus,
   ) {
-    const job = await this.prisma.importJob.findFirst({
+    const job = await tx.importJob.findFirst({
       where: { id: jobId, organisationId },
-      include: {
+      select: {
+        vehicleId: true,
         trackerAssignments: {
           where: { removedAt: null },
-          include: { tracker: true },
+          select: { trackerId: true, tracker: { select: { provider: true } } },
           take: 1,
         },
-        locationEvents: { orderBy: { recordedAt: 'asc' } },
       },
     });
-    if (!job?.trackerAssignments[0]) return;
-    if (!isSimulatedGpsProvider(job.trackerAssignments[0].tracker.provider))
-      return;
-    const extra = job.locationEvents.filter((event) =>
-      this.gps.isPastAnchor(status, {
-        latitude: Number(event.latitude),
-        longitude: Number(event.longitude),
-      }),
+    const assignment = job?.trackerAssignments[0];
+    // Checked before any ping is loaded: a real unit's trail can be very long.
+    if (!job || !assignment) return;
+    if (!isSimulatedGpsProvider(assignment.tracker.provider)) return;
+    const { trackerId } = assignment;
+    await this.trimGpsToStatus(tx, jobId, trackerId, status);
+    await this.catchUpGps(
+      tx,
+      { organisationId, jobId, vehicleId: job.vehicleId, trackerId },
+      status,
     );
-    if (extra.length === 0) return;
-    await this.prisma.locationEvent.deleteMany({
-      where: { id: { in: extra.map((event) => event.id) } },
+  }
+
+  /** Only the simulated tracker's own points can be removed. */
+  private async trimGpsToStatus(
+    tx: Tx,
+    jobId: string,
+    trackerId: string,
+    status: JobStatus,
+  ) {
+    const trail = await tx.locationEvent.findMany({
+      where: { importJobId: jobId, trackerId },
+      orderBy: { recordedAt: 'asc' },
     });
-    const remaining = job.locationEvents.filter(
-      (event) => !extra.some((drop) => drop.id === event.id),
+    const extra = new Set(
+      trail
+        .filter((event) =>
+          this.gps.isPastAnchor(status, this.coordinates(event)),
+        )
+        .map((event) => event.id),
     );
-    const lastKept = remaining[remaining.length - 1];
-    await this.prisma.tracker.update({
-      where: { id: job.trackerAssignments[0].trackerId },
+    if (extra.size === 0) return;
+    await tx.locationEvent.deleteMany({
+      where: { id: { in: [...extra] } },
+    });
+    const lastKept = trail.filter((event) => !extra.has(event.id)).pop();
+    await tx.tracker.update({
+      where: { id: trackerId },
       data: { lastSeenAt: lastKept?.recordedAt ?? null },
     });
   }
 
   private async catchUpGps(
-    jobId: string,
-    organisationId: string,
+    tx: Tx,
+    ids: {
+      organisationId: string;
+      jobId: string;
+      vehicleId: string;
+      trackerId: string;
+    },
     status: JobStatus,
   ) {
-    const job = await this.prisma.importJob.findFirst({
-      where: { id: jobId, organisationId },
-      include: {
-        trackerAssignments: {
-          where: { removedAt: null },
-          include: { tracker: true },
-          take: 1,
-        },
-        locationEvents: { orderBy: { recordedAt: 'desc' }, take: 1 },
-      },
-    });
-    if (!job?.trackerAssignments[0]) return;
-    if (!isSimulatedGpsProvider(job.trackerAssignments[0].tracker.provider))
-      return;
-    const last = job.locationEvents[0];
+    const last = await this.latestPing(tx, { importJobId: ids.jobId });
     const points = this.gps.pointsTowardAnchor(
       status,
-      last
-        ? { latitude: Number(last.latitude), longitude: Number(last.longitude) }
-        : null,
+      last ? this.coordinates(last) : null,
     );
     if (points.length === 0) return;
-    let recordedAt = last ? last.recordedAt.getTime() : Date.now();
-    let lastSeenAt = last?.recordedAt ?? new Date(recordedAt);
-    for (const [index, point] of points.entries()) {
-      recordedAt += 5 * 60 * 1000;
-      const towards = points[index + 1] ?? point;
-      lastSeenAt = new Date(recordedAt);
-      await this.prisma.locationEvent.create({
-        data: {
-          organisationId,
-          trackerId: job.trackerAssignments[0].trackerId,
-          vehicleId: job.vehicleId,
-          importJobId: job.id,
-          latitude: point.latitude,
-          longitude: point.longitude,
-          accuracy: 10,
-          speed:
-            status === 'SHIPPING_TO_CYPRUS' || status === 'ARRIVED_CYPRUS'
-              ? 18
-              : 72,
-          heading: Math.round(bearingDegrees(point, towards) % 360),
-          recordedAt: lastSeenAt,
-        },
-      });
-    }
-    await this.prisma.tracker.update({
-      where: { id: job.trackerAssignments[0].trackerId },
-      data: { lastSeenAt, status: 'ASSIGNED' },
+    const after = await this.latestTime(tx, ids.trackerId, last);
+    const start = after?.getTime() ?? Date.now();
+    const atSea =
+      status === 'SHIPPING_TO_CYPRUS' || status === 'ARRIVED_CYPRUS';
+    const data = points.map((point, index) => ({
+      organisationId: ids.organisationId,
+      trackerId: ids.trackerId,
+      vehicleId: ids.vehicleId,
+      importJobId: ids.jobId,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      accuracy: 10,
+      speed: atSea ? 18 : 72,
+      heading: Math.round(
+        bearingDegrees(point, points[index + 1] ?? point) % 360,
+      ),
+      recordedAt: new Date(start + (index + 1) * PING_GAP_MS),
+    }));
+    await tx.locationEvent.createMany({ data, skipDuplicates: true });
+    await tx.tracker.update({
+      where: { id: ids.trackerId },
+      data: {
+        lastSeenAt: data[data.length - 1].recordedAt,
+        status: 'ASSIGNED',
+      },
     });
+  }
+
+  private latestPing(tx: Tx, where: Prisma.LocationEventWhereInput) {
+    return tx.locationEvent.findFirst({
+      where: { ...where, isDuplicate: false },
+      orderBy: { recordedAt: 'desc' },
+    });
+  }
+
+  /**
+   * The later of the job's last ping and the tracker's, so that a new simulated
+   * ping never repeats a time the tracker has used.
+   */
+  private async latestTime(
+    tx: Tx,
+    trackerId: string,
+    jobPing: LocationEvent | null,
+  ) {
+    const own = await this.latestPing(tx, { trackerId });
+    const times = [jobPing, own].flatMap((event) =>
+      event ? [event.recordedAt.getTime()] : [],
+    );
+    return times.length ? new Date(Math.max(...times)) : null;
+  }
+
+  private coordinates(event: LocationEvent) {
+    return {
+      latitude: Number(event.latitude),
+      longitude: Number(event.longitude),
+    };
   }
 
   private toVehicleTracking(
