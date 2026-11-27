@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Avatar, Button, Card, Heading, Icon, Row, Text } from '@atomic-ui/ui-react';
 import { api } from '../lib/api';
+import type { Page } from '../lib/pages';
 import { useSession } from '../lib/session';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { SignOutDialog } from './account/SignOutDialog';
@@ -16,11 +17,12 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function MorePage() {
   const { user, canManage, workspace, roleLabel } = useSession();
   const [signingOut, setSigningOut] = useState(false);
-  // The same queries the Customers and Trackers pages use, so these counts are usually cached already.
+  // Only the total is needed, so ask for the smallest page.
   const customers = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => api<unknown[]>('/customers'),
+    queryKey: ['customers', 'total'],
+    queryFn: () => api<Page<unknown>>('/customers?limit=1'),
   });
+  // The same query the Trackers page uses, so these counts are usually cached already.
   const trackers = useQuery({
     queryKey: ['trackers'],
     queryFn: () => api<Array<{ status: string }>>('/trackers'),
@@ -55,7 +57,7 @@ export function MorePage() {
           <Row
             role="listitem"
             heading="Customers"
-            meta={customers.data ? plural(customers.data.length, 'customer', 'customers') : 'People you import for'}
+            meta={customers.data ? plural(customers.data.total, 'customer', 'customers') : 'People you import for'}
             href="/customers"
           >
             <Icon slot="start" name="users" />
