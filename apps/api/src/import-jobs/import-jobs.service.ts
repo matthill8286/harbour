@@ -179,18 +179,6 @@ export class ImportJobsService {
   }
 
   async get(user: AuthUser, id: string) {
-    const existing = await this.prisma.importJob.findFirst({
-      where: { id, organisationId: user.organisationId },
-      select: { id: true, status: true },
-    });
-    if (!existing) {
-      throw new NotFoundException('Import job not found');
-    }
-    await this.tracking.alignToStatus(
-      id,
-      user.organisationId,
-      existing.status as JobStatus,
-    );
     const job = await this.prisma.importJob.findFirst({
       where: { id, organisationId: user.organisationId },
       include: jobDetailInclude,

@@ -294,7 +294,11 @@ describeWithDatabase('related writes against PostgreSQL', () => {
       );
       devices.push(
         await prisma.tracker.create({
-          data: { organisationId, serialNumber: `S-${i}` },
+          data: {
+            organisationId,
+            serialNumber: `S-${i}`,
+            provider: 'generic',
+          },
         }),
       );
     }
