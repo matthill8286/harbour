@@ -1,0 +1,13 @@
+# Build output, dependencies and generated files
+node_modules
+dist
+build
+coverage
+dev-dist
+.demo-output
+.vercel
+pnpm-lock.yaml
+apps/api/uploads
+apps/api/prisma/migrations
+# Written by scripts/build-theme.mjs; theme.spec.ts checks it matches the brand inputs.
+apps/web/src/theme/harbour-tokens.css

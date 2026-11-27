@@ -13,7 +13,9 @@
     "db:generate": "pnpm --filter @vip/api prisma:generate",
     "db:migrate": "pnpm --filter @vip/api prisma:migrate",
     "db:seed": "pnpm --filter @vip/api prisma:seed",
-    "db:studio": "pnpm --filter @vip/api prisma:studio"
+    "db:studio": "pnpm --filter @vip/api prisma:studio",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -23,5 +25,8 @@
       "prisma",
       "unrs-resolver"
     ]
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
   }
 }
