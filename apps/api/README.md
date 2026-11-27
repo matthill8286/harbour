@@ -1,3 +1,47 @@
+# Harbour API
+
+## Logs and errors
+
+Each log line is one JSON object. Each request writes one line with its method, route
+pattern, status, time taken, request ID and, when signed in, the user and workspace IDs.
+The path itself is not logged, because some paths hold an invite, sign-up or reset token.
+The request ID is also in the `X-Request-Id` answer header and in the body of a 500, and
+on the lines logged while the request was handled. `src/logging/redact.ts` removes email
+addresses, token links and keys from every line. Debug lines are not written in production.
+
+Database errors are answered as a plain 400, 404, 409 or 503 (`src/logging/prisma-errors.ts`).
+Anything unexpected is a 500 that says nothing about the cause.
+
+### Email retries
+
+A failed email is sent again only when that cannot deliver it twice. For Brevo that means
+a 429 or a connection that was never made. Resend takes an idempotency key, so timeouts,
+dropped connections and server errors are retried too. There are two quick tries while the
+caller waits. Customer notifications are then tried again after 1, 5 and 30 minutes and
+2 hours. Invites are not, because the person inviting is told at once and can send a new one.
+An email counts once towards `EMAIL_DAILY_LIMIT`, however often it is tried. The waiting
+list is in memory, so a restart drops it and logs how many were dropped.
+
+### Adding error tracking
+
+No error tracking service is set up. Unexpected errors are in the logs as `"level":"error"`
+or `"level":"fatal"`. To send them somewhere else, implement `ErrorReporter`
+(`src/logging/error-reporter.ts`) and use it for `errorReporter` in `src/main.ts`. It gets
+the error already redacted. Send that, not the original error or the request. The options are:
+
+- **Watch the logs from the server.** A scheduled job on the host looks for error and fatal
+  lines and raises an alert. It needs no account, no dependency and no API change. It would
+  belong in `impkt-hosting`, next to the uptime check.
+- **A hosted service, such as Sentry.** It groups errors and sends alerts. It needs an
+  account, a project key and a new dependency, and error data leaves the server. Check the
+  provider's current price, free allowance and data region before choosing.
+- **A self-hosted service that accepts Sentry's SDKs, such as GlitchTip.** The data stays
+  on your own servers. It is another service to run, update and back up.
+
+With either service, turn off its automatic capture of requests and personal data.
+
+---
+
 <p align="center">
   <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>

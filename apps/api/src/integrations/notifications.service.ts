@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -6,6 +6,7 @@ import {
   type CustomerEmailEventType,
 } from './customer-email';
 import { EmailTransport } from './email-transport';
+import { EmailRetryQueue } from './email-retry-queue';
 import {
   composeStaffInviteEmail,
   type StaffInviteEmail,
@@ -26,8 +27,9 @@ export type CustomerNotification = {
 };
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnApplicationShutdown {
   private readonly logger = new Logger(NotificationsService.name);
+  private readonly retries = new EmailRetryQueue(this.logger);
 
   constructor(
     private readonly prisma: PrismaService,
@@ -36,11 +38,31 @@ export class NotificationsService {
     private readonly limiter: RateLimiter,
   ) {}
 
-  /** Fire-and-forget; never throws to callers. */
+  /**
+   * Fire-and-forget; never throws to callers. Nobody is waiting to hear that it
+   * failed, so it is tried again later where that is safe.
+   *
+   * Invites are not: the person inviting is told at once and can send a new one,
+   * which would leave an old email to arrive later with a dead link.
+   */
   notify(event: CustomerNotification) {
+    const key =
+      event.type === 'JOB_STATUS' && event.importJobId
+        ? `status:${event.importJobId}`
+        : undefined;
+    const ticket = key ? this.retries.supersede(key) : undefined;
     void this.deliver(event).catch((error: unknown) => {
-      this.warn(event, error);
+      const label = `${event.type} customer=${event.customerId ?? 'none'}`;
+      const later = this.retries.add(error, label, key, ticket);
+      this.warn(event, error, later);
     });
+  }
+
+  onApplicationShutdown() {
+    const dropped = this.retries.stop();
+    if (dropped) {
+      this.logger.warn(`${dropped} emails waiting to be retried were not sent`);
+    }
   }
 
   /**
@@ -68,9 +90,11 @@ export class NotificationsService {
     }
   }
 
-  private warn(event: CustomerNotification, error: unknown) {
+  private warn(event: CustomerNotification, error: unknown, later = false) {
     this.logger.warn(
-      `Failed ${event.type} customer=${event.customerId ?? 'none'}: ${detailOf(error)}`,
+      `Failed ${event.type} customer=${event.customerId ?? 'none'}: ${detailOf(error)}${
+        later ? '. It will be tried again.' : ''
+      }`,
     );
   }
 
@@ -148,7 +172,7 @@ export class NotificationsService {
       html: composed.html,
     });
     this.logger.log(
-      `${event.type} via=${result.provider} to=${customer.email}${
+      `${event.type} via=${result.provider} customer=${event.customerId}${
         event.importJobId ? ` job=${event.importJobId}` : ''
       }`,
     );

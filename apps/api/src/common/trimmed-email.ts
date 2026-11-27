@@ -1,6 +1,6 @@
 import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
-import { IsEmail } from 'class-validator';
+import { IsEmail, MaxLength } from 'class-validator';
 
 /**
  * An email address, with spaces around it removed before it is checked. Browser
@@ -12,5 +12,6 @@ export function TrimmedEmail() {
       typeof value === 'string' ? value.trim() : value,
     ),
     IsEmail(),
+    MaxLength(254),
   );
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { RateLimiter } from '../rate-limit/rate-limiter';
@@ -9,6 +10,23 @@ import { RateLimiter } from '../rate-limit/rate-limiter';
 export const DEFAULT_EMAIL_DAILY_LIMIT = 200;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** How long one call to the email provider may take. */
+export const EMAIL_TIMEOUT_MS = 15_000;
+/** Tried again at once, while the caller waits. */
+export const QUICK_RETRY_DELAYS_MS = [1_000, 3_000];
+
+/**
+ * Network failures from before the request left, so the provider never saw it.
+ */
+const NEVER_SENT = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ECONNREFUSED',
+  'ENETUNREACH',
+  'EHOSTUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+]);
+
 export type OutboundEmail = {
   to: string;
   subject: string;
@@ -16,14 +34,36 @@ export type OutboundEmail = {
   html: string;
 };
 
+export type EmailProvider = 'log' | 'resend' | 'brevo';
+export type EmailResult = { provider: EmailProvider };
+
+/**
+ * The provider did not take the email. `retry` is set only when sending it again
+ * cannot deliver it twice. It tries once more, as the same email: it uses no
+ * more of the daily limit, and Resend gets the same idempotency key.
+ */
+export class EmailSendError extends Error {
+  retry?: () => Promise<EmailResult>;
+
+  constructor(
+    message: string,
+    readonly safeToRetry: boolean,
+    readonly timedOut = false,
+  ) {
+    super(message);
+    this.name = 'EmailSendError';
+  }
+}
+
 @Injectable()
 export class EmailTransport {
   private readonly logger = new Logger(EmailTransport.name);
   private readonly sent = new RateLimiter();
+  retryDelaysMs = QUICK_RETRY_DELAYS_MS;
 
   constructor(private readonly config: ConfigService) {}
 
-  provider(): 'log' | 'resend' | 'brevo' {
+  provider(): EmailProvider {
     const configured = this.config
       .get<string>('EMAIL_PROVIDER', 'log')
       .trim()
@@ -72,28 +112,90 @@ export class EmailTransport {
       : DEFAULT_EMAIL_DAILY_LIMIT;
   }
 
-  async send(email: OutboundEmail) {
-    const provider = this.provider();
+  /**
+   * Sends one email, trying again at once after a failure that is safe to repeat.
+   * If it still fails that way, the error carries `retry` for later.
+   */
+  async send(email: OutboundEmail): Promise<EmailResult> {
+    const attempt = this.attemptsFor(email);
+    for (let tries = 0; ; tries += 1) {
+      try {
+        return await attempt();
+      } catch (error) {
+        if (!(error instanceof EmailSendError) || !error.safeToRetry) {
+          throw error;
+        }
+        const delay = this.retryDelaysMs[tries];
+        // After a timeout the caller has waited long enough.
+        if (delay === undefined || error.timedOut) {
+          error.retry = this.retryable(attempt);
+          throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  private retryable(attempt: () => Promise<EmailResult>) {
+    const retry = async (): Promise<EmailResult> => {
+      try {
+        return await attempt();
+      } catch (error) {
+        if (error instanceof EmailSendError && error.safeToRetry) {
+          error.retry = retry;
+        }
+        throw error;
+      }
+    };
+    return retry;
+  }
+
+  /**
+   * Every attempt at one email shares one place in the daily limit, so retries
+   * cannot take Harbour past it. Only an email the provider cannot have accepted
+   * is attempted again, so each place delivers one email at most.
+   */
+  private attemptsFor(email: OutboundEmail): () => Promise<EmailResult> {
+    const idempotencyKey = randomUUID();
+    let counted = false;
+    return async () => {
+      const provider = this.provider();
+      if (provider === 'log') {
+        this.logEmail(email);
+        return { provider };
+      }
+      if (!counted) {
+        if (!this.sent.take('all-email', this.dailyLimit(), DAY_MS)) {
+          throw new EmailSendError(
+            'Harbour has reached its daily email limit',
+            false,
+          );
+        }
+        counted = true;
+      }
+      if (provider === 'brevo') await this.sendBrevo(email);
+      else await this.sendResend(email, idempotencyKey);
+      return { provider };
+    };
+  }
+
+  /**
+   * No address, subject or text: the subject names people and workspaces, and
+   * the text holds sign-in links.
+   */
+  private logEmail(email: OutboundEmail) {
+    this.logger.log('email[log] nothing was sent');
+    // For local testing only, where there is no other way to get a sign-up or
+    // reset link. Off unless asked for, and never in production. It is printed
+    // outside the logger, which would remove the links.
     if (
-      provider !== 'log' &&
-      !this.sent.take('all-email', this.dailyLimit(), DAY_MS)
+      !this.production() &&
+      this.config.get<string>('EMAIL_PRINT_MESSAGES') === 'true'
     ) {
-      throw new Error('Harbour has reached its daily email limit');
+      process.stdout.write(
+        `\nTo: ${email.to}\nSubject: ${email.subject}\n\n${email.text}\n\n`,
+      );
     }
-    if (provider === 'brevo') {
-      await this.sendBrevo(email);
-      return { provider };
-    }
-    if (provider === 'resend') {
-      await this.sendResend(email);
-      return { provider };
-    }
-    this.logger.log(
-      `email[log] to=${email.to} subject=${JSON.stringify(email.subject)}`,
-    );
-    // The text can hold sign-in links, which do not belong in a server's logs.
-    if (!this.production()) this.logger.debug(email.text);
-    return { provider };
   }
 
   private brevoKey() {
@@ -106,24 +208,29 @@ export class EmailTransport {
     const sender = match
       ? { name: match[1].trim(), email: match[2].trim() }
       : { email: from };
-    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'api-key': this.brevoKey(),
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    const response = await this.post(
+      'Brevo',
+      'https://api.brevo.com/v3/smtp/email',
+      { 'api-key': this.brevoKey() },
+      {
         sender,
         to: [{ email: email.to }],
         subject: email.subject,
         textContent: email.text,
         htmlContent: email.html,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
+      },
+      // Brevo offers no way to say "this is the same email", so only a failure
+      // to connect is certain not to have sent it.
+      (cause) => cause !== undefined && NEVER_SENT.has(cause),
+    );
     if (!response.ok) {
-      // Provider responses can contain addresses or account details.
-      throw new Error(`Brevo returned ${response.status}`);
+      // Provider responses can contain addresses or account details, so only
+      // the status is kept. 429 means it was refused for now. After a server
+      // error it may have been sent.
+      throw new EmailSendError(
+        `Brevo returned ${response.status}`,
+        response.status === 429,
+      );
     }
   }
 
@@ -131,25 +238,60 @@ export class EmailTransport {
     return this.config.get<string>('RESEND_API_KEY')?.trim() || '';
   }
 
-  private async sendResend(email: OutboundEmail) {
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
+  private async sendResend(email: OutboundEmail, idempotencyKey: string) {
+    const response = await this.post(
+      'Resend',
+      'https://api.resend.com/emails',
+      {
         Authorization: `Bearer ${this.resendKey()}`,
-        'Content-Type': 'application/json',
+        // Resend sends one email for each key, for 24 hours.
+        'Idempotency-Key': idempotencyKey,
       },
-      body: JSON.stringify({
+      {
         from: this.fromAddress(),
         to: [email.to],
         subject: email.subject,
         text: email.text,
         html: email.html,
-      }),
-    });
+      },
+      () => true,
+    );
     if (!response.ok) {
-      const detail = await response.text();
-      this.logger.warn(`Resend ${response.status}: ${detail.slice(0, 240)}`);
-      throw new Error(`Resend returned ${response.status}`);
+      throw new EmailSendError(
+        `Resend returned ${response.status}`,
+        response.status === 429 || response.status >= 500,
+      );
+    }
+  }
+
+  private async post(
+    name: string,
+    url: string,
+    headers: Record<string, string>,
+    body: object,
+    safeAfterNetworkFailure: (causeCode: string | undefined) => boolean,
+  ) {
+    try {
+      return await fetch(url, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const { name: kind, cause } = error as {
+        name?: string;
+        cause?: { code?: unknown };
+      };
+      const code = typeof cause?.code === 'string' ? cause.code : undefined;
+      const timedOut = kind === 'TimeoutError';
+      throw new EmailSendError(
+        timedOut
+          ? `${name} did not answer in time`
+          : `${name} could not be reached${code ? ` (${code})` : ''}`,
+        safeAfterNetworkFailure(code),
+        timedOut || code === 'UND_ERR_CONNECT_TIMEOUT',
+      );
     }
   }
 }

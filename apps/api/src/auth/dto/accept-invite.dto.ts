@@ -13,6 +13,7 @@ export class AcceptInviteDto {
    */
   @IsString()
   @MinLength(1)
+  @MaxLength(1024)
   password!: string;
 
   /** Needed when the existing account has two-factor sign-in on. */
