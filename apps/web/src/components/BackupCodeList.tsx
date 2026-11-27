@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { Button } from "@atomic-ui/ui-react";
-import "./BackupCodeList.css";
+import { useState } from 'react';
+import { Button } from '@atomic-ui/ui-react';
+import './BackupCodeList.css';
 
 /** Freshly made backup codes, two to a row, with a button that copies them all. */
 export function BackupCodeList({ codes }: { codes: string[] }) {
@@ -15,15 +15,15 @@ export function BackupCodeList({ codes }: { codes: string[] }) {
       <Button
         variant="secondary"
         size="sm"
-        iconBefore={copied ? "check" : "document"}
+        iconBefore={copied ? 'check' : 'document'}
         onClick={() => {
           void navigator.clipboard
-            ?.writeText(codes.join("\n"))
+            ?.writeText(codes.join('\n'))
             .then(() => setCopied(true))
             .catch(() => undefined);
         }}
       >
-        {copied ? "Copied" : "Copy codes"}
+        {copied ? 'Copied' : 'Copy codes'}
       </Button>
     </div>
   );

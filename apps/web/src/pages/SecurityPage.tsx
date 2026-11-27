@@ -1,47 +1,37 @@
-import { useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  Avatar,
-  Badge,
-  Button,
-  Card,
-  Heading,
-  Text,
-  TextInput,
-} from "@atomic-ui/ui-react";
-import { isStaffRole, type PublicUser } from "@vip/shared";
-import { api, type SessionResponse, type TwoFactorStatus } from "../lib/api";
-import { homePath, useAuth } from "../lib/auth";
-import { useSession } from "../lib/session";
-import { BackupCodeList } from "../components/BackupCodeList";
-import { TwoFactorEnrolment } from "../components/TwoFactorEnrolment";
-import { PhoneHeader } from "../components/PhoneHeader";
-import { LoadingScreen } from "../components/ui";
-import { SignOutDialog } from "./account/SignOutDialog";
-import "./account/Account.css";
+import { useState, type FormEvent, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Avatar, Badge, Button, Card, Heading, Text, TextInput } from '@atomic-ui/ui-react';
+import { isStaffRole, type PublicUser } from '@vip/shared';
+import { api, type SessionResponse, type TwoFactorStatus } from '../lib/api';
+import { homePath, useAuth } from '../lib/auth';
+import { useSession } from '../lib/session';
+import { BackupCodeList } from '../components/BackupCodeList';
+import { TwoFactorEnrolment } from '../components/TwoFactorEnrolment';
+import { PhoneHeader } from '../components/PhoneHeader';
+import { LoadingScreen } from '../components/ui';
+import { SignOutDialog } from './account/SignOutDialog';
+import './account/Account.css';
 
-const STATUS_KEY = ["two-factor-status"];
+const STATUS_KEY = ['two-factor-status'];
 /** How many backup codes a fresh set has. */
 const BACKUP_CODES = 10;
 
-const message = (error: unknown) =>
-  error instanceof Error ? error.message : "Something went wrong. Try again.";
+const message = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
 
 /** A password field and a button, for the actions that need the password confirmed first. */
 function ConfirmPassword({
   submitLabel,
   busyLabel,
-  variant = "secondary",
+  variant = 'secondary',
   onConfirm,
 }: {
   submitLabel: string;
   busyLabel: string;
-  variant?: "primary" | "secondary";
+  variant?: 'primary' | 'secondary';
   onConfirm: (password: string) => Promise<void>;
 }) {
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -52,7 +42,7 @@ function ConfirmPassword({
     setError(null);
     try {
       await onConfirm(password);
-      setPassword("");
+      setPassword('');
     } catch (err) {
       setError(message(err));
     } finally {
@@ -67,34 +57,20 @@ function ConfirmPassword({
         label="Confirm your password"
         autocomplete="current-password"
         value={password}
-        error={error ?? ""}
+        error={error ?? ''}
         onChange={(event) => {
           const value = event.detail.value;
           setPassword(value);
         }}
       />
-      <Button
-        type="submit"
-        variant={variant}
-        disabled={!password}
-        busy={pending}
-        busyLabel={busyLabel}
-      >
+      <Button type="submit" variant={variant} disabled={!password} busy={pending} busyLabel={busyLabel}>
         {submitLabel}
       </Button>
     </form>
   );
 }
 
-function CardHead({
-  title,
-  lead,
-  children,
-}: {
-  title: string;
-  lead?: string;
-  children?: ReactNode;
-}) {
+function CardHead({ title, lead, children }: { title: string; lead?: string; children?: ReactNode }) {
   return (
     <div className="account-card-head">
       <div>
@@ -119,8 +95,8 @@ function Profile({ user }: { user: PublicUser }) {
   const value = name ?? user.name;
   const save = useMutation({
     mutationFn: () =>
-      api<PublicUser>("/auth/me", {
-        method: "PATCH",
+      api<PublicUser>('/auth/me', {
+        method: 'PATCH',
         body: JSON.stringify({ name: value.trim() }),
       }),
     onSuccess: (updated) => {
@@ -155,34 +131,16 @@ function Profile({ user }: { user: PublicUser }) {
           label="Full name"
           autocomplete="name"
           value={value}
-          error={
-            name !== null && name.trim().length < 2
-              ? "Enter your full name"
-              : ""
-          }
+          error={name !== null && name.trim().length < 2 ? 'Enter your full name' : ''}
           onChange={(event) => {
             const next = event.detail.value;
             setName(next);
           }}
         />
-        <TextInput
-          label="Email, used to sign in"
-          type="email"
-          value={user.email}
-          disabled
-        />
-        <TextInput
-          label="Workspace"
-          value={workspace}
-          disabled
-          className="account-wide"
-        />
+        <TextInput label="Email, used to sign in" type="email" value={user.email} disabled />
+        <TextInput label="Workspace" value={workspace} disabled className="account-wide" />
         {save.isError ? (
-          <Alert
-            tone="danger"
-            heading="Your name was not saved"
-            className="account-wide"
-          >
+          <Alert tone="danger" heading="Your name was not saved" className="account-wide">
             {message(save.error)}
           </Alert>
         ) : null}
@@ -192,12 +150,7 @@ function Profile({ user }: { user: PublicUser }) {
               Saved.
             </Text>
           ) : null}
-          <Button
-            type="submit"
-            disabled={!changed || value.trim().length < 2}
-            busy={save.isPending}
-            busyLabel="Saving your name"
-          >
+          <Button type="submit" disabled={!changed || value.trim().length < 2} busy={save.isPending} busyLabel="Saving your name">
             Save changes
           </Button>
         </div>
@@ -208,12 +161,12 @@ function Profile({ user }: { user: PublicUser }) {
 
 function Password({ email }: { email: string }) {
   const adopt = useAuth((state) => state.adopt);
-  const [form, setForm] = useState({ current: "", next: "" });
+  const [form, setForm] = useState({ current: '', next: '' });
   const [resetSent, setResetSent] = useState(false);
   const change = useMutation({
     mutationFn: () =>
-      api<SessionResponse>("/auth/password/change", {
-        method: "POST",
+      api<SessionResponse>('/auth/password/change', {
+        method: 'POST',
         body: JSON.stringify({
           currentPassword: form.current,
           newPassword: form.next,
@@ -221,13 +174,13 @@ function Password({ email }: { email: string }) {
       }),
     onSuccess: (session) => {
       adopt(session);
-      setForm({ current: "", next: "" });
+      setForm({ current: '', next: '' });
     },
   });
   const reset = useMutation({
     mutationFn: () =>
-      api("/auth/password/forgot", {
-        method: "POST",
+      api('/auth/password/forgot', {
+        method: 'POST',
         body: JSON.stringify({ email }),
       }),
     onSuccess: () => setResetSent(true),
@@ -259,7 +212,7 @@ function Password({ email }: { email: string }) {
           label="New password, at least 10 characters"
           autocomplete="new-password"
           value={form.next}
-          error={tooShort ? "Use at least 10 characters" : ""}
+          error={tooShort ? 'Use at least 10 characters' : ''}
           onChange={(event) => {
             const value = event.detail.value;
             setForm((f) => ({ ...f, next: value }));
@@ -277,18 +230,9 @@ function Password({ email }: { email: string }) {
         ) : null}
         <div className="account-actions is-split">
           {resetSent ? (
-            <Text
-              size="sm"
-              tone="muted"
-            >{`We sent a reset link to ${email}.`}</Text>
+            <Text size="sm" tone="muted">{`We sent a reset link to ${email}.`}</Text>
           ) : (
-            <Button
-              variant="ghost"
-              size="sm"
-              busy={reset.isPending}
-              busyLabel="Sending the link"
-              onClick={() => reset.mutate()}
-            >
+            <Button variant="ghost" size="sm" busy={reset.isPending} busyLabel="Sending the link" onClick={() => reset.mutate()}>
               Forgot it? Send a reset link
             </Button>
           )}
@@ -307,20 +251,11 @@ function Password({ email }: { email: string }) {
   );
 }
 
-function BackupCodes({
-  remaining,
-  onDone,
-}: {
-  remaining: number;
-  onDone: () => void;
-}) {
+function BackupCodes({ remaining, onDone }: { remaining: number; onDone: () => void }) {
   const [codes, setCodes] = useState<string[] | null>(null);
   return (
     <Card className="account-card">
-      <CardHead
-        title="Backup codes"
-        lead="Each code works once if you lose your phone. Keep them somewhere safe."
-      >
+      <CardHead title="Backup codes" lead="Each code works once if you lose your phone. Keep them somewhere safe.">
         <Badge>{`${remaining} of ${BACKUP_CODES} left`}</Badge>
       </CardHead>
       {codes ? (
@@ -332,21 +267,17 @@ function BackupCodes({
         </>
       ) : (
         <Text size="sm" tone="muted" className="account-note">
-          Harbour keeps your codes locked away and cannot show them again. Make
-          a new set if you have lost yours; the old ones stop working.
+          Harbour keeps your codes locked away and cannot show them again. Make a new set if you have lost yours; the old ones stop working.
         </Text>
       )}
       <ConfirmPassword
         submitLabel="New codes"
         busyLabel="Making new codes"
         onConfirm={async (password) => {
-          const result = await api<{ backupCodes: string[] }>(
-            "/auth/two-factor/backup-codes",
-            {
-              method: "POST",
-              body: JSON.stringify({ password }),
-            },
-          );
+          const result = await api<{ backupCodes: string[] }>('/auth/two-factor/backup-codes', {
+            method: 'POST',
+            body: JSON.stringify({ password }),
+          });
           setCodes(result.backupCodes);
           onDone();
         }}
@@ -367,7 +298,7 @@ export function SecurityPage() {
   const [signingOut, setSigningOut] = useState(false);
   const status = useQuery({
     queryKey: STATUS_KEY,
-    queryFn: () => api<TwoFactorStatus>("/auth/two-factor"),
+    queryFn: () => api<TwoFactorStatus>('/auth/two-factor'),
   });
   const staff = user ? isStaffRole(user.role) : false;
 
@@ -392,9 +323,7 @@ export function SecurityPage() {
         <Heading level={1} size="4xl">
           Account and security
         </Heading>
-        <Text tone="muted">
-          Your profile, password, two-factor sign-in and sign-out.
-        </Text>
+        <Text tone="muted">Your profile, password, two-factor sign-in and sign-out.</Text>
       </div>
 
       <div className="account-grid">
@@ -409,10 +338,7 @@ export function SecurityPage() {
           ) : status.data.enabled ? (
             <>
               <Card className="account-card">
-                <CardHead
-                  title="Two-factor sign-in is on"
-                  lead="Codes come from the authenticator app on your phone."
-                >
+                <CardHead title="Two-factor sign-in is on" lead="Codes come from the authenticator app on your phone.">
                   <Badge tone="solid">On</Badge>
                 </CardHead>
               </Card>
@@ -421,16 +347,16 @@ export function SecurityPage() {
                   title="Turn off two-factor sign-in"
                   lead={
                     staff
-                      ? "Team members must use it, so you will set it up again straight away. Use this to move it to a new phone."
-                      : "Your account will only be protected by your password."
+                      ? 'Team members must use it, so you will set it up again straight away. Use this to move it to a new phone.'
+                      : 'Your account will only be protected by your password.'
                   }
                 />
                 <ConfirmPassword
                   submitLabel="Turn off"
                   busyLabel="Turning it off"
                   onConfirm={async (password) => {
-                    await api("/auth/two-factor/disable", {
-                      method: "POST",
+                    await api('/auth/two-factor/disable', {
+                      method: 'POST',
                       body: JSON.stringify({ password }),
                     });
                     const updated = await reload();
@@ -441,10 +367,7 @@ export function SecurityPage() {
             </>
           ) : (
             <Card className="account-card">
-              <CardHead
-                title="Two-factor sign-in is off"
-                lead="Turn it on to protect your account if your password leaks."
-              >
+              <CardHead title="Two-factor sign-in is off" lead="Turn it on to protect your account if your password leaks.">
                 <Badge>Off</Badge>
               </CardHead>
               <TwoFactorEnrolment onEnabled={() => void reload()} />
@@ -456,27 +379,16 @@ export function SecurityPage() {
           <Password email={user.email} />
           <Card className="account-card">
             <CardHead title="Sign out" lead="Ends your session on this device.">
-              <Button
-                variant="secondary"
-                iconBefore="log-out"
-                onClick={() => setSigningOut(true)}
-              >
+              <Button variant="secondary" iconBefore="log-out" onClick={() => setSigningOut(true)}>
                 Sign out
               </Button>
             </CardHead>
           </Card>
-          {status.data?.enabled ? (
-            <BackupCodes
-              remaining={status.data.backupCodesRemaining}
-              onDone={() => void reload()}
-            />
-          ) : null}
+          {status.data?.enabled ? <BackupCodes remaining={status.data.backupCodesRemaining} onDone={() => void reload()} /> : null}
         </div>
       </div>
 
-      {signingOut ? (
-        <SignOutDialog onClose={() => setSigningOut(false)} />
-      ) : null}
+      {signingOut ? <SignOutDialog onClose={() => setSigningOut(false)} /> : null}
     </div>
   );
 }
