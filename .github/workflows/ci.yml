@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -15,6 +18,105 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # A throwaway database for the *.db.spec.ts files. It exists only for this job.
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: harbour_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -h 127.0.0.1 -U ci -d harbour_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.30.3
+
+      # .nvmrc holds the Node major that production runs (see the Dockerfile).
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Check that CI and production use the same Node major
+        run: |
+          image="$(sed -n 's/^FROM node:\([0-9]*\)\..*/\1/p' Dockerfile | head -1)"
+          test "$image" = "$(tr -d 'v \n' < .nvmrc | cut -d. -f1)"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm --filter @vip/api prisma:generate
+
+      - name: Build shared package
+        run: pnpm --filter @vip/shared build
+
+      # The api's own lint script passes --fix, which would hide fixable errors here.
+      - name: Lint
+        run: |
+          pnpm --filter @vip/api exec eslint "{src,test}/**/*.ts"
+          pnpm -r --filter '!@vip/api' run lint
+          pnpm format:check
+
+      # The second check covers the specs. They use Array.at, which needs the ES2022 library.
+      - name: Typecheck
+        run: |
+          pnpm typecheck
+          pnpm --filter @vip/api exec tsc -p tsconfig.json --noEmit --incremental false --lib es2022
+          pnpm --filter @vip/web exec tsc -b
+
+      - name: Create the schema in the test database
+        run: pnpm --filter @vip/api exec prisma db push --skip-generate
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/harbour_ci?schema=public
+
+      # With TEST_DATABASE_URL set, the database specs run instead of being skipped.
+      - name: Tests, including the database specs
+        run: pnpm test
+        env:
+          TEST_DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/harbour_ci?schema=public
+
+      - name: Build apps
+        run: pnpm build
+
+  images:
+    name: Build and run the images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build the api, migrate and web images
+        run: |
+          for target in api migrate web; do
+            docker build --platform linux/amd64 --target "$target" -t "impkt-harbour-$target:ci" .
+          done
+
+      - name: Run them against a scratch database
+        run: .github/scripts/image-smoke.sh
+        env:
+          IMAGE_TAG: ci
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
       - name: Checkout
@@ -28,23 +130,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: pnpm
+          node-version-file: .nvmrc
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Production dependencies
+        run: node .github/scripts/audit.cjs
 
-      - name: Generate Prisma client
-        run: pnpm --filter @vip/api prisma:generate
-
-      - name: Build shared package
-        run: pnpm --filter @vip/shared build
-
-      - name: Lint
-        run: pnpm lint
-
-      - name: Unit tests
-        run: pnpm test
-
-      - name: Build apps
-        run: pnpm build
+      # Build and test tools do not ship. Their advisories are shown but do not fail the run.
+      - name: All dependencies, for information
+        run: pnpm audit --audit-level high || echo "::warning::pnpm audit reports high or critical advisories in the full dependency tree."

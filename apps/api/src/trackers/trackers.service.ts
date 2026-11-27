@@ -1,12 +1,25 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { lockedTransaction, trackerLock } from '../prisma/locked-transaction';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
+import {
+  imeiKey,
+  imeiKeySql,
+  imeiLock,
+  realProviderSql,
+} from '../integrations/gps-device';
+import {
+  DEFAULT_GPS_PROVIDER,
+  isSimulatedGpsProvider,
+} from '../integrations/gps-providers';
+import { savePings } from '../tracking/location-writes';
 import {
   AssignTrackerDto,
   CreateLocationDto,
@@ -38,14 +51,50 @@ export class TrackersService {
     });
   }
 
-  create(user: AuthUser, dto: CreateTrackerDto) {
-    return this.prisma.tracker.create({
-      data: {
-        organisationId: user.organisationId,
-        serialNumber: dto.serialNumber.trim(),
-        provider: (dto.provider ?? 'generic').trim().toLowerCase() || 'generic',
-      },
-    });
+  /**
+   * Registers a unit. A real IMEI can be registered once on the whole platform.
+   * Registering it is only a claim: no gateway position reaches the tracker
+   * until the platform operator confirms who owns the unit.
+   */
+  async create(user: AuthUser, dto: CreateTrackerDto) {
+    const provider = dto.provider?.trim().toLowerCase() || DEFAULT_GPS_PROVIDER;
+    const simulated = isSimulatedGpsProvider(provider);
+    const serialNumber = simulated
+      ? dto.serialNumber.trim()
+      : dto.serialNumber.replace(/[\s-]+/g, '');
+    if (!serialNumber) {
+      throw new BadRequestException('Enter the serial number or IMEI');
+    }
+    const data = {
+      organisationId: user.organisationId,
+      serialNumber,
+      provider,
+    };
+    try {
+      if (simulated) return await this.prisma.tracker.create({ data });
+      const key = imeiKey(serialNumber);
+      return await lockedTransaction(this.prisma, imeiLock(key), async (tx) => {
+        const claimed = await tx.$queryRaw<unknown[]>`
+          SELECT 1 FROM "Tracker"
+          WHERE ${realProviderSql} AND ${imeiKeySql} = ${key} LIMIT 1`;
+        if (claimed.length > 0) throw this.alreadyRegistered();
+        return tx.tracker.create({ data });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw this.alreadyRegistered();
+      }
+      throw error;
+    }
+  }
+
+  private alreadyRegistered() {
+    return new ConflictException(
+      'This unit is already registered. If it is yours, contact support.',
+    );
   }
 
   /**
@@ -154,33 +203,22 @@ export class TrackersService {
     return updated;
   }
 
+  /** A position typed in by staff, for a tracker of their own workspace. */
   async addLocation(user: AuthUser, trackerId: string, dto: CreateLocationDto) {
     const tracker = await this.prisma.tracker.findFirst({
       where: { id: trackerId, organisationId: user.organisationId },
-      include: { assignments: { where: { removedAt: null }, take: 1 } },
     });
     if (!tracker) {
       throw new NotFoundException('Tracker not found');
     }
-    const assignment = tracker.assignments[0];
-    const event = await this.prisma.locationEvent.create({
-      data: {
-        organisationId: user.organisationId,
-        trackerId: tracker.id,
-        vehicleId: assignment?.vehicleId,
-        importJobId: assignment?.importJobId,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        accuracy: dto.accuracy,
-        speed: dto.speed,
-        heading: dto.heading,
-        recordedAt: dto.recordedAt ? new Date(dto.recordedAt) : new Date(),
-      },
+    const recordedAt = dto.recordedAt ? new Date(dto.recordedAt) : new Date();
+    await savePings(
+      this.prisma,
+      [{ tracker, pings: [{ ...dto, recordedAt }] }],
+      { keepUnassigned: true },
+    );
+    return this.prisma.locationEvent.findFirstOrThrow({
+      where: { trackerId: tracker.id, recordedAt, isDuplicate: false },
     });
-    await this.prisma.tracker.update({
-      where: { id: tracker.id },
-      data: { lastSeenAt: event.recordedAt, status: 'ASSIGNED' },
-    });
-    return event;
   }
 }
