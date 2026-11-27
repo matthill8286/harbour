@@ -50,7 +50,8 @@ export const useAuth = create<AuthState>((set, get) => {
       start(
         await api<LoginResponse>('/auth/login', {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          // Autofill and pasting can add spaces around the address.
+          body: JSON.stringify({ email: email.trim(), password }),
         }),
       ),
     acceptInvite: async (token, password) =>

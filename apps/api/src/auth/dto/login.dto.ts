@@ -1,7 +1,8 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsString, MinLength } from 'class-validator';
+import { TrimmedEmail } from '../../common/trimmed-email';
 
 export class LoginDto {
-  @IsEmail()
+  @TrimmedEmail()
   email!: string;
 
   @IsString()
