@@ -1,0 +1,241 @@
+/* Account and security, Workspace and More, after the Figma section
+   "11 · Workspace, Security, Not found" and the mobile frames. */
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.account-card {
+  display: block;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.95fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.account-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-inline-size: 0;
+}
+
+.account-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-card-head > div {
+  min-inline-size: 0;
+}
+
+.account-who {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-who-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 4px;
+}
+
+.account-profile {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block-start: 20px;
+}
+
+.account-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-block-start: 16px;
+}
+
+.account-profile > impakt-text-input,
+.account-profile > impakt-select,
+.account-stack > impakt-text-input,
+.account-confirm > impakt-text-input {
+  margin: 0;
+}
+
+.account-wide {
+  grid-column: 1 / -1;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.account-actions.is-split {
+  justify-content: space-between;
+}
+
+.account-confirm {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-block-start: 16px;
+}
+
+.account-note {
+  display: block;
+  margin-block-start: 12px;
+}
+
+.account-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-block-start: 20px;
+}
+
+/* Workspace */
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.75fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.workspace-features {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: 12px;
+}
+
+.workspace-feature {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-block: 10px;
+}
+
+.workspace-routes {
+  margin-block-start: 8px;
+  padding-block-start: 16px;
+  border-block-start: 1px solid
+    color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+}
+
+.workspace-invite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(
+      10rem,
+      12rem
+    ) auto;
+  align-items: end;
+  gap: 12px;
+  margin-block: 16px;
+}
+
+.workspace-invite > impakt-text-input,
+.workspace-invite > impakt-select {
+  margin: 0;
+}
+
+.workspace-member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspace-member-actions > impakt-select {
+  margin: 0;
+  inline-size: 10rem;
+}
+
+/* More */
+.more-sign-out {
+  color: var(--impakt-color-status-danger-text);
+}
+
+@media (max-width: 75rem) {
+  .account-grid,
+  .workspace-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workspace-invite {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 48rem) {
+  .account-heading {
+    display: none;
+  }
+  .account-profile,
+  .workspace-invite {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .account-confirm {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .account-actions > impakt-button,
+  .account-confirm > impakt-button {
+    inline-size: 100%;
+  }
+}
+
+.invite-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-block-end: 16px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.invite-link code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.account-card-head > impakt-badge,
+.account-card-head > impakt-button {
+  flex: none;
+}
+
+.workspace-member {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-member.is-divided {
+  border-block-start: 1px solid color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+}
+
+@media (max-width: 48rem) {
+  .workspace-member {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    padding-block-end: 12px;
+  }
+  .workspace-member-actions {
+    justify-content: flex-start;
+  }
+}

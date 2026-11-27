@@ -302,6 +302,84 @@ export class AuthService {
     return this.completeSignIn(user, membership);
   }
 
+  /** Changes the signed-in user's name. The email stays fixed, because it is how they sign in. */
+  async updateProfile(user: AuthUser, name: string): Promise<AuthUser> {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      throw new BadRequestException('Enter your full name.');
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { name: trimmed },
+    });
+    await this.audit.record(user, {
+      action: 'PROFILE_UPDATED',
+      entityType: 'User',
+      entityId: user.id,
+    });
+    return { ...user, name: trimmed };
+  }
+
+  /**
+   * Checks the current password and sets the new one. Every other session stops
+   * working, as after a reset, and this device gets a fresh session back.
+   */
+  async changePassword(
+    user: AuthUser,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    const account = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        memberships: {
+          include: { organisation: { include: { settings: true } } },
+        },
+      },
+    });
+    if (
+      !account?.passwordHash ||
+      !(await verify(account.passwordHash, currentPassword))
+    ) {
+      throw new BadRequestException('Your current password is not right.');
+    }
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'Choose a new password that is different from the current one.',
+      );
+    }
+    const membership = account.memberships.find(
+      (item) =>
+        item.id === user.membershipId &&
+        item.status === 'ACTIVE' &&
+        item.organisation.status === 'ACTIVE',
+    );
+    if (!membership) {
+      throw new UnauthorizedException(
+        'No active organisation for this account',
+      );
+    }
+    const passwordHash = await hash(newPassword);
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash, passwordChangedAt: now },
+      }),
+      // A reset link asked for before the change must not undo it.
+      this.prisma.passwordReset.updateMany({
+        where: { userId: user.id, usedAt: null, expiresAt: { gt: now } },
+        data: { expiresAt: now },
+      }),
+    ]);
+    await this.audit.record(user, {
+      action: 'PASSWORD_CHANGED',
+      entityType: 'User',
+      entityId: user.id,
+    });
+    return this.issueSession(account, membership);
+  }
+
   /** An account with two-factor on gets a challenge, never a session, from its password alone. */
   private async completeSignIn(
     user: {
