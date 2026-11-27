@@ -5,7 +5,6 @@ import { getStatusLabel } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { toLocationPoint } from '../lib/tracking';
-import { JobTrackingPanel } from '../components/JobTrackingPanel';
 import { JobFilesPanel } from '../components/JobFilesPanel';
 import { JobActivity } from '../components/JobActivity';
 import { PhoneHeader } from '../components/PhoneHeader';
@@ -13,6 +12,8 @@ import { LoadingScreen } from '../components/ui';
 import { OverviewTab } from './job/OverviewTab';
 import { closedAt } from './job/history';
 import { MoneyTab } from './job/MoneyTab';
+import { StatusStrip } from './job/StatusStrip';
+import { TrackingTab } from './job/TrackingTab';
 import { NotesTab } from './job/NotesTab';
 import type { JobDetail } from './job/types';
 import './job/JobWorkspace.css';
@@ -116,9 +117,8 @@ export function JobDetailPage() {
       </div>
 
       {activeTab === 'overview' ? <OverviewTab job={job} onTab={tabHref} /> : null}
-      {activeTab === 'tracking' ? (
-        <JobTrackingPanel jobId={job.id} lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null} />
-      ) : null}
+      {activeTab !== 'overview' ? <StatusStrip job={job} /> : null}
+      {activeTab === 'tracking' ? <TrackingTab job={job} lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null} /> : null}
       {activeTab === 'files' ? <JobFilesPanel jobId={job.id} photos={job.photos ?? []} documents={job.documents ?? []} /> : null}
       {activeTab === 'money' ? <MoneyTab job={job} /> : null}
       {activeTab === 'activity' ? <JobActivity jobId={job.id} /> : null}

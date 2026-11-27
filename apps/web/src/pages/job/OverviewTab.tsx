@@ -5,20 +5,18 @@ import { Alert, Avatar, Badge, Button, Card, Heading, Progress, Row, Text } from
 import {
   JOB_STAGE_LABELS,
   JOB_STAGES,
-  STATUS_TRANSITIONS,
   getJobStage,
   getStatusLabel,
   type JobStage,
-  type JobStatus,
 } from '@vip/shared';
 import { api } from '../../lib/api';
 import { formatCategory, formatDate, relativeTime } from '../../lib/format';
-import { useSession } from '../../lib/session';
 import type { JobTracking } from '../../lib/tracking';
 import { AuthenticatedImage } from '../../components/AuthenticatedImage';
 import { AddLegDialog, CancelJobDialog, TaskDialog, type TaskDraft } from './dialogs';
 import { countryName } from './countries';
 import { closedAt } from './history';
+import { useJobStatus } from './useJobStatus';
 import type { JobDetail } from './types';
 import './OverviewTab.css';
 
@@ -32,7 +30,6 @@ const isDone = (task: Task) => task.status === 'COMPLETED';
 const isOverdue = (task: Task) => !isDone(task) && task.status !== 'CANCELLED' && Boolean(task.dueDate) && task.dueDate!.slice(0, 10) < today();
 
 export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: string) => string }) {
-  const { canWrite } = useSession();
   const queryClient = useQueryClient();
   const [taskDialog, setTaskDialog] = useState<TaskDraft | null>(null);
   const [legDialog, setLegDialog] = useState(false);
@@ -40,21 +37,13 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   // The time the tab opened, so a tracker's freshness does not change between renders.
   const [now] = useState(() => Date.now());
 
-  const closed = job.status === 'COMPLETED' || job.status === 'CANCELLED';
-  const editable = canWrite && !closed;
-  const next = (STATUS_TRANSITIONS[job.status] ?? []).find((status) => status !== 'CANCELLED');
-  const canCancel = (STATUS_TRANSITIONS[job.status] ?? []).includes('CANCELLED');
+  const { closed, editable, next, canCancel, move } = useJobStatus(job);
   const stage = getJobStage(job.status);
   const ending = closedAt(job);
 
   const tracking = useQuery({
     queryKey: ['tracking', job.id],
     queryFn: () => api<JobTracking>(`/import-jobs/${job.id}/tracking`),
-  });
-
-  const move = useMutation({
-    mutationFn: (status: JobStatus) => api(`/import-jobs/${job.id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['job', job.id] }),
   });
 
   const toggle = useMutation({
