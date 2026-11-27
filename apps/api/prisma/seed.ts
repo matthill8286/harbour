@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PrismaClient, UserRole } from '@prisma/client';
@@ -636,6 +637,30 @@ trailer<</Root 1 0 R>>
   );
 }
 
+/** Studio photos for the demo vehicles, from the Figma file. Others get the placeholder. */
+const SEED_PHOTOS: Record<string, string> = {
+  bmw: 'bmw-m5-competition.jpg',
+};
+
+/**
+ * A demo vehicle's photo. It sits beside this file in development, and under
+ * prisma/seed-assets in the working folder when the seed runs compiled in the
+ * image. Without it, the seed uses the plain placeholder.
+ */
+function seedPhoto(slug: string) {
+  const name = SEED_PHOTOS[slug];
+  const found = name
+    ? [
+        join(__dirname, 'seed-assets', name),
+        join(process.cwd(), 'prisma', 'seed-assets', name),
+      ].find((path) => existsSync(path))
+    : undefined;
+  if (!name || !found) {
+    return { bytes: SEED_PNG, mimeType: 'image/png', ext: 'png' };
+  }
+  return { bytes: readFileSync(found), mimeType: 'image/jpeg', ext: 'jpg' };
+}
+
 async function seedPortalFiles(
   organisationId: string,
   importJobId: string,
@@ -643,7 +668,8 @@ async function seedPortalFiles(
   slug: string,
   label: string,
 ) {
-  const photoKey = `${organisationId}/jobs/${importJobId}/photos/seed-${slug}-collection.png`;
+  const photo = seedPhoto(slug);
+  const photoKey = `${organisationId}/jobs/${importJobId}/photos/seed-${slug}-collection.${photo.ext}`;
   const docKey = `${organisationId}/jobs/${importJobId}/documents/seed-${slug}-collection.pdf`;
   const root = process.env.STORAGE_LOCAL_DIR ?? './uploads';
   await mkdir(join(root, organisationId, 'jobs', importJobId, 'photos'), {
@@ -653,26 +679,30 @@ async function seedPortalFiles(
     recursive: true,
   });
   const pdf = seedPdf(label);
-  await writeFile(join(root, photoKey), SEED_PNG);
+  await writeFile(join(root, photoKey), photo.bytes);
   await writeFile(join(root, docKey), pdf);
 
   await prisma.photo.upsert({
     where: { id: `seed-photo-${slug}` },
+    // A reseed brings an existing demo photo up to date too.
     update: {
       importJobId,
       organisationId,
       customerVisible: true,
       storageKey: photoKey,
+      filename: `${slug}-collection.${photo.ext}`,
+      mimeType: photo.mimeType,
+      sizeBytes: photo.bytes.length,
     },
     create: {
       id: `seed-photo-${slug}`,
       organisationId,
       importJobId,
       category: 'COLLECTION',
-      filename: `${slug}-collection.png`,
-      mimeType: 'image/png',
+      filename: `${slug}-collection.${photo.ext}`,
+      mimeType: photo.mimeType,
       storageKey: photoKey,
-      sizeBytes: SEED_PNG.length,
+      sizeBytes: photo.bytes.length,
       uploadedById,
       customerVisible: true,
     },
