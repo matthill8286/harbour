@@ -25,6 +25,12 @@ const pendingInviteSelect = { createdAt: true, expiresAt: true } as const;
 
 const CUSTOMER_PAGE_SIZE = 50;
 
+function assertNotErased(customer: { erasedAt: Date | null }) {
+  if (customer.erasedAt) {
+    throw new ConflictException('This customer has been erased.');
+  }
+}
+
 @Injectable()
 export class CustomersService {
   constructor(
@@ -125,6 +131,7 @@ export class CustomersService {
       accessLock(user.organisationId),
       async (tx) => {
         const customer = await this.requireCustomer(user, id, tx);
+        assertNotErased(customer);
         const email = dto.email?.toLowerCase();
         if (email && email !== customer.email?.toLowerCase()) {
           await this.moveUnclaimedPortalAccount(
@@ -159,6 +166,7 @@ export class CustomersService {
       accessLock(user.organisationId),
       async (tx) => {
         const customer = await this.requireCustomer(user, id, tx);
+        assertNotErased(customer);
         const email = customer.email?.toLowerCase();
         if (!email) {
           throw new BadRequestException(

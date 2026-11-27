@@ -11,7 +11,7 @@ import {
   statfs,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import type { Readable } from 'node:stream';
 import {
   HttpException,
@@ -143,6 +143,29 @@ export class StorageService {
       () => true,
       () => false,
     );
+  }
+
+  /** The key of every file in one job's folder, with or without a record. */
+  async listJobFiles(
+    organisationId: string,
+    importJobId: string,
+  ): Promise<string[]> {
+    const folder = `${organisationId}/jobs/${importJobId}`;
+    const root = this.pathOf(folder, organisationId);
+    let entries;
+    try {
+      entries = await readdir(root, { withFileTypes: true, recursive: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+      throw error;
+    }
+    return entries
+      .filter((entry) => entry.isFile())
+      .map((entry) =>
+        `${folder}/${relative(root, join(entry.parentPath, entry.name))}`
+          .split(sep)
+          .join('/'),
+      );
   }
 
   /** Deletes a file and its copies. A file that is already gone is not an error. */

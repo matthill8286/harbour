@@ -10,7 +10,9 @@ import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
 import { PORTAL_LABEL, PORTAL_TONE, type PortalStatus } from './customers/portal';
+import { PrivacyCard } from './customers/PrivacyCard';
 import './customers/Customers.css';
+import './account/Account.css';
 
 type CustomerDetail = {
   id: string;
@@ -20,6 +22,7 @@ type CustomerDetail = {
   phone: string | null;
   address: string | null;
   notes: string | null;
+  erasedAt: string | null;
   portal: { status: PortalStatus; email: string | null; invitedAt: string | null; expiresAt: string | null };
   importJobs: {
     id: string;
@@ -50,7 +53,7 @@ const PORTAL: Record<PortalStatus, { body: string; action: string }> = {
 };
 
 export function CustomerDetailPage() {
-  const { canWrite } = useSession();
+  const { canWrite: mayWrite, canManage } = useSession();
   const workflows = useWorkflows();
   const { id = '' } = useParams();
   const navigate = useNavigate();
@@ -88,6 +91,9 @@ export function CustomerDetailPage() {
       await refresh();
     },
   });
+
+  // An erased customer takes no new data.
+  const canWrite = mayWrite && !customer?.erasedAt;
 
   if (query.isLoading) return <LoadingScreen label="Loading the customer…" />;
   if (query.isError || !customer || !contact) {
@@ -186,53 +192,55 @@ export function CustomerDetailPage() {
         </Card>
 
         <aside className="customer-side" aria-label="Portal and jobs">
-          <Card className="customers-card">
-            <div className="job-card-head">
-              <div>
-                <Heading level={2} size="md">
-                  Portal
-                </Heading>
-                <Text size="sm" tone="muted">
-                  {canWrite ? 'Portal access is managed by you.' : 'Portal access is managed by the workspace owner.'}
-                </Text>
-              </div>
-              <Badge tone={PORTAL_TONE[customer.portal.status]}>{PORTAL_LABEL[customer.portal.status]}</Badge>
-            </div>
-            <Text size="sm">{portal.body}</Text>
-            {customer.portal.status === 'INVITED' && customer.portal.expiresAt ? (
-              <Text size="sm" tone="muted">{`The invite expires on ${formatDate(customer.portal.expiresAt)}.`}</Text>
-            ) : null}
-            {canWrite ? (
-              <div className="customer-portal-action">
-                {customer.email ? null : (
+          {customer.erasedAt ? null : (
+            <Card className="customers-card">
+              <div className="job-card-head">
+                <div>
+                  <Heading level={2} size="md">
+                    Portal
+                  </Heading>
                   <Text size="sm" tone="muted">
-                    Add an email above first; the invite goes to it.
+                    {canWrite ? 'Portal access is managed by you.' : 'Portal access is managed by the workspace owner.'}
                   </Text>
-                )}
-                <Button
-                  variant={customer.portal.status === 'NONE' ? 'primary' : 'secondary'}
-                  full
-                  disabled={!customer.email}
-                  busy={invite.isPending}
-                  busyLabel="Sending the invite"
-                  onClick={() => {
-                    setSent(null);
-                    invite.mutate();
-                  }}
-                >
-                  {portal.action}
-                </Button>
+                </div>
+                <Badge tone={PORTAL_TONE[customer.portal.status]}>{PORTAL_LABEL[customer.portal.status]}</Badge>
               </div>
-            ) : null}
-            {sent && customer.portal.email ? (
-              <InviteOutcome key={sent.expiresAt} delivery={sent} email={customer.portal.email} className="customer-link" />
-            ) : null}
-            {invite.isError ? (
-              <Alert tone="danger" heading="No invite was sent">
-                {invite.error instanceof Error ? invite.error.message : 'Try again.'}
-              </Alert>
-            ) : null}
-          </Card>
+              <Text size="sm">{portal.body}</Text>
+              {customer.portal.status === 'INVITED' && customer.portal.expiresAt ? (
+                <Text size="sm" tone="muted">{`The invite expires on ${formatDate(customer.portal.expiresAt)}.`}</Text>
+              ) : null}
+              {canWrite ? (
+                <div className="customer-portal-action">
+                  {customer.email ? null : (
+                    <Text size="sm" tone="muted">
+                      Add an email above first; the invite goes to it.
+                    </Text>
+                  )}
+                  <Button
+                    variant={customer.portal.status === 'NONE' ? 'primary' : 'secondary'}
+                    full
+                    disabled={!customer.email}
+                    busy={invite.isPending}
+                    busyLabel="Sending the invite"
+                    onClick={() => {
+                      setSent(null);
+                      invite.mutate();
+                    }}
+                  >
+                    {portal.action}
+                  </Button>
+                </div>
+              ) : null}
+              {sent && customer.portal.email ? (
+                <InviteOutcome key={sent.expiresAt} delivery={sent} email={customer.portal.email} className="customer-link" />
+              ) : null}
+              {invite.isError ? (
+                <Alert tone="danger" heading="No invite was sent">
+                  {invite.error instanceof Error ? invite.error.message : 'Try again.'}
+                </Alert>
+              ) : null}
+            </Card>
+          )}
 
           <Card className="customers-card">
             <div className="job-card-head">
@@ -259,6 +267,8 @@ export function CustomerDetailPage() {
               </div>
             )}
           </Card>
+
+          {canManage ? <PrivacyCard id={customer.id} name={name} erasedAt={customer.erasedAt} /> : null}
         </aside>
       </div>
     </div>

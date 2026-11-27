@@ -37,6 +37,6 @@ import { SignupService } from './signup/signup.service';
     PasswordResetService,
     SignupService,
   ],
-  exports: [AuthService],
+  exports: [AuthService, TwoFactorService],
 })
 export class AuthModule {}
