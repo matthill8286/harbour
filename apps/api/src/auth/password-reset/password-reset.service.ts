@@ -4,6 +4,7 @@ import { hash } from 'argon2';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailTransport } from '../../integrations/email-transport';
 import { createInviteToken, hashInviteToken } from '../invite-token';
+import { RateLimiter } from '../../rate-limit/rate-limiter';
 
 /** A reset link works for one hour and only once. */
 export const RESET_TTL_MS = 60 * 60 * 1000;
@@ -21,7 +22,19 @@ export class PasswordResetService {
     private readonly prisma: PrismaService,
     private readonly email: EmailTransport,
     private readonly config: ConfigService,
+    private readonly limiter: RateLimiter,
   ) {}
+
+  /**
+   * Answers at once and does the work afterwards, so the time taken does not
+   * show whether the account exists. The limit applies to any address.
+   */
+  requestInBackground(rawEmail: string): void {
+    this.limiter.consume('forgotPasswordEmail', rawEmail.trim().toLowerCase());
+    void this.request(rawEmail).catch((error: unknown) => {
+      this.logger.error('Password reset request failed', error as Error);
+    });
+  }
 
   /**
    * Emails a reset link if the account exists. The answer is the same either way,
@@ -61,7 +74,7 @@ export class PasswordResetService {
     const url = `${this.webOrigin()}/reset-password/${token}`;
     const name = user.name.trim().split(/\s+/)[0] || 'there';
     try {
-      await this.email.send({
+      await this.email.deliver({
         to: user.email,
         subject: 'Reset your Harbour password',
         text: [
@@ -93,6 +106,7 @@ export class PasswordResetService {
   /** Sets the new password, uses up the link and signs out every existing session. */
   async reset(token: string, password: string): Promise<void> {
     const reset = await this.findUsable(token);
+    this.limiter.consume('resetPasswordAccount', reset.userId);
     const passwordHash = await hash(password);
     const now = new Date();
     // The link is used up only if the new password is saved with it.

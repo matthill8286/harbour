@@ -15,12 +15,14 @@ import { CurrentUser } from './current-user.decorator';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthUser } from './auth.types';
 import { AllowWithoutTwoFactor } from './two-factor/allow-without-two-factor.decorator';
+import { RateLimit } from '../rate-limit/rate-limit.guard';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Post('login')
+  @RateLimit({ policy: 'loginIp', by: 'ip' })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }
@@ -50,11 +52,13 @@ export class AuthController {
   }
 
   @Get('invites/:token')
+  @RateLimit({ policy: 'invitePreviewIp', by: 'ip' })
   previewInvite(@Param('token') token: string) {
     return this.auth.previewInvite(token);
   }
 
   @Post('invites/:token/accept')
+  @RateLimit({ policy: 'inviteAcceptIp', by: 'ip' })
   acceptInvite(@Param('token') token: string, @Body() dto: AcceptInviteDto) {
     return this.auth.acceptInvite(token, dto);
   }

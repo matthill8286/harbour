@@ -8,11 +8,14 @@ import type { Prisma } from '@prisma/client';
 import {
   INVITEABLE_STAFF_ROLES,
   normaliseRole,
+  ROLE_LABELS,
   type InviteableStaffRole,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { accessLock, lockedTransaction } from '../prisma/locked-transaction';
 import { AuditService } from '../audit/audit.service';
+import { NotificationsService } from '../integrations/notifications.service';
+import { EmailTransport } from '../integrations/email-transport';
 import type { AuthUser } from '../auth/auth.types';
 import { presentOrganisation } from './organisation.view';
 import { UpdateOrganisationDto } from './dto/organisation.dto';
@@ -71,6 +74,8 @@ export class OrganisationsService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
+    private readonly email: EmailTransport,
   ) {}
 
   async get(user: AuthUser) {
@@ -229,7 +234,11 @@ export class OrganisationsService {
       },
     );
 
-    const inviteUrl = `${this.webOrigin()}/invite/${token}`;
+    const delivery = await this.emailStaffInvite(user, {
+      to: email,
+      role,
+      token,
+    });
     void this.audit.record(user, {
       action: 'STAFF_INVITED',
       entityType: 'OrganisationMembership',
@@ -242,7 +251,7 @@ export class OrganisationsService {
         where: { id: membership.id },
         select: memberSelect,
       });
-    return { member: presentMember(presented), inviteUrl, expiresAt };
+    return { member: presentMember(presented), expiresAt, ...delivery };
   }
 
   async updateMember(
@@ -410,7 +419,11 @@ export class OrganisationsService {
       where: { id: member.userId },
       select: { passwordHash: true },
     });
-    const inviteUrl = `${this.webOrigin()}/invite/${token}`;
+    const delivery = await this.emailStaffInvite(user, {
+      to: member.user.email,
+      role: member.role,
+      token,
+    });
     void this.audit.record(user, {
       action: 'STAFF_INVITE_RESENT',
       entityType: 'OrganisationMembership',
@@ -425,8 +438,28 @@ export class OrganisationsService {
         ...member,
         user: { ...member.user, passwordHash: account?.passwordHash ?? null },
       }),
-      inviteUrl,
       expiresAt,
+      ...delivery,
+    };
+  }
+
+  /**
+   * The link goes to the invitee's mailbox and nowhere else, so accepting it
+   * shows they own the address. The sender sees it only in local development.
+   */
+  private async emailStaffInvite(
+    user: AuthUser,
+    invite: { to: string; role: string; token: string },
+  ): Promise<{ emailSent: boolean; inviteUrl?: string }> {
+    const inviteUrl = `${this.webOrigin()}/invite/${invite.token}`;
+    const emailSent = await this.notifications.sendStaffInvite(invite.to, {
+      brandName: user.organisationBrandName,
+      roleLabel: ROLE_LABELS[normaliseRole(invite.role)],
+      inviteUrl,
+    });
+    return {
+      emailSent,
+      ...(this.email.localDelivery() ? { inviteUrl } : {}),
     };
   }
 

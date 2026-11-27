@@ -19,6 +19,7 @@ import {
   VerifyCodeDto,
 } from './two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
+import { RateLimit } from '../../rate-limit/rate-limit.guard';
 
 @Controller('auth/two-factor')
 export class TwoFactorController {
@@ -29,6 +30,7 @@ export class TwoFactorController {
 
   /** Second step of sign-in: swaps the challenge token and a code for a session. */
   @Post('challenge')
+  @RateLimit({ policy: 'twoFactorIp', by: 'ip' })
   @HttpCode(200)
   challenge(@Body() dto: ChallengeDto) {
     if (!dto.code && !dto.backupCode) {

@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { accessLock, lockedTransaction } from '../prisma/locked-transaction';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../integrations/notifications.service';
+import { EmailTransport } from '../integrations/email-transport';
 import type { AuthUser } from '../auth/auth.types';
 import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
@@ -26,6 +27,7 @@ export class CustomersService {
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    private readonly email: EmailTransport,
   ) {}
 
   async list(user: AuthUser, search?: string) {
@@ -251,7 +253,8 @@ export class CustomersService {
         expiresAt: expiresAt.toISOString(),
       },
     });
-    this.notifications.notify({
+    // As for staff, only the invitee's mailbox gets the link.
+    const emailSent = await this.notifications.sendPortalInvite({
       type: 'PORTAL_INVITE',
       organisationId: user.organisationId,
       customerId: customer.id,
@@ -260,7 +263,12 @@ export class CustomersService {
     });
 
     const presented = await this.get(user, id);
-    return { ...presented, inviteUrl, expiresAt };
+    return {
+      ...presented,
+      expiresAt,
+      emailSent,
+      ...(this.email.localDelivery() ? { inviteUrl } : {}),
+    };
   }
 
   /**

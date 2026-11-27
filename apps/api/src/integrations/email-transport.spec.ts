@@ -62,6 +62,31 @@ describe('EmailTransport', () => {
     expect(make({ EMAIL_PROVIDER: 'brevo' }).provider()).toBe('log');
   });
 
+  it('stops at the daily limit, so other products keep their share', async () => {
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true } as Response);
+    const transport = make({
+      EMAIL_PROVIDER: 'brevo',
+      BREVO_API_KEY: 'test-key',
+      EMAIL_DAILY_LIMIT: '2',
+    });
+    const email = { to: 'a@example.com', subject: 's', text: 't', html: '' };
+    await transport.send(email);
+    await transport.send(email);
+    await expect(transport.send(email)).rejects.toThrow('daily email limit');
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not count a logged email as delivered in production', async () => {
+    const email = { to: 'a@example.com', subject: 's', text: 't', html: '' };
+    const production = make({ NODE_ENV: 'production' });
+    await expect(production.deliver(email)).rejects.toThrow(
+      'No email provider',
+    );
+    expect(production.localDelivery()).toBe(false);
+    expect(make({}).localDelivery()).toBe(true);
+    await expect(make({}).deliver(email)).resolves.toEqual({ provider: 'log' });
+  });
+
   it('logs instead of calling Resend when provider is log', async () => {
     const transport = make({});
     await expect(
