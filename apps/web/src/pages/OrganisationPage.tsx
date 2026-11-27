@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Avatar, Badge, Button, Card, Heading, Row, Select, Text, TextInput } from '@atomic-ui/ui-react';
 import {
@@ -12,7 +13,7 @@ import {
 } from '@vip/shared';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import type { RouteTemplateOption } from '../lib/tracking';
+import { useRoutes } from './routes/routes';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import './account/Account.css';
@@ -156,12 +157,9 @@ function WorkspaceSettings({ org }: { org: OrganisationView }) {
 }
 
 function PlanAndFeatures({ org }: { org: OrganisationView }) {
-  const routes = useQuery({
-    queryKey: ['route-templates'],
-    queryFn: () => api<RouteTemplateOption[]>('/route-templates'),
-  });
+  const routes = useRoutes();
   const count = routes.data?.length ?? 0;
-  const first = routes.data?.[0];
+  const fallback = routes.data?.find((route) => route.isDefault);
 
   return (
     <Card className="account-card">
@@ -188,8 +186,11 @@ function PlanAndFeatures({ org }: { org: OrganisationView }) {
             ? 'Loading routes…'
             : count === 0
               ? 'No routes yet.'
-              : `${count} ${count === 1 ? 'route' : 'routes'}${first ? ` · ${first.name} is first` : ''}`}
+              : `${count} ${count === 1 ? 'route' : 'routes'}${fallback ? ` · ${fallback.name} is the default` : ''}`}
         </Text>
+        <Link to="/organisation/routes" className="workspace-routes-link">
+          Edit routes and stages →
+        </Link>
       </div>
     </Card>
   );

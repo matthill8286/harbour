@@ -7,6 +7,12 @@ const COUNTRIES: Record<string, string> = {
   CY: 'Cyprus',
   MT: 'Malta',
   DE: 'Germany',
+  NL: 'Netherlands',
+  FR: 'France',
+  IT: 'Italy',
+  JP: 'Japan',
+  AE: 'United Arab Emirates',
+  US: 'United States',
 };
 
 export const countryName = (code: string) => COUNTRIES[code] ?? code;
