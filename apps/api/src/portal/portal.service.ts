@@ -2,7 +2,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  StreamableFile,
 } from '@nestjs/common';
 import {
   customerJourney,
@@ -13,7 +12,8 @@ import {
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { StorageService } from '../integrations/storage.service';
+import { FileDeliveryService } from '../integrations/file-delivery.service';
+import { isPicture } from '../integrations/image-renditions';
 import type { AuthUser } from '../auth/auth.types';
 import { WorkflowRoutesService } from '../workflow/workflow-routes.service';
 import { toPortalJob } from './portal.view';
@@ -31,7 +31,7 @@ const customerSelect = {
 export class PortalService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
+    private readonly delivery: FileDeliveryService,
     private readonly workflows: WorkflowRoutesService,
     private readonly audit: AuditService,
   ) {}
@@ -128,64 +128,51 @@ export class PortalService {
     };
   }
 
-  async readVisibleFile(
+  /** A document the importer has shared. A photo is sent without its metadata. */
+  async downloadDocument(user: AuthUser, jobId: string, fileId: string) {
+    const document = await this.prisma.document.findFirst({
+      where: this.visibleFile(user, jobId, fileId),
+    });
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+    return isPicture(document.mimeType)
+      ? this.delivery.copy(document, 'clean', 'attachment')
+      : this.delivery.original(document, 'attachment');
+  }
+
+  /** A shared photo. The customer only ever gets a copy without metadata. */
+  async viewPhoto(
     user: AuthUser,
     jobId: string,
-    kind: 'document' | 'photo',
     fileId: string,
+    size: 'thumb' | 'display',
   ) {
-    await this.loadCustomerJob(user, jobId);
-    if (kind === 'document') {
-      const document = await this.prisma.document.findFirst({
-        where: {
-          id: fileId,
-          importJobId: jobId,
-          organisationId: user.organisationId,
-          customerVisible: true,
-        },
-      });
-      if (!document) {
-        throw new NotFoundException('Document not found');
-      }
-      return {
-        buffer: await this.storage.read(
-          document.storageKey,
-          user.organisationId,
-        ),
-        mimeType: document.mimeType,
-        name: document.name,
-        inline: false,
-      };
-    }
     const photo = await this.prisma.photo.findFirst({
-      where: {
-        id: fileId,
-        importJobId: jobId,
-        organisationId: user.organisationId,
-        customerVisible: true,
-      },
+      where: this.visibleFile(user, jobId, fileId),
     });
     if (!photo) {
       throw new NotFoundException('Photo not found');
     }
-    return {
-      buffer: await this.storage.read(photo.storageKey, user.organisationId),
-      mimeType: photo.mimeType,
-      name: photo.filename,
-      inline: true,
-    };
+    return this.delivery.copy(
+      { ...photo, name: photo.filename },
+      size,
+      'inline',
+    );
   }
 
-  toStream(file: {
-    buffer: Buffer;
-    mimeType: string;
-    name: string;
-    inline: boolean;
-  }) {
-    return new StreamableFile(file.buffer, {
-      type: file.mimeType,
-      disposition: `${file.inline ? 'inline' : 'attachment'}; filename="${file.name}"`,
-    });
+  /** One shared file of one of this customer's own jobs. */
+  private visibleFile(user: AuthUser, jobId: string, fileId: string) {
+    return {
+      id: fileId,
+      importJobId: jobId,
+      organisationId: user.organisationId,
+      customerVisible: true,
+      importJob: {
+        customerId: this.requireCustomer(user),
+        organisationId: user.organisationId,
+      },
+    };
   }
 
   /** The customer's own details, as their importer holds them. */

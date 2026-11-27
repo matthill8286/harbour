@@ -16,7 +16,6 @@ import {
   type MoneyLineKind,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
-import { StorageService } from '../integrations/storage.service';
 import { NotificationsService } from '../integrations/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { TrackingService } from '../tracking/tracking.service';
@@ -29,6 +28,9 @@ import {
 } from '../workflow/workflow-routes.service';
 import { AiTransport } from '../integrations/ai-transport';
 import { jobReferencePrefix } from './job-reference';
+import { afterNewest, newestCursor, toPage } from '../common/pagination';
+import { jobSearch, onRoute } from './job-list';
+import type { JobListQuery } from './dto/job-list.query';
 import {
   buildCustomerNoteDraft,
   vehicleSummaryFromParts,
@@ -54,6 +56,8 @@ import {
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
+
+const JOB_PAGE_SIZE = 25;
 
 /** Creations in one workspace queue for the next reference, so allow longer than Prisma's defaults. */
 const jobWriteTransaction = { maxWait: 10_000, timeout: 15_000 };
@@ -115,7 +119,6 @@ const jobDetailInclude = {
 export class ImportJobsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly storage: StorageService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
     private readonly tracking: TrackingService,
@@ -125,50 +128,80 @@ export class ImportJobsService {
     private readonly ai: AiTransport,
   ) {}
 
-  list(user: AuthUser, query?: { status?: string; search?: string }) {
-    return this.prisma.importJob.findMany({
-      where: {
-        organisationId: user.organisationId,
-        ...(query?.status ? { status: query.status } : {}),
-        ...(query?.search
-          ? {
-              OR: [
-                { reference: { contains: query.search, mode: 'insensitive' } },
-                {
-                  customer: {
-                    firstName: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  customer: {
-                    lastName: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    make: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    model: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    ukRegistration: {
-                      contains: query.search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
+  /**
+   * One page of jobs, newest first. `total` counts every job matching all the
+   * filters. `counts` ignores the route and stage, so the screen can say how
+   * many jobs each route and stage chip would show.
+   */
+  async list(user: AuthUser, query: JobListQuery = {}) {
+    const limit = query.limit ?? JOB_PAGE_SIZE;
+    const searched: Prisma.ImportJobWhereInput[] = [
+      { organisationId: user.organisationId },
+      ...(query.search ? [jobSearch(query.search)] : []),
+      ...(query.status ? [{ status: query.status }] : []),
+    ];
+    const filtered = [...searched, ...(await this.listPlace(user, query))];
+    const [rows, total, counts] = await Promise.all([
+      this.prisma.importJob.findMany({
+        where: {
+          AND: [
+            ...filtered,
+            ...(query.cursor ? [afterNewest(query.cursor)] : []),
+          ],
+        },
+        include: jobListInclude,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+      }),
+      this.prisma.importJob.count({ where: { AND: filtered } }),
+      this.prisma.importJob.groupBy({
+        by: ['routeId', 'status'],
+        where: { AND: searched },
+        _count: { _all: true },
+      }),
+    ]);
+    return {
+      ...toPage(rows, limit, newestCursor),
+      total,
+      counts: counts.map((row) => ({
+        routeId: row.routeId,
+        status: row.status,
+        count: row._count._all,
+      })),
+    };
+  }
+
+  /** The list's route and stage filters. */
+  private async listPlace(
+    user: AuthUser,
+    { route, stage, status }: JobListQuery,
+  ): Promise<Prisma.ImportJobWhereInput[]> {
+    const organisationId = user.organisationId;
+    const places: Prisma.ImportJobWhereInput[] = [];
+    if (route) {
+      const found = await this.prisma.route.findFirst({
+        where: { id: route, organisationId },
+        select: { isDefault: true },
+      });
+      places.push(onRoute(route, Boolean(found?.isDefault)));
+    }
+    // A stage and a status narrow the same thing, so the status wins.
+    if (!stage || status) return places;
+    if (stage === 'completed') return [...places, { status: 'COMPLETED' }];
+    const found = await this.prisma.routeStage.findFirst({
+      where: { id: stage, route: { organisationId } },
+      select: {
+        routeId: true,
+        route: { select: { isDefault: true } },
+        statuses: { select: { code: true } },
       },
-      include: jobListInclude,
-      orderBy: { createdAt: 'desc' },
     });
+    if (!found) return [...places, { id: { in: [] } }];
+    return [
+      ...places,
+      onRoute(found.routeId, found.route.isDefault),
+      { status: { in: found.statuses.map((item) => item.code) } },
+    ];
   }
 
   async get(user: AuthUser, id: string) {
@@ -916,160 +949,6 @@ export class ImportJobsService {
     });
   }
 
-  async addDocument(
-    user: AuthUser,
-    jobId: string,
-    file: Express.Multer.File,
-    customerVisible: boolean,
-    type?: string,
-  ) {
-    const job = await this.get(user, jobId);
-    const storageKey = await this.storage.save(file.buffer, file.originalname, {
-      organisationId: user.organisationId,
-      importJobId: jobId,
-      kind: 'documents',
-    });
-    const document = await this.prisma.document.create({
-      data: {
-        organisationId: user.organisationId,
-        importJobId: jobId,
-        type: (type as never) ?? 'OTHER',
-        name: file.originalname,
-        mimeType: file.mimetype,
-        storageKey,
-        sizeBytes: file.size,
-        uploadedById: user.id,
-        customerVisible,
-      },
-    });
-    void this.audit.record(user, {
-      action: 'DOCUMENT_UPLOADED',
-      entityType: 'Document',
-      entityId: document.id,
-      metadata: { importJobId: jobId, customerVisible, name: document.name },
-    });
-    if (customerVisible) {
-      this.notifications.notify({
-        type: 'FILE_SHARED',
-        organisationId: user.organisationId,
-        importJobId: jobId,
-        customerId: job.customerId,
-        message: `A document was shared: ${document.name}`,
-      });
-    }
-    return this.withoutStorageKey(document);
-  }
-
-  async addPhoto(
-    user: AuthUser,
-    jobId: string,
-    file: Express.Multer.File,
-    customerVisible: boolean,
-    category?: string,
-  ) {
-    const job = await this.get(user, jobId);
-    const storageKey = await this.storage.save(file.buffer, file.originalname, {
-      organisationId: user.organisationId,
-      importJobId: jobId,
-      kind: 'photos',
-    });
-    const photo = await this.prisma.photo.create({
-      data: {
-        organisationId: user.organisationId,
-        importJobId: jobId,
-        category: (category as never) ?? 'OTHER',
-        filename: file.originalname,
-        mimeType: file.mimetype,
-        storageKey,
-        sizeBytes: file.size,
-        uploadedById: user.id,
-        customerVisible,
-      },
-    });
-    void this.audit.record(user, {
-      action: 'PHOTO_UPLOADED',
-      entityType: 'Photo',
-      entityId: photo.id,
-      metadata: {
-        importJobId: jobId,
-        customerVisible,
-        filename: photo.filename,
-      },
-    });
-    if (customerVisible) {
-      this.notifications.notify({
-        type: 'FILE_SHARED',
-        organisationId: user.organisationId,
-        importJobId: jobId,
-        customerId: job.customerId,
-        message: `A photo was shared: ${photo.filename}`,
-      });
-    }
-    return this.withoutStorageKey(photo);
-  }
-
-  async setFileVisibility(
-    user: AuthUser,
-    jobId: string,
-    kind: 'document' | 'photo',
-    fileId: string,
-    customerVisible: boolean,
-  ) {
-    const job = await this.get(user, jobId);
-    if (kind === 'document') {
-      const existing = await this.prisma.document.findFirst({
-        where: {
-          id: fileId,
-          importJobId: jobId,
-          organisationId: user.organisationId,
-        },
-      });
-      if (!existing) {
-        throw new NotFoundException('Document not found');
-      }
-      const document = await this.prisma.document.update({
-        where: { id: fileId },
-        data: { customerVisible },
-      });
-      this.recordVisibilityChange(
-        user,
-        jobId,
-        job.customerId,
-        'Document',
-        document.id,
-        document.name,
-        existing.customerVisible,
-        customerVisible,
-      );
-      return this.withoutStorageKey(document);
-    }
-    const existing = await this.prisma.photo.findFirst({
-      where: {
-        id: fileId,
-        importJobId: jobId,
-        organisationId: user.organisationId,
-      },
-    });
-    if (!existing) {
-      throw new NotFoundException('Photo not found');
-    }
-    const photo = await this.prisma.photo.update({
-      where: { id: fileId },
-      data: { customerVisible },
-    });
-    this.recordVisibilityChange(
-      user,
-      jobId,
-      job.customerId,
-      'Photo',
-      photo.id,
-      photo.filename,
-      existing.customerVisible,
-      customerVisible,
-    );
-    return this.withoutStorageKey(photo);
-  }
-
   async activity(user: AuthUser, jobId: string) {
     const exists = await this.prisma.importJob.findFirst({
       where: { id: jobId, organisationId: user.organisationId },
@@ -1079,47 +958,6 @@ export class ImportJobsService {
       throw new NotFoundException('Import job not found');
     }
     return this.audit.listForJob(user, jobId);
-  }
-
-  async readStoredFile(
-    user: AuthUser,
-    jobId: string,
-    kind: 'document' | 'photo',
-    fileId: string,
-  ) {
-    await this.get(user, jobId);
-    if (kind === 'document') {
-      const doc = await this.prisma.document.findFirst({
-        where: {
-          id: fileId,
-          importJobId: jobId,
-          organisationId: user.organisationId,
-        },
-      });
-      if (!doc) {
-        throw new NotFoundException('Document not found');
-      }
-      return {
-        buffer: await this.storage.read(doc.storageKey, user.organisationId),
-        mimeType: doc.mimeType,
-        name: doc.name,
-      };
-    }
-    const photo = await this.prisma.photo.findFirst({
-      where: {
-        id: fileId,
-        importJobId: jobId,
-        organisationId: user.organisationId,
-      },
-    });
-    if (!photo) {
-      throw new NotFoundException('Photo not found');
-    }
-    return {
-      buffer: await this.storage.read(photo.storageKey, user.organisationId),
-      mimeType: photo.mimeType,
-      name: photo.filename,
-    };
   }
 
   stageOf(status: string) {
@@ -1180,32 +1018,5 @@ export class ImportJobsService {
     const { storageKey, ...rest } = record;
     void storageKey;
     return rest;
-  }
-
-  private recordVisibilityChange(
-    user: AuthUser,
-    importJobId: string,
-    customerId: string | null,
-    entityType: 'Document' | 'Photo',
-    entityId: string,
-    name: string,
-    wasVisible: boolean,
-    customerVisible: boolean,
-  ) {
-    void this.audit.record(user, {
-      action: 'FILE_VISIBILITY_CHANGED',
-      entityType,
-      entityId,
-      metadata: { importJobId, customerVisible, name },
-    });
-    if (customerVisible && !wasVisible) {
-      this.notifications.notify({
-        type: 'FILE_SHARED',
-        organisationId: user.organisationId,
-        importJobId,
-        customerId,
-        message: `A file was shared: ${name}`,
-      });
-    }
   }
 }

@@ -167,19 +167,24 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
   }
 
   async list(user: AuthUser) {
-    await this.ensureDefault(user.organisationId);
-    const [routes, counts] = await Promise.all([
+    const readRoutes = () =>
       this.prisma.route.findMany({
         where: { organisationId: user.organisationId },
         include: routeInclude,
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
-      }),
-      this.prisma.importJob.groupBy({
-        by: ['routeId', 'status'],
-        where: { organisationId: user.organisationId, status: OPEN },
-        _count: { _all: true },
-      }),
-    ]);
+      });
+    let routes = await readRoutes();
+    // The locking setup runs only for a workspace that has no default yet. Most
+    // screens load this list, so it must not queue them behind one another.
+    if (!routes.some((route) => route.isDefault)) {
+      await this.ensureDefault(user.organisationId);
+      routes = await readRoutes();
+    }
+    const counts = await this.prisma.importJob.groupBy({
+      by: ['routeId', 'status'],
+      where: { organisationId: user.organisationId, status: OPEN },
+      _count: { _all: true },
+    });
     return routes.map((route) => {
       const mine = counts.filter((c) => c.routeId === route.id);
       return {
