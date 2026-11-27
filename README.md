@@ -81,7 +81,7 @@ An IMEI can be registered once on the whole platform. Registering it is only a c
 node dist/src/trackers/confirm-device-owner.js <imei> <workspace-slug>
 ```
 
-Positions recorded before that confirmation are not delivered. Running the command for another workspace moves the unit to it and disputes the earlier claim, which then receives nothing. If an upgrade finds the same IMEI registered more than once, all of those claims are disputed until the operator confirms an owner. No GPS data is deleted automatically; see [the proposed retention rule](docs/adr/ADR-004-gps-retention.md).
+Positions recorded before that confirmation are not delivered. Running the command for another workspace moves the unit to it and disputes the earlier claim, which then receives nothing. If an upgrade finds the same IMEI registered more than once, all of those claims are disputed until the operator confirms an owner. Raw GPS points are deleted 90 days after their job is completed or cancelled, or 90 days after they were recorded if they are on no job. `GPS_RETENTION_DAYS` changes the period. See [the retention rule](docs/adr/ADR-004-gps-retention.md).
 
 Real units:
 
