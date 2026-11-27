@@ -1,4 +1,4 @@
-import type { PrismaService } from '../prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
 
 type Membership = {
   organisationId: string;
@@ -11,7 +11,7 @@ type Membership = {
  * accepted before `acceptedAt` was added are recognised by their used invite.
  */
 export async function staffMembershipWasAccepted(
-  prisma: PrismaService,
+  prisma: Prisma.TransactionClient,
   { organisationId, userId, acceptedAt }: Membership,
 ) {
   if (acceptedAt) return true;
@@ -24,7 +24,7 @@ export async function staffMembershipWasAccepted(
 
 /** The same for a customer's portal access to one customer record. */
 export async function portalMembershipWasAccepted(
-  prisma: PrismaService,
+  prisma: Prisma.TransactionClient,
   {
     organisationId,
     userId,

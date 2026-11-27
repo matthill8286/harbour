@@ -4,12 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Prisma } from '@prisma/client';
 import {
   INVITEABLE_STAFF_ROLES,
   normaliseRole,
   type InviteableStaffRole,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { accessLock, lockedTransaction } from '../prisma/locked-transaction';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { presentOrganisation } from './organisation.view';
@@ -139,85 +141,93 @@ export class OrganisationsService {
       throw new BadRequestException('Name is required');
     }
 
-    let account = await this.prisma.user.findUnique({ where: { email } });
-    if (!account) {
-      account = await this.prisma.user.create({
-        data: { email, name, passwordHash: null },
-      });
-    }
-
-    const existing = await this.prisma.organisationMembership.findUnique({
-      where: {
-        organisationId_userId: {
-          organisationId: user.organisationId,
-          userId: account.id,
-        },
-      },
-    });
-    if (existing?.role === 'CUSTOMER') {
-      throw new BadRequestException(
-        'That email already belongs to a customer portal account in this organisation',
-      );
-    }
-    if (existing?.status === 'ACTIVE') {
-      throw new BadRequestException('That person is already on the team');
-    }
-
-    const membership = await this.prisma.organisationMembership.upsert({
-      where: {
-        organisationId_userId: {
-          organisationId: user.organisationId,
-          userId: account.id,
-        },
-      },
-      update: {
-        role,
-        status: 'INVITED',
-        customerId: null,
-      },
-      create: {
-        organisationId: user.organisationId,
-        userId: account.id,
-        role,
-        status: 'INVITED',
-      },
-      select: memberSelect,
-    });
-
-    // The inviter may correct the name only while the account is nobody's yet:
-    // no password, and no link to any other organisation.
-    if (account.name !== name) {
-      await this.prisma.user.updateMany({
-        where: {
-          id: account.id,
-          passwordHash: null,
-          memberships: { every: { organisationId: user.organisationId } },
-        },
-        data: { name },
-      });
-    }
-
-    await this.prisma.staffInvite.updateMany({
-      where: {
-        organisationId: user.organisationId,
-        userId: account.id,
-        acceptedAt: null,
-      },
-      data: { expiresAt: new Date() },
-    });
-
     const { token, tokenHash } = createInviteToken();
     const expiresAt = inviteExpiresAt();
-    await this.prisma.staffInvite.create({
-      data: {
-        organisationId: user.organisationId,
-        userId: account.id,
-        createdById: user.id,
-        role,
-        tokenHash,
-        expiresAt,
+    const membership = await lockedTransaction(
+      this.prisma,
+      accessLock(user.organisationId),
+      async (tx) => {
+        let account = await tx.user.findUnique({ where: { email } });
+        if (!account) {
+          account = await tx.user.create({
+            data: { email, name, passwordHash: null },
+          });
+        }
+
+        const existing = await tx.organisationMembership.findUnique({
+          where: {
+            organisationId_userId: {
+              organisationId: user.organisationId,
+              userId: account.id,
+            },
+          },
+        });
+        if (existing?.role === 'CUSTOMER') {
+          throw new BadRequestException(
+            'That email already belongs to a customer portal account in this organisation',
+          );
+        }
+        if (existing?.status === 'ACTIVE') {
+          throw new BadRequestException('That person is already on the team');
+        }
+
+        const membership = await tx.organisationMembership.upsert({
+          where: {
+            organisationId_userId: {
+              organisationId: user.organisationId,
+              userId: account.id,
+            },
+          },
+          update: {
+            role,
+            status: 'INVITED',
+            customerId: null,
+          },
+          create: {
+            organisationId: user.organisationId,
+            userId: account.id,
+            role,
+            status: 'INVITED',
+          },
+          select: memberSelect,
+        });
+
+        // The inviter may correct the name only while the account is nobody's yet:
+        // no password, and no link to any other organisation.
+        if (account.name !== name) {
+          await tx.user.updateMany({
+            where: {
+              id: account.id,
+              passwordHash: null,
+              memberships: { every: { organisationId: user.organisationId } },
+            },
+            data: { name },
+          });
+        }
+
+        await tx.staffInvite.updateMany({
+          where: {
+            organisationId: user.organisationId,
+            userId: account.id,
+            acceptedAt: null,
+          },
+          data: { expiresAt: new Date() },
+        });
+
+        await tx.staffInvite.create({
+          data: {
+            organisationId: user.organisationId,
+            userId: account.id,
+            createdById: user.id,
+            role,
+            tokenHash,
+            expiresAt,
+          },
+        });
+
+        return membership;
       },
-    });
+    );
 
     const inviteUrl = `${this.webOrigin()}/invite/${token}`;
     void this.audit.record(user, {
@@ -243,7 +253,32 @@ export class OrganisationsService {
     if (dto.role === undefined && dto.status === undefined) {
       throw new BadRequestException('Nothing to update');
     }
-    const member = await this.requireStaffMembership(user, membershipId);
+    // Locked, so two Admins cannot each pass the last-Admin check at once.
+    const updated = await lockedTransaction(
+      this.prisma,
+      accessLock(user.organisationId),
+      (tx) => this.applyMemberUpdate(tx, user, membershipId, dto),
+    );
+    void this.audit.record(user, {
+      action: 'STAFF_MEMBERSHIP_UPDATED',
+      entityType: 'OrganisationMembership',
+      entityId: updated.id,
+      metadata: {
+        role: dto.role,
+        status: dto.status,
+        userId: updated.user.id,
+      },
+    });
+    return presentMember(updated);
+  }
+
+  private async applyMemberUpdate(
+    tx: Prisma.TransactionClient,
+    user: AuthUser,
+    membershipId: string,
+    dto: UpdateMemberDto,
+  ) {
+    const member = await this.requireStaffMembership(user, membershipId, tx);
     if (member.userId === user.id && dto.status === 'DISABLED') {
       throw new BadRequestException('You cannot disable your own access');
     }
@@ -262,7 +297,7 @@ export class OrganisationsService {
       member.status === 'ACTIVE' &&
       ((dto.role && dto.role !== 'ADMIN') || dto.status === 'DISABLED');
     if (losesAdmin) {
-      const otherAdmins = await this.prisma.organisationMembership.count({
+      const otherAdmins = await tx.organisationMembership.count({
         where: {
           organisationId: user.organisationId,
           id: { not: member.id },
@@ -278,7 +313,7 @@ export class OrganisationsService {
     }
 
     if (dto.status === 'ACTIVE' && member.status !== 'ACTIVE') {
-      const accepted = await staffMembershipWasAccepted(this.prisma, {
+      const accepted = await staffMembershipWasAccepted(tx, {
         organisationId: user.organisationId,
         userId: member.userId,
         acceptedAt: member.acceptedAt,
@@ -297,14 +332,14 @@ export class OrganisationsService {
       member.status === 'ACTIVE' &&
       !member.acceptedAt
     ) {
-      const account = await this.prisma.user.findUnique({
+      const account = await tx.user.findUnique({
         where: { id: member.userId },
         select: { passwordHash: true },
       });
       if (account?.passwordHash) acceptedAt = new Date();
     }
 
-    const updated = await this.prisma.organisationMembership.update({
+    const updated = await tx.organisationMembership.update({
       where: { id: member.id },
       data: {
         ...(dto.role ? { role: dto.role } : {}),
@@ -315,7 +350,7 @@ export class OrganisationsService {
     });
     if (dto.status === 'DISABLED') {
       // A link sent earlier must not undo this.
-      await this.prisma.staffInvite.updateMany({
+      await tx.staffInvite.updateMany({
         where: {
           organisationId: user.organisationId,
           userId: member.userId,
@@ -324,52 +359,53 @@ export class OrganisationsService {
         data: { expiresAt: new Date() },
       });
     }
-    void this.audit.record(user, {
-      action: 'STAFF_MEMBERSHIP_UPDATED',
-      entityType: 'OrganisationMembership',
-      entityId: updated.id,
-      metadata: {
-        role: dto.role,
-        status: dto.status,
-        userId: updated.user.id,
-      },
-    });
-    return presentMember(updated);
+    return updated;
   }
 
   async resendInvite(user: AuthUser, membershipId: string) {
-    const member = await this.requireStaffMembership(user, membershipId);
-    if (member.status !== 'INVITED') {
-      throw new BadRequestException('Only pending invites can be resent');
-    }
-    if (
-      !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(
-        normaliseRole(member.role),
-      )
-    ) {
-      throw new BadRequestException('That role cannot be re-invited');
-    }
-
-    await this.prisma.staffInvite.updateMany({
-      where: {
-        organisationId: user.organisationId,
-        userId: member.userId,
-        acceptedAt: null,
-      },
-      data: { expiresAt: new Date() },
-    });
     const { token, tokenHash } = createInviteToken();
     const expiresAt = inviteExpiresAt();
-    await this.prisma.staffInvite.create({
-      data: {
-        organisationId: user.organisationId,
-        userId: member.userId,
-        createdById: user.id,
-        role: member.role as InviteableStaffRole,
-        tokenHash,
-        expiresAt,
+    const member = await lockedTransaction(
+      this.prisma,
+      accessLock(user.organisationId),
+      async (tx) => {
+        const member = await this.requireStaffMembership(
+          user,
+          membershipId,
+          tx,
+        );
+        if (member.status !== 'INVITED') {
+          throw new BadRequestException('Only pending invites can be resent');
+        }
+        if (
+          !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(
+            normaliseRole(member.role),
+          )
+        ) {
+          throw new BadRequestException('That role cannot be re-invited');
+        }
+
+        await tx.staffInvite.updateMany({
+          where: {
+            organisationId: user.organisationId,
+            userId: member.userId,
+            acceptedAt: null,
+          },
+          data: { expiresAt: new Date() },
+        });
+        await tx.staffInvite.create({
+          data: {
+            organisationId: user.organisationId,
+            userId: member.userId,
+            createdById: user.id,
+            role: member.role as InviteableStaffRole,
+            tokenHash,
+            expiresAt,
+          },
+        });
+        return member;
       },
-    });
+    );
     const account = await this.prisma.user.findUnique({
       where: { id: member.userId },
       select: { passwordHash: true },
@@ -394,8 +430,12 @@ export class OrganisationsService {
     };
   }
 
-  private async requireStaffMembership(user: AuthUser, membershipId: string) {
-    const member = await this.prisma.organisationMembership.findFirst({
+  private async requireStaffMembership(
+    user: AuthUser,
+    membershipId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const member = await db.organisationMembership.findFirst({
       where: {
         id: membershipId,
         organisationId: user.organisationId,
