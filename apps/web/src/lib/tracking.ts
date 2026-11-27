@@ -1,4 +1,4 @@
-import type { JobStatus, LocationPoint, MapConfig } from '@vip/shared';
+import type { LocationPoint, MapConfig } from '@vip/shared';
 
 export const FALLBACK_MAP: MapConfig = {
   provider: 'osm',
@@ -30,7 +30,9 @@ export function toLocationPoint(raw: {
 export type TrackingVehicle = {
   importJobId: string;
   reference: string;
-  status: JobStatus;
+  /** A status of the job's route, or COMPLETED or CANCELLED. */
+  status: string;
+  routeId?: string | null;
   customer: { firstName: string; lastName: string };
   vehicle: { make: string | null; model: string | null; ukRegistration: string | null };
   current: LocationPoint | null;

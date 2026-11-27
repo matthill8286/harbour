@@ -1,18 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { RouteWorkflow, WorkflowStageDef } from '@vip/shared';
 import { api } from '../../lib/api';
 import { countryName } from '../job/countries';
+import { ROUTES_KEY, type RouteSummary } from '../../lib/workflows';
 
-export type RouteSummary = RouteWorkflow & {
-  activeJobs: number;
-  jobsByStatus: Record<string, number>;
-};
-
-export const ROUTES_KEY = ['routes'];
-
-export function useRoutes() {
-  return useQuery({ queryKey: ROUTES_KEY, queryFn: () => api<RouteSummary[]>('/routes') });
-}
+export { ROUTES_KEY, useRoutes, type RouteSummary } from '../../lib/workflows';
 
 /** A change to a route. Every one refreshes the list, which is what the page draws from. */
 export function useRouteChange<Input>(request: (input: Input) => Promise<RouteWorkflow>, onDone?: (route: RouteWorkflow) => void) {
