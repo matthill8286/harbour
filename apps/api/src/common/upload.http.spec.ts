@@ -18,6 +18,12 @@ class UploadController {
   upload(@UploadedFile() file: Express.Multer.File) {
     return { size: file.buffer.length };
   }
+
+  @Post('details')
+  @UseInterceptors(FileInterceptor('image', photoUpload))
+  details(@UploadedFile() file: Express.Multer.File) {
+    return { name: file.originalname, type: file.mimetype };
+  }
 }
 
 /** The same options the routes use, sent through a real request. */
@@ -86,5 +92,38 @@ describe('photo upload limits', () => {
       void pending.field(`field${index}`, 'x');
     }
     await pending.expect(400);
+  });
+
+  it('reads a Greek file name as UTF-8', async () => {
+    await request(app.getHttpServer())
+      .post('/upload/details')
+      .attach('image', jpeg(10), {
+        filename: 'Φωτογραφία αυτοκινήτου.jpg',
+        contentType: 'image/jpeg',
+      })
+      .expect(201, {
+        name: 'Φωτογραφία αυτοκινήτου.jpg',
+        type: 'image/jpeg',
+      });
+  });
+
+  it('takes a HEIC photo whose type the browser did not know', async () => {
+    await request(app.getHttpServer())
+      .post('/upload/details')
+      .attach('image', Buffer.from('\0\0\0\x18ftypheic'), {
+        filename: 'IMG_1.HEIC',
+        contentType: 'application/octet-stream',
+      })
+      .expect(201, { name: 'IMG_1.HEIC', type: 'image/heic' });
+  });
+
+  it('still checks the bytes of a file that only claims to be HEIC', async () => {
+    await request(app.getHttpServer())
+      .post('/upload/details')
+      .attach('image', Buffer.from('<html></html>'), {
+        filename: 'x.heic',
+        contentType: 'application/octet-stream',
+      })
+      .expect(400);
   });
 });

@@ -126,7 +126,16 @@ const unusedCli = (full) =>
     full,
   );
 
-prune(modules, (full, item) => dead(full, item) || edgeEngine(full));
+// The HEIC decoder ships four builds. The api loads only the WebAssembly bundle.
+const unusedDecoder = (full) =>
+  /[\\/]node_modules[\\/]libheif-js[\\/](libheif|libheif-wasm[\\/](libheif\.js|libheif\.wasm|libheif-bundle\.mjs))$/.test(
+    full,
+  );
+
+prune(
+  modules,
+  (full, item) => dead(full, item) || edgeEngine(full) || unusedDecoder(full),
+);
 const cliModules = path.join(cli, 'node_modules');
 prune(cliModules, (full, item) => dead(full, item) || unusedCli(full));
 
