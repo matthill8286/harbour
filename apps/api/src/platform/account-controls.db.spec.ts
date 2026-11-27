@@ -305,6 +305,12 @@ describeWithDatabase('account controls across two workspaces', () => {
       const both = await person();
       const inB = await addMember(both, b);
       const inA = await addMember(both, a);
+      // Sign-in picks the newest membership. Two made in the same millisecond
+      // have no newest, so the other one is dated clearly earlier.
+      await prisma.organisationMembership.update({
+        where: { id: inB.id },
+        data: { createdAt: new Date(Date.now() - HOUR) },
+      });
       const challenge = await http()
         .post('/api/auth/login')
         .send({ email: both.email, password: PASSWORD })
