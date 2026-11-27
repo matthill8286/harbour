@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   GoneException,
@@ -19,9 +20,18 @@ import { hashInviteToken } from './invite-token';
 import { AuditService } from '../audit/audit.service';
 import { TwoFactorService } from './two-factor/two-factor.service';
 import { issuedBeforePasswordChange } from './jwt.strategy';
+import { RateLimiter } from '../rate-limit/rate-limiter';
 
 /** The same minimum as resetting or changing a password. */
 const NEW_PASSWORD_MIN_LENGTH = 10;
+
+/**
+ * Checked when there is no account to check, so that an unknown email takes as
+ * long to refuse as a wrong password.
+ */
+let absentAccountHash: Promise<string> | undefined;
+const hashForAbsentAccount = () =>
+  (absentAccountHash ??= hash(randomBytes(32).toString('hex')));
 
 type InviteAccount = {
   id: string;
@@ -142,24 +152,29 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly audit: AuditService,
     private readonly twoFactor: TwoFactorService,
+    private readonly limiter: RateLimiter,
   ) {}
 
   async login(dto: LoginDto) {
+    const email = dto.email.toLowerCase();
+    // Taken before the account is looked up, so it says nothing about it.
+    this.limiter.consume('passwordAccount', email);
     const user = await this.prisma.user.findUnique({
-      where: { email: dto.email.toLowerCase() },
+      where: { email },
       include: {
         memberships: {
           include: { organisation: { include: { settings: true } } },
         },
       },
     });
-    if (!user?.passwordHash) {
+    const valid = await verify(
+      user?.passwordHash ?? (await hashForAbsentAccount()),
+      dto.password,
+    );
+    if (!user?.passwordHash || !valid) {
       throw new UnauthorizedException('Invalid email or password');
     }
-    const valid = await verify(user.passwordHash, dto.password);
-    if (!valid) {
-      throw new UnauthorizedException('Invalid email or password');
-    }
+    this.limiter.reset('passwordAccount', email);
     const membership = pickActiveMembership(user.memberships);
     if (!membership) {
       throw new UnauthorizedException(
@@ -176,7 +191,9 @@ export class AuthService {
     backupCode?: string;
   }) {
     const challenge = await this.twoFactor.readChallenge(input.challengeToken);
+    this.limiter.consume('twoFactorAccount', challenge.sub);
     await this.twoFactor.verifySignIn(challenge.sub, input);
+    this.limiter.reset('twoFactorAccount', challenge.sub);
     const user = await this.prisma.user.findUnique({
       where: { id: challenge.sub },
       include: {
@@ -206,6 +223,7 @@ export class AuthService {
 
   async previewInvite(token: string) {
     const invite = await this.loadInvite(token);
+    this.limiter.consume('invitePreviewAccount', invite.userId);
     const organisationBrandName =
       invite.organisation.settings?.brandName?.trim() ||
       invite.organisation.name;
@@ -241,6 +259,7 @@ export class AuthService {
 
   async acceptInvite(token: string, dto: AcceptInviteDto) {
     const invite = await this.loadInvite(token);
+    this.limiter.consume('inviteAcceptAccount', invite.userId);
     if (invite.kind === 'portal') {
       return this.acceptPortalInvite(invite, dto);
     }
@@ -407,12 +426,15 @@ export class AuthService {
       }
       return { newPasswordHash: await hash(dto.password) };
     }
+    // The same count as sign-in, so an invite is not a second way to guess.
+    this.limiter.consume('passwordAccount', account.email);
     // Not a 401: the web app reads that as the current session having ended.
     if (!(await verify(account.passwordHash, dto.password))) {
       throw new BadRequestException(
         'That is not the password for this account. Enter the one you already sign in with.',
       );
     }
+    this.limiter.reset('passwordAccount', account.email);
     if (account.twoFactorEnabled) {
       if (!dto.code && !dto.backupCode) {
         throw new BadRequestException({

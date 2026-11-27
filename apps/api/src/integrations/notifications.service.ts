@@ -6,6 +6,15 @@ import {
   type CustomerEmailEventType,
 } from './customer-email';
 import { EmailTransport } from './email-transport';
+import {
+  composeStaffInviteEmail,
+  type StaffInviteEmail,
+} from './account-email';
+import { RateLimiter } from '../rate-limit/rate-limiter';
+
+/** Customer notifications one workspace may send in a day. */
+export const WORKSPACE_DAILY_NOTIFICATIONS = 60;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type CustomerNotification = {
   type: CustomerEmailEventType;
@@ -24,20 +33,49 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly email: EmailTransport,
+    private readonly limiter: RateLimiter,
   ) {}
 
   /** Fire-and-forget; never throws to callers. */
   notify(event: CustomerNotification) {
     void this.deliver(event).catch((error: unknown) => {
-      const detail = error instanceof Error ? error.message : String(error);
-      this.logger.warn(
-        `Failed ${event.type} customer=${event.customerId ?? 'none'}: ${detail}`,
-      );
+      this.warn(event, error);
     });
   }
 
-  private async deliver(event: CustomerNotification) {
-    if (!event.customerId) return;
+  /**
+   * Emails a portal invite and says whether it went, so the person inviting
+   * can be told. Invites have their own limits on the invite routes.
+   */
+  async sendPortalInvite(
+    event: CustomerNotification & { type: 'PORTAL_INVITE'; inviteUrl: string },
+  ): Promise<boolean> {
+    try {
+      return await this.deliver(event);
+    } catch (error) {
+      this.warn(event, error);
+      return false;
+    }
+  }
+
+  async sendStaffInvite(to: string, invite: StaffInviteEmail) {
+    try {
+      await this.email.deliver({ to, ...composeStaffInviteEmail(invite) });
+      return true;
+    } catch (error) {
+      this.logger.warn(`Failed STAFF_INVITE: ${detailOf(error)}`);
+      return false;
+    }
+  }
+
+  private warn(event: CustomerNotification, error: unknown) {
+    this.logger.warn(
+      `Failed ${event.type} customer=${event.customerId ?? 'none'}: ${detailOf(error)}`,
+    );
+  }
+
+  private async deliver(event: CustomerNotification): Promise<boolean> {
+    if (!event.customerId) return false;
 
     const customer = await this.prisma.customer.findFirst({
       where: {
@@ -60,7 +98,17 @@ export class NotificationsService {
       this.logger.debug(
         `Skip ${event.type}: customer ${event.customerId} has no email`,
       );
-      return;
+      return false;
+    }
+    if (
+      event.type !== 'PORTAL_INVITE' &&
+      !this.limiter.take(
+        `workspace-notifications:${event.organisationId}`,
+        WORKSPACE_DAILY_NOTIFICATIONS,
+        DAY_MS,
+      )
+    ) {
+      throw new Error('This workspace has reached its daily email limit');
     }
 
     let jobReference: string | null = null;
@@ -93,7 +141,7 @@ export class NotificationsService {
       },
     );
 
-    const result = await this.email.send({
+    const result = await this.email.deliver({
       to: customer.email,
       subject: composed.subject,
       text: composed.text,
@@ -104,6 +152,7 @@ export class NotificationsService {
         event.importJobId ? ` job=${event.importJobId}` : ''
       }`,
     );
+    return true;
   }
 
   private webOrigin() {
@@ -111,4 +160,8 @@ export class NotificationsService {
       .get<string>('WEB_ORIGIN', 'http://localhost:5173')
       .replace(/\/$/, '');
   }
+}
+
+function detailOf(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
 }

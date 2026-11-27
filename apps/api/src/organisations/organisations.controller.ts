@@ -16,6 +16,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { OrganisationsService } from './organisations.service';
 import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
+import { LimitInviteSending } from '../rate-limit/rate-limit.guard';
 
 @Controller('organisation')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -36,12 +37,14 @@ export class OrganisationsController {
 
   @Post('members/invite')
   @Roles('ADMIN')
+  @LimitInviteSending()
   invite(@CurrentUser() user: AuthUser, @Body() dto: InviteStaffDto) {
     return this.organisations.inviteStaff(user, dto);
   }
 
   @Post('members/:id/resend-invite')
   @Roles('ADMIN')
+  @LimitInviteSending()
   resendInvite(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.organisations.resendInvite(user, id);
   }

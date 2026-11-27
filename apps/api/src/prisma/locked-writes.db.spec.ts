@@ -6,6 +6,7 @@
  *   DATABASE_URL=<scratch url> pnpm exec prisma db push --skip-generate
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest db.spec
  */
+import { RateLimiter } from '../rate-limit/rate-limiter';
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
@@ -36,12 +37,32 @@ describeWithDatabase('related writes against PostgreSQL', () => {
     const config = {
       get: (_key: string, fallback?: string) => fallback,
     } as never;
-    team = new OrganisationsService(prisma, audit, config);
-    customers = new CustomersService(prisma, config, audit, {
-      notify: jest.fn(),
-    } as never);
+    const notifications = {
+      sendStaffInvite: jest.fn().mockResolvedValue(true),
+      sendPortalInvite: jest.fn().mockResolvedValue(true),
+    } as never;
+    const email = { localDelivery: () => true } as never;
+    team = new OrganisationsService(
+      prisma,
+      audit,
+      config,
+      notifications,
+      email,
+    );
+    customers = new CustomersService(
+      prisma,
+      config,
+      audit,
+      notifications,
+      email,
+    );
     trackers = new TrackersService(prisma, audit);
-    resets = new PasswordResetService(prisma, {} as never, config);
+    resets = new PasswordResetService(
+      prisma,
+      {} as never,
+      config,
+      new RateLimiter(),
+    );
     workflows = new WorkflowRoutesService(prisma, audit);
   });
 
