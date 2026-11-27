@@ -1,7 +1,14 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+  IsTimeZone,
+} from 'class-validator';
+import { IfSent, IsCountryCode, IsCurrencyCode } from '../../common/validators';
 
 export class UpdateOrganisationDto {
-  @IsOptional()
+  @IfSent()
   @IsString()
   @MinLength(2)
   @MaxLength(80)
@@ -12,23 +19,24 @@ export class UpdateOrganisationDto {
   @MaxLength(120)
   legalName?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @MaxLength(80)
   brandName?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @MaxLength(64)
+  @IsTimeZone()
   timezone?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
-  @MaxLength(8)
+  @IsCurrencyCode()
   currency?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
-  @MaxLength(8)
+  @IsCountryCode()
   country?: string;
 }
