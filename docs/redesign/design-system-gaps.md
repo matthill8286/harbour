@@ -113,8 +113,8 @@ The Figma read-me lists features the redesign shows that Harbour does not have y
 
 ## 5. Build order
 
-1. **Design system, batch 1.** Button variants and icon-only buttons, badge tones, the extra icons, `impakt-switch` and `impakt-segmented-control`. Release as `@atomic-ui/ui` 0.7.0. This is on the `feat/harbour-batch-1` branch of `impkt-design-system`.
-2. **Design system, batch 2.** `impakt-side-nav`, `impakt-tab-bar`, `impakt-app-shell`, `impakt-stat-tile`, `impakt-row`, `impakt-date-tile`, `impakt-filter-chip`, the pill tabs, the bottom drawer, the compact progress bars and the search icon. Release as 0.8.0.
+1. **Design system, batch 1.** Button variants and icon-only buttons, badge tones, the extra icons, `impakt-switch` and `impakt-segmented-control`. Released in `@atomic-ui/ui` 0.7.0, with batch 2 and the product shell.
+2. **Design system, batch 2.** `impakt-side-nav`, `impakt-tab-bar`, `impakt-app-shell`, `impakt-stat-tile`, `impakt-row`, `impakt-date-tile`, `impakt-filter-chip`, the pill tabs, the bottom drawer, the compact progress bars and the search icon. Released in 0.7.0 as well.
 3. **Harbour theme and shell.** Add `@atomic-ui/ui` and `@atomic-ui/ui-react` to `apps/web`, derive the Harbour tokens, and replace `AppShell.tsx` with `impakt-app-shell`.
 4. **Owner screens in the order of the Figma sections.** Board, Jobs, New job, Job workspace (Overview, Tracking, Files, Money, Activity, Notes), Customers, Trackers and Live map, Workspace and Account.
 5. **Customer portal**, then **Auth and access**.
