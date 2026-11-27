@@ -283,6 +283,11 @@ model User {
   twoFactorEnabled Boolean @default(false)
   /// Sessions issued before this time stop working, so a password reset signs out other devices.
   passwordChangedAt DateTime?
+  /// Sessions issued before this time stop working. Set when two-factor is turned on.
+  sessionsRevokedAt DateTime?
+  /// Wrong passwords on the two-factor settings, and the lock they lead to.
+  passwordCheckFailedCount Int       @default(0)
+  passwordCheckLockedUntil DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
@@ -314,6 +319,8 @@ model TwoFactor {
   backupCodes             String
   /// False until the user proves the authenticator works by entering a code.
   verified                Boolean   @default(false)
+  /// The time step of the last authenticator code accepted, so a code works once.
+  lastUsedStep            Int?
   failedVerificationCount Int       @default(0)
   lockedUntil             DateTime?
   createdAt               DateTime  @default(now())

@@ -5,6 +5,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { pickActiveMembership } from '../tenancy/membership';
 import { buildAuthUser } from './auth-user';
+import { jwtSecret } from './secrets';
 import type { AuthUser } from './auth.types';
 
 export type JwtPayload = {
@@ -25,10 +26,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>(
-        'JWT_SECRET',
-        'replace-with-a-long-random-secret',
-      ),
+      secretOrKey: jwtSecret(config),
     });
   }
 
@@ -46,7 +44,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
     if (
       !user ||
-      issuedBeforePasswordChange(payload.iat, user.passwordChangedAt)
+      issuedBeforePasswordChange(payload.iat, user.passwordChangedAt) ||
+      // The same comparison, for sessions ended when two-factor was turned on.
+      issuedBeforePasswordChange(payload.iat, user.sessionsRevokedAt)
     ) {
       throw new UnauthorizedException();
     }

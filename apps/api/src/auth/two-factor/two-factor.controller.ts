@@ -12,7 +12,12 @@ import { JwtAuthGuard } from '../jwt-auth.guard';
 import type { AuthUser } from '../auth.types';
 import { AuthService } from '../auth.service';
 import { AllowWithoutTwoFactor } from './allow-without-two-factor.decorator';
-import { ChallengeDto, PasswordDto, VerifyCodeDto } from './two-factor.dto';
+import {
+  ChallengeDto,
+  PasswordAndCodeDto,
+  PasswordDto,
+  VerifyCodeDto,
+} from './two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
 
 @Controller('auth/two-factor')
@@ -59,8 +64,8 @@ export class TwoFactorController {
   @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   @AllowWithoutTwoFactor()
-  disable(@CurrentUser() user: AuthUser, @Body() dto: PasswordDto) {
-    return this.twoFactor.disable(user, dto.password);
+  disable(@CurrentUser() user: AuthUser, @Body() dto: PasswordAndCodeDto) {
+    return this.twoFactor.disable(user, dto.password, dto);
   }
 
   @Post('backup-codes')
@@ -68,8 +73,8 @@ export class TwoFactorController {
   @UseGuards(JwtAuthGuard)
   regenerateBackupCodes(
     @CurrentUser() user: AuthUser,
-    @Body() dto: PasswordDto,
+    @Body() dto: PasswordAndCodeDto,
   ) {
-    return this.twoFactor.regenerateBackupCodes(user, dto.password);
+    return this.twoFactor.regenerateBackupCodes(user, dto.password, dto);
   }
 }
