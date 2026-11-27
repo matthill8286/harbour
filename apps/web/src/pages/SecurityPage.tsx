@@ -11,6 +11,7 @@ import { TwoFactorEnrolment } from '../components/TwoFactorEnrolment';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { SignOutDialog } from './account/SignOutDialog';
+import { CustomerProfile } from './account/CustomerProfile';
 import './account/Account.css';
 
 const STATUS_KEY = ['two-factor-status'];
@@ -292,7 +293,9 @@ function BackupCodes({ remaining, onDone }: { remaining: number; onDone: () => v
  */
 export function SecurityPage() {
   const { user, refresh } = useAuth();
-  const { roleLabel } = useSession();
+  const { roleLabel, isPortal, workspace } = useSession();
+  // A customer turns two-factor on from a button rather than seeing the setup straight away.
+  const [enrolling, setEnrolling] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [signingOut, setSigningOut] = useState(false);
@@ -320,15 +323,20 @@ export function SecurityPage() {
       </PhoneHeader>
 
       <div className="account-heading">
+        {isPortal ? <Text size="sm" tone="muted">{`${workspace} · Customer portal`}</Text> : null}
         <Heading level={1} size="4xl">
           Account and security
         </Heading>
-        <Text tone="muted">Your profile, password, two-factor sign-in and sign-out.</Text>
+        <Text tone="muted">
+          {isPortal ? 'Your details, password, two-factor sign-in and sign-out.' : 'Your profile, password, two-factor sign-in and sign-out.'}
+        </Text>
       </div>
+
+      {isPortal ? <CustomerProfile onSignOut={() => setSigningOut(true)} /> : null}
 
       <div className="account-grid">
         <div className="account-column">
-          <Profile user={user} />
+          {isPortal ? null : <Profile user={user} />}
           {status.isLoading ? (
             <LoadingScreen label="Loading two-factor sign-in…" />
           ) : status.isError || !status.data ? (
@@ -367,23 +375,38 @@ export function SecurityPage() {
             </>
           ) : (
             <Card className="account-card">
-              <CardHead title="Two-factor sign-in is off" lead="Turn it on to protect your account if your password leaks.">
+              <CardHead
+                title="Two-factor sign-in is off"
+                lead={
+                  isPortal
+                    ? 'Turn it on to protect your documents. You will scan a QR code with an authenticator app, then confirm with a 6-digit code.'
+                    : 'Turn it on to protect your account if your password leaks.'
+                }
+              >
                 <Badge>Off</Badge>
               </CardHead>
-              <TwoFactorEnrolment onEnabled={() => void reload()} />
+              {isPortal && !enrolling ? (
+                <div className="account-actions is-start">
+                  <Button onClick={() => setEnrolling(true)}>Turn on two-factor sign-in</Button>
+                </div>
+              ) : (
+                <TwoFactorEnrolment onEnabled={() => void reload()} />
+              )}
             </Card>
           )}
         </div>
 
         <div className="account-column">
           <Password email={user.email} />
-          <Card className="account-card">
-            <CardHead title="Sign out" lead="Ends your session on this device.">
-              <Button variant="secondary" iconBefore="log-out" onClick={() => setSigningOut(true)}>
-                Sign out
-              </Button>
-            </CardHead>
-          </Card>
+          {isPortal ? null : (
+            <Card className="account-card">
+              <CardHead title="Sign out" lead="Ends your session on this device.">
+                <Button variant="secondary" iconBefore="log-out" onClick={() => setSigningOut(true)}>
+                  Sign out
+                </Button>
+              </CardHead>
+            </Card>
+          )}
           {status.data?.enabled ? <BackupCodes remaining={status.data.backupCodesRemaining} onDone={() => void reload()} /> : null}
         </div>
       </div>

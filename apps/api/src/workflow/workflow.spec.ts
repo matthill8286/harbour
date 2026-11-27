@@ -1,4 +1,5 @@
 import {
+  customerJourney,
   customerProgress,
   customerStatusLabel,
   JOB_STATUSES,
@@ -95,5 +96,27 @@ describe('route workflow rules', () => {
     expect(customerStatusLabel(seeded, 'AT_GREECE')).toBe('At Greece');
     expect(customerStatusLabel(seeded, 'SHIPPING_TO_CYPRUS')).toBe('Cyprus');
     expect(customerStatusLabel(seeded, 'COMPLETED')).toBe('Completed');
+  });
+
+  it("walks the customer through the route's visible stages", () => {
+    const steps = customerJourney(seeded, 'AT_GREECE');
+    expect(steps.map((s) => `${s.name}:${s.state}:${s.detail}`)).toEqual([
+      'UK:done:In transit (UK)',
+      'Registration:done:Registered',
+      'Greece:current:At Greece',
+      'Cyprus:next:Up next',
+    ]);
+    // A hidden stage reads as on the way to the next visible one.
+    expect(customerJourney(seeded, 'SHIPPING_TO_CYPRUS')[3]).toMatchObject({
+      name: 'Cyprus',
+      state: 'current',
+      detail: 'On the way',
+    });
+    expect(
+      customerJourney(seeded, 'COMPLETED').every((s) => s.state === 'done'),
+    ).toBe(true);
+    expect(
+      customerJourney(seeded, 'CANCELLED').every((s) => s.state === 'next'),
+    ).toBe(true);
   });
 });
