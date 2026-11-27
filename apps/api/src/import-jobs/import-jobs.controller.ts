@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -30,6 +31,8 @@ import {
   CreateTaskDto,
   DraftCustomerNoteDto,
   UpdateFileVisibilityDto,
+  UpdateChargeDto,
+  UpdateCostDto,
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
@@ -126,6 +129,44 @@ export class ImportJobsController {
     @Body() dto: CreateChargeDto,
   ) {
     return this.jobs.addCharge(user, id, dto);
+  }
+
+  @Patch(':id/costs/:costId')
+  updateCost(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('costId') costId: string,
+    @Body() dto: UpdateCostDto,
+  ) {
+    return this.jobs.updateCost(user, id, costId, dto);
+  }
+
+  @Delete(':id/costs/:costId')
+  deleteCost(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('costId') costId: string,
+  ) {
+    return this.jobs.deleteCost(user, id, costId);
+  }
+
+  @Patch(':id/charges/:chargeId')
+  updateCharge(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('chargeId') chargeId: string,
+    @Body() dto: UpdateChargeDto,
+  ) {
+    return this.jobs.updateCharge(user, id, chargeId, dto);
+  }
+
+  @Delete(':id/charges/:chargeId')
+  deleteCharge(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Param('chargeId') chargeId: string,
+  ) {
+    return this.jobs.deleteCharge(user, id, chargeId);
   }
 
   @Post(':id/draft-customer-note')
