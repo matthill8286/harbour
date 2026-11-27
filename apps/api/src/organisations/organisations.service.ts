@@ -7,9 +7,9 @@ import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import {
   INVITEABLE_STAFF_ROLES,
-  normaliseRole,
   ROLE_LABELS,
   type InviteableStaffRole,
+  type UserRole,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { accessLock, lockedTransaction } from '../prisma/locked-transaction';
@@ -302,7 +302,7 @@ export class OrganisationsService {
     }
     // A workspace always keeps one active Admin, so someone can manage it.
     const losesAdmin =
-      normaliseRole(member.role) === 'ADMIN' &&
+      member.role === 'ADMIN' &&
       member.status === 'ACTIVE' &&
       ((dto.role && dto.role !== 'ADMIN') || dto.status === 'DISABLED');
     if (losesAdmin) {
@@ -310,7 +310,7 @@ export class OrganisationsService {
         where: {
           organisationId: user.organisationId,
           id: { not: member.id },
-          role: { in: ['ADMIN', 'OWNER'] },
+          role: 'ADMIN',
           status: 'ACTIVE',
         },
       });
@@ -387,9 +387,7 @@ export class OrganisationsService {
           throw new BadRequestException('Only pending invites can be resent');
         }
         if (
-          !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(
-            normaliseRole(member.role),
-          )
+          !(INVITEABLE_STAFF_ROLES as readonly string[]).includes(member.role)
         ) {
           throw new BadRequestException('That role cannot be re-invited');
         }
@@ -449,12 +447,12 @@ export class OrganisationsService {
    */
   private async emailStaffInvite(
     user: AuthUser,
-    invite: { to: string; role: string; token: string },
+    invite: { to: string; role: UserRole; token: string },
   ): Promise<{ emailSent: boolean; inviteUrl?: string }> {
     const inviteUrl = `${this.webOrigin()}/invite/${invite.token}`;
     const emailSent = await this.notifications.sendStaffInvite(invite.to, {
       brandName: user.organisationBrandName,
-      roleLabel: ROLE_LABELS[normaliseRole(invite.role)],
+      roleLabel: ROLE_LABELS[invite.role],
       inviteUrl,
     });
     return {

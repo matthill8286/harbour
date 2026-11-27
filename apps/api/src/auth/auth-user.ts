@@ -1,4 +1,4 @@
-import { normaliseRole } from '@vip/shared';
+import type { UserRole } from '@vip/shared';
 import type { AuthUser } from './auth.types';
 
 export type AuthOrganisation = {
@@ -21,8 +21,7 @@ export function buildAuthUser(input: {
   membership: {
     id: string;
     organisationId: string;
-    /** As stored. A retired role reads as its replacement. */
-    role: string;
+    role: UserRole;
     customerId: string | null;
     organisation: AuthOrganisation;
   };
@@ -38,7 +37,7 @@ export function buildAuthUser(input: {
     organisationCountry: input.membership.organisation.country?.trim() || 'CY',
     email: input.email,
     name: input.name,
-    role: normaliseRole(input.membership.role),
+    role: input.membership.role,
     customerId: input.membership.customerId,
     twoFactorEnabled: Boolean(input.twoFactorEnabled),
   };
