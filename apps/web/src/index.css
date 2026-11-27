@@ -130,55 +130,6 @@ button {
   min-height: 28rem;
 }
 
-.jobs-table-wrap {
-  overflow: auto;
-  border-radius: 1rem;
-  background: var(--color-paper);
-  min-height: 16rem;
-}
-
-.jobs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.875rem;
-}
-
-.jobs-table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--color-paper);
-  border-bottom: 1px solid rgb(11 31 51 / 0.1);
-  padding: 0.65rem 0.85rem;
-  text-align: left;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgb(11 31 51 / 0.45);
-  white-space: nowrap;
-}
-
-.jobs-table td {
-  border-bottom: 1px solid rgb(11 31 51 / 0.06);
-  padding: 0.7rem 0.85rem;
-  vertical-align: middle;
-}
-
-.jobs-table tbody tr {
-  cursor: pointer;
-  transition: background 0.12s ease;
-}
-
-.jobs-table tbody tr:hover {
-  background: rgb(28 107 106 / 0.06);
-}
-
-.jobs-table tbody tr:focus-visible {
-  outline: 2px solid var(--color-harbour);
-  outline-offset: -2px;
-}
-
 .job-chrome {
   position: sticky;
   top: 0;
