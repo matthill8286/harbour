@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
-import type { Options } from 'multer';
+import { memoryStorage, type Options, type StorageEngine } from 'multer';
+import { matchesSignature } from './file-signature';
 
 export const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
@@ -28,15 +29,53 @@ function filter(allowed: Set<string>): NonNullable<Options['fileFilter']> {
   };
 }
 
-export const photoUpload: Options = {
-  limits: { fileSize: MAX_UPLOAD_BYTES },
-  fileFilter: filter(PHOTO_TYPES),
-};
+/**
+ * Keeps the upload in memory, as multer does by default, and refuses a file
+ * whose first bytes do not match its declared type.
+ */
+function checkedMemoryStorage(): StorageEngine {
+  const memory = memoryStorage();
+  return {
+    _handleFile(req, file, callback) {
+      memory._handleFile(req, file, (error, info) => {
+        if (error) {
+          callback(error);
+        } else if (
+          !matchesSignature(file.mimetype, info?.buffer ?? Buffer.alloc(0))
+        ) {
+          callback(
+            new BadRequestException('The file does not match its file type'),
+          );
+        } else {
+          callback(null, info);
+        }
+      });
+    },
+    _removeFile(req, file, callback) {
+      memory._removeFile(req, file, callback);
+    },
+  };
+}
 
-export const documentUpload: Options = {
-  limits: { fileSize: MAX_UPLOAD_BYTES },
-  fileFilter: filter(DOCUMENT_TYPES),
-};
+function uploadOptions(allowed: Set<string>): Options {
+  return {
+    // One file and a few short text fields. Without these limits, many parts
+    // in one request are all held in memory.
+    limits: {
+      fileSize: MAX_UPLOAD_BYTES,
+      files: 1,
+      fields: 10,
+      fieldSize: 16 * 1024,
+      parts: 11,
+    },
+    fileFilter: filter(allowed),
+    storage: checkedMemoryStorage(),
+  };
+}
+
+export const photoUpload: Options = uploadOptions(PHOTO_TYPES);
+
+export const documentUpload: Options = uploadOptions(DOCUMENT_TYPES);
 
 export function requireUpload(file?: Express.Multer.File) {
   if (!file) {
