@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { getStatusLabel, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
-import { formatDateTime } from '../lib/format';
+import { formatCategory, formatDateTime, money } from '../lib/format';
+import { useSession } from '../lib/session';
 import { Card } from './ui';
 
 type ActivityItem = {
@@ -18,6 +19,11 @@ type ActivityItem = {
     filename?: string;
     serialNumber?: string;
     visibility?: string;
+    kind?: string;
+    category?: string;
+    description?: string;
+    amount?: number;
+    before?: { category?: string; description?: string; amount?: number };
   } | null;
 };
 
@@ -30,9 +36,20 @@ const ACTION_LABELS: Record<string, string> = {
   FILE_VISIBILITY_CHANGED: 'File sharing updated',
   TRACKER_ASSIGNED: 'Tracker assigned',
   TRACKER_UNASSIGNED: 'Tracker removed',
+  MONEY_LINE_ADDED: 'Money line added',
+  MONEY_LINE_UPDATED: 'Money line edited',
+  MONEY_LINE_DELETED: 'Money line deleted',
 };
 
-function describeActivity(item: ActivityItem) {
+/** "Cost · UK to Bulgaria · €1,200.00" for a money entry; Activity is staff-only, so amounts may show. */
+function moneyLine(meta: NonNullable<ActivityItem['metadata']>, currency: string) {
+  const amount = typeof meta.amount === 'number' ? money(meta.amount, currency) : '';
+  const kind = meta.kind === 'charge' ? 'Charge' : 'Cost';
+  const name = meta.description || formatCategory(meta.category ?? '');
+  return [kind, name, amount].filter(Boolean).join(' · ');
+}
+
+function describeActivity(item: ActivityItem, currency: string) {
   const meta = item.metadata ?? {};
   if (item.action === 'JOB_STATUS_CHANGED' && meta.from && meta.to) {
     return `${getStatusLabel(meta.from as JobStatus)} → ${getStatusLabel(meta.to as JobStatus)}`;
@@ -46,6 +63,14 @@ function describeActivity(item: ActivityItem) {
   if (item.action === 'DOCUMENT_UPLOADED' || item.action === 'PHOTO_UPLOADED') {
     return meta.name ?? meta.filename ?? 'File attached';
   }
+  if (item.action === 'MONEY_LINE_ADDED' || item.action === 'MONEY_LINE_DELETED') {
+    return moneyLine(meta, currency);
+  }
+  if (item.action === 'MONEY_LINE_UPDATED') {
+    const before = meta.before;
+    const was = before && typeof before.amount === 'number' && before.amount !== meta.amount ? ` (was ${money(before.amount, currency)})` : '';
+    return `${moneyLine(meta, currency)}${was}`;
+  }
   if (item.action === 'TRACKER_ASSIGNED') {
     return meta.serialNumber ?? 'Tracker attached to this job';
   }
@@ -53,6 +78,7 @@ function describeActivity(item: ActivityItem) {
 }
 
 export function JobActivity({ jobId }: { jobId: string }) {
+  const { currency } = useSession();
   const query = useQuery({
     queryKey: ['job', jobId, 'activity'],
     queryFn: () => api<ActivityItem[]>(`/import-jobs/${jobId}/activity`),
@@ -73,7 +99,7 @@ export function JobActivity({ jobId }: { jobId: string }) {
               <div>
                 <p className="font-semibold">{ACTION_LABELS[item.action] ?? item.action}</p>
                 <p className="text-xs text-ink/55">
-                  {describeActivity(item)}
+                  {describeActivity(item, currency)}
                   {item.actor?.name ? ` · ${item.actor.name}` : ''}
                 </p>
               </div>

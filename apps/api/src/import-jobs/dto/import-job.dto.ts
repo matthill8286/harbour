@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
   ValidateIf,
@@ -187,8 +188,11 @@ export class CreateCostDto {
   @IsIn(COST_CATEGORIES)
   category!: (typeof COST_CATEGORIES)[number];
 
+  /** Required when the category is Other; see moneyLineProblem. */
+  @IsOptional()
   @IsString()
-  description!: string;
+  @MaxLength(200)
+  description?: string;
 
   @Type(() => Number)
   @IsNumber()
@@ -216,8 +220,11 @@ export class CreateChargeDto {
   @IsIn(CHARGE_CATEGORIES)
   category!: (typeof CHARGE_CATEGORIES)[number];
 
+  /** Required when the category is Other; see moneyLineProblem. */
+  @IsOptional()
   @IsString()
-  description!: string;
+  @MaxLength(200)
+  description?: string;
 
   @Type(() => Number)
   @IsNumber()
@@ -231,6 +238,40 @@ export class CreateChargeDto {
   @IsOptional()
   @IsDateString()
   incurredOn?: string;
+}
+
+export class UpdateCostDto {
+  @IsOptional()
+  @IsIn(COST_CATEGORIES)
+  category?: (typeof COST_CATEGORIES)[number];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  amount?: number;
+}
+
+export class UpdateChargeDto {
+  @IsOptional()
+  @IsIn(CHARGE_CATEGORIES)
+  category?: (typeof CHARGE_CATEGORIES)[number];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  description?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  amount?: number;
 }
 
 export class CreateNoteDto {

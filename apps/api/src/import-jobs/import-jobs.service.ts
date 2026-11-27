@@ -9,7 +9,9 @@ import {
   getStatusLabel,
   JOB_STATUSES,
   STATUS_TRANSITIONS,
+  moneyLineProblem,
   type JobStatus,
+  type MoneyLineKind,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../integrations/storage.service';
@@ -39,6 +41,8 @@ import {
   CreateNoteDto,
   CreateTaskDto,
   DraftCustomerNoteDto,
+  UpdateChargeDto,
+  UpdateCostDto,
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
@@ -502,14 +506,69 @@ export class ImportJobsService {
     });
   }
 
+  /** Refuse a money line that breaks the shared rule, with the rule's own words. */
+  private checkMoneyLine(line: {
+    category: string;
+    description?: string | null;
+    amount: number;
+  }) {
+    const problem = moneyLineProblem(line);
+    if (problem) throw new BadRequestException(problem);
+  }
+
+  /**
+   * Write a money change to the job's Activity. Costs, charges and margin are
+   * internal, so the entry is only ever read by staff.
+   */
+  private recordMoneyLine(
+    user: AuthUser,
+    action: 'MONEY_LINE_ADDED' | 'MONEY_LINE_UPDATED' | 'MONEY_LINE_DELETED',
+    jobId: string,
+    kind: MoneyLineKind,
+    line: {
+      id: string;
+      category: string;
+      description: string;
+      amount: Prisma.Decimal | number;
+    },
+    before?: {
+      category: string;
+      description: string;
+      amount: Prisma.Decimal | number;
+    },
+  ) {
+    void this.audit.record(user, {
+      action,
+      entityType: kind === 'cost' ? 'Cost' : 'CustomerCharge',
+      entityId: line.id,
+      metadata: {
+        importJobId: jobId,
+        kind,
+        category: line.category,
+        description: line.description,
+        amount: Number(line.amount),
+        ...(before
+          ? {
+              before: {
+                category: before.category,
+                description: before.description,
+                amount: Number(before.amount),
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
   async addCost(user: AuthUser, jobId: string, dto: CreateCostDto) {
     await this.get(user, jobId);
-    return this.prisma.cost.create({
+    this.checkMoneyLine(dto);
+    const cost = await this.prisma.cost.create({
       data: {
         organisationId: user.organisationId,
         importJobId: jobId,
         category: dto.category,
-        description: dto.description,
+        description: dto.description?.trim() ?? '',
         amount: dto.amount,
         currency: dto.currency ?? 'EUR',
         supplier: dto.supplier,
@@ -517,21 +576,132 @@ export class ImportJobsService {
         incurredOn: dto.incurredOn ? new Date(dto.incurredOn) : undefined,
       },
     });
+    this.recordMoneyLine(user, 'MONEY_LINE_ADDED', jobId, 'cost', cost);
+    return cost;
   }
 
   async addCharge(user: AuthUser, jobId: string, dto: CreateChargeDto) {
     await this.get(user, jobId);
-    return this.prisma.customerCharge.create({
+    this.checkMoneyLine(dto);
+    const charge = await this.prisma.customerCharge.create({
       data: {
         organisationId: user.organisationId,
         importJobId: jobId,
         category: dto.category,
-        description: dto.description,
+        description: dto.description?.trim() ?? '',
         amount: dto.amount,
         currency: dto.currency ?? 'EUR',
         incurredOn: dto.incurredOn ? new Date(dto.incurredOn) : undefined,
       },
     });
+    this.recordMoneyLine(user, 'MONEY_LINE_ADDED', jobId, 'charge', charge);
+    return charge;
+  }
+
+  /** Edit a cost line. Allowed on a closed job too, so the books can be corrected after delivery. */
+  async updateCost(
+    user: AuthUser,
+    jobId: string,
+    costId: string,
+    dto: UpdateCostDto,
+  ) {
+    const before = await this.prisma.cost.findFirst({
+      where: {
+        id: costId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
+    });
+    if (!before) throw new NotFoundException('Cost line not found');
+    const next = {
+      category: dto.category ?? before.category,
+      description:
+        dto.description !== undefined
+          ? dto.description.trim()
+          : before.description,
+      amount: dto.amount ?? Number(before.amount),
+    };
+    this.checkMoneyLine(next);
+    const cost = await this.prisma.cost.update({
+      where: { id: costId },
+      data: next,
+    });
+    this.recordMoneyLine(
+      user,
+      'MONEY_LINE_UPDATED',
+      jobId,
+      'cost',
+      cost,
+      before,
+    );
+    return cost;
+  }
+
+  /** Edit a charge line. Allowed on a closed job too. */
+  async updateCharge(
+    user: AuthUser,
+    jobId: string,
+    chargeId: string,
+    dto: UpdateChargeDto,
+  ) {
+    const before = await this.prisma.customerCharge.findFirst({
+      where: {
+        id: chargeId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
+    });
+    if (!before) throw new NotFoundException('Charge line not found');
+    const next = {
+      category: dto.category ?? before.category,
+      description:
+        dto.description !== undefined
+          ? dto.description.trim()
+          : before.description,
+      amount: dto.amount ?? Number(before.amount),
+    };
+    this.checkMoneyLine(next);
+    const charge = await this.prisma.customerCharge.update({
+      where: { id: chargeId },
+      data: next,
+    });
+    this.recordMoneyLine(
+      user,
+      'MONEY_LINE_UPDATED',
+      jobId,
+      'charge',
+      charge,
+      before,
+    );
+    return charge;
+  }
+
+  async deleteCost(user: AuthUser, jobId: string, costId: string) {
+    const cost = await this.prisma.cost.findFirst({
+      where: {
+        id: costId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
+    });
+    if (!cost) throw new NotFoundException('Cost line not found');
+    await this.prisma.cost.delete({ where: { id: costId } });
+    this.recordMoneyLine(user, 'MONEY_LINE_DELETED', jobId, 'cost', cost);
+    return { deleted: true };
+  }
+
+  async deleteCharge(user: AuthUser, jobId: string, chargeId: string) {
+    const charge = await this.prisma.customerCharge.findFirst({
+      where: {
+        id: chargeId,
+        importJobId: jobId,
+        organisationId: user.organisationId,
+      },
+    });
+    if (!charge) throw new NotFoundException('Charge line not found');
+    await this.prisma.customerCharge.delete({ where: { id: chargeId } });
+    this.recordMoneyLine(user, 'MONEY_LINE_DELETED', jobId, 'charge', charge);
+    return { deleted: true };
   }
 
   /**
