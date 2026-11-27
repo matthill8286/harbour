@@ -1,0 +1,96 @@
+/* The Notes tab, after the Figma frame "Business · Job workspace · Notes". */
+.job-notes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.job-notes.is-read-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.job-notes-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.job-notes-form > impakt-textarea,
+.job-notes-form > impakt-segmented-control,
+.job-notes-draft impakt-text-input,
+.job-notes-draft impakt-select {
+  margin: 0;
+}
+
+.job-notes-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--impakt-color-brand-subtle);
+}
+
+.job-notes-draft legend {
+  float: left;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.job-notes-draft-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.job-notes-draft-row impakt-select {
+  flex: 1;
+}
+
+.job-notes-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.job-notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-notes-list li {
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.job-notes-list li.is-shared {
+  background: var(--impakt-color-brand-subtle);
+}
+
+.job-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-notes-list p {
+  margin: 8px 0 0;
+  white-space: pre-line;
+}
+
+@media (max-width: 64rem) {
+  .job-notes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
