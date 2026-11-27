@@ -5,6 +5,7 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
+import { jwtSecret } from './secrets';
 import { PasswordResetController } from './password-reset/password-reset.controller';
 import { PasswordResetService } from './password-reset/password-reset.service';
 import { TwoFactorController } from './two-factor/two-factor.controller';
@@ -18,10 +19,7 @@ import { SignupService } from './signup/signup.service';
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>(
-          'JWT_SECRET',
-          'replace-with-a-long-random-secret',
-        ),
+        secret: jwtSecret(config),
         signOptions: { expiresIn: 60 * 60 * 24 * 7 },
       }),
     }),

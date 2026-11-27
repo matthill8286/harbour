@@ -49,23 +49,36 @@ export function totpCode(secret: string, now = Date.now()): string {
   return String(value).padStart(TOTP_DIGITS, '0');
 }
 
-/** Accepts the current code and the one either side of it, to allow for clock drift. */
+/**
+ * The time step a code belongs to, or null if it is wrong. Accepts the current
+ * step and the one either side of it, to allow for clock drift. The step lets a
+ * caller refuse a code that has already been used.
+ */
+export function matchTotpStep(
+  secret: string,
+  code: string,
+  now = Date.now(),
+): number | null {
+  const candidate = code.replace(/\s/g, '');
+  if (!/^\d{6}$/.test(candidate)) return null;
+  const period = TOTP_PERIOD_SECONDS * 1000;
+  let matched: number | null = null;
+  for (const drift of [-1, 0, 1]) {
+    const at = now + drift * period;
+    const expected = totpCode(secret, at);
+    if (timingSafeEqual(Buffer.from(expected), Buffer.from(candidate))) {
+      matched = Math.floor(at / period);
+    }
+  }
+  return matched;
+}
+
 export function verifyTotp(
   secret: string,
   code: string,
   now = Date.now(),
 ): boolean {
-  const candidate = code.replace(/\s/g, '');
-  if (!/^\d{6}$/.test(candidate)) return false;
-  const step = TOTP_PERIOD_SECONDS * 1000;
-  let matched = false;
-  for (const drift of [-1, 0, 1]) {
-    const expected = totpCode(secret, now + drift * step);
-    if (timingSafeEqual(Buffer.from(expected), Buffer.from(candidate))) {
-      matched = true;
-    }
-  }
-  return matched;
+  return matchTotpStep(secret, code, now) !== null;
 }
 
 export function totpUri(input: {
