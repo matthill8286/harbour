@@ -85,7 +85,8 @@ export function JobNewPage() {
     mutationFn: () =>
       api<Customer>('/customers', {
         method: 'POST',
-        body: JSON.stringify(newCustomer),
+        // An email or phone left empty is not sent: the API refuses an empty email.
+        body: JSON.stringify({ ...newCustomer, email: newCustomer.email.trim() || undefined, phone: newCustomer.phone.trim() || undefined }),
       }),
     onSuccess: (customer) => {
       customers.remember(customer);
