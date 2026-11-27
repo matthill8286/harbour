@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Avatar, Badge, Button, Card, Heading, Text, TextInput } from '@atomic-ui/ui-react';
 import { isStaffRole, type PublicUser } from '@vip/shared';
-import { api, type SessionResponse, type TwoFactorStatus } from '../lib/api';
+import { api, secondFactor, type SessionResponse, type TwoFactorStatus } from '../lib/api';
 import { homePath, useAuth } from '../lib/auth';
 import { useSession } from '../lib/session';
 import { BackupCodeList } from '../components/BackupCodeList';
@@ -25,25 +25,31 @@ function ConfirmPassword({
   submitLabel,
   busyLabel,
   variant = 'secondary',
+  withCode = false,
   onConfirm,
 }: {
   submitLabel: string;
   busyLabel: string;
   variant?: 'primary' | 'secondary';
-  onConfirm: (password: string) => Promise<void>;
+  /** Also ask for an authenticator or backup code. */
+  withCode?: boolean;
+  onConfirm: (password: string, code: string) => Promise<void>;
 }) {
   const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const ready = Boolean(password) && (!withCode || Boolean(code.trim()));
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!password) return;
+    if (!ready) return;
     setPending(true);
     setError(null);
     try {
-      await onConfirm(password);
+      await onConfirm(password, code);
       setPassword('');
+      setCode('');
     } catch (err) {
       setError(message(err));
     } finally {
@@ -52,7 +58,7 @@ function ConfirmPassword({
   }
 
   return (
-    <form className="account-confirm" onSubmit={(event) => void submit(event)}>
+    <form className={`account-confirm${withCode ? ' has-code' : ''}`} onSubmit={(event) => void submit(event)}>
       <TextInput
         type="password"
         label="Confirm your password"
@@ -64,7 +70,18 @@ function ConfirmPassword({
           setPassword(value);
         }}
       />
-      <Button type="submit" variant={variant} disabled={!password} busy={pending} busyLabel={busyLabel}>
+      {withCode ? (
+        <TextInput
+          label="Authenticator code or backup code"
+          autocomplete="one-time-code"
+          value={code}
+          onChange={(event) => {
+            const value = event.detail.value;
+            setCode(value);
+          }}
+        />
+      ) : null}
+      <Button type="submit" variant={variant} disabled={!ready} busy={pending} busyLabel={busyLabel}>
         {submitLabel}
       </Button>
     </form>
@@ -274,10 +291,11 @@ function BackupCodes({ remaining, onDone }: { remaining: number; onDone: () => v
       <ConfirmPassword
         submitLabel="New codes"
         busyLabel="Making new codes"
-        onConfirm={async (password) => {
+        withCode
+        onConfirm={async (password, code) => {
           const result = await api<{ backupCodes: string[] }>('/auth/two-factor/backup-codes', {
             method: 'POST',
-            body: JSON.stringify({ password }),
+            body: JSON.stringify({ password, ...secondFactor(code) }),
           });
           setCodes(result.backupCodes);
           onDone();
@@ -362,10 +380,11 @@ export function SecurityPage() {
                 <ConfirmPassword
                   submitLabel="Turn off"
                   busyLabel="Turning it off"
-                  onConfirm={async (password) => {
+                  withCode
+                  onConfirm={async (password, code) => {
                     await api('/auth/two-factor/disable', {
                       method: 'POST',
-                      body: JSON.stringify({ password }),
+                      body: JSON.stringify({ password, ...secondFactor(code) }),
                     });
                     const updated = await reload();
                     if (updated) navigate(homePath(updated), { replace: true });

@@ -94,6 +94,10 @@
   margin-block-start: 16px;
 }
 
+.account-confirm.has-code {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
 .account-note {
   display: block;
   margin-block-start: 12px;
@@ -186,7 +190,8 @@
   .workspace-invite {
     grid-template-columns: minmax(0, 1fr);
   }
-  .account-confirm {
+  .account-confirm,
+  .account-confirm.has-code {
     grid-template-columns: minmax(0, 1fr);
   }
   .account-actions > impakt-button,

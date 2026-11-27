@@ -123,6 +123,31 @@ describe('two-step sign-in', () => {
     });
   });
 
+  it('refuses a session started before two-factor was turned on', async () => {
+    const { strategy } = services(true);
+    const prismaUser = {
+      ...account(true, passwordHash),
+      sessionsRevokedAt: new Date(),
+    };
+    jest
+      .spyOn(
+        (strategy as unknown as { prisma: PrismaService }).prisma.user,
+        'findUnique',
+      )
+      .mockResolvedValue(prismaUser as never);
+    const issued = Math.floor(Date.now() / 1000);
+    await expect(
+      strategy.validate({
+        sub: 'user-1',
+        membershipId: 'mem-1',
+        iat: issued - 60,
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(
+      strategy.validate({ sub: 'user-1', membershipId: 'mem-1', iat: issued }),
+    ).resolves.toMatchObject({ id: 'user-1' });
+  });
+
   it('will not accept a challenge token as an access token', async () => {
     const { auth, strategy } = services(true);
     const challenge = await auth.login({

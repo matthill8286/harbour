@@ -99,6 +99,12 @@ export type TwoFactorSetup = {
   backupCodes: string[];
 };
 
+/** What someone typed as their second step: six digits are an authenticator code. */
+export function secondFactor(value: string): { code: string } | { backupCode: string } {
+  const digits = value.replace(/\s/g, '');
+  return /^\d{6}$/.test(digits) ? { code: digits } : { backupCode: value.trim() };
+}
+
 export type TwoFactorStatus = {
   enabled: boolean;
   backupCodesRemaining: number;
