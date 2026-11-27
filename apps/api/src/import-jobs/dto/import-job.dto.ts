@@ -15,7 +15,6 @@ import {
   CHARGE_CATEGORIES,
   COST_CATEGORIES,
   DOCUMENT_TYPES,
-  JOB_STATUSES,
   JOURNEY_STATUSES,
   JOURNEY_TYPES,
   NOTE_VISIBILITIES,
@@ -25,6 +24,11 @@ import {
 } from '@vip/shared';
 
 export class CreateImportJobDto {
+  /** The route the job follows. The workspace's default when left out. */
+  @IsOptional()
+  @IsString()
+  routeId?: string;
+
   @IsString()
   customerId!: string;
 
@@ -124,8 +128,10 @@ export class UpdateImportJobDto {
 }
 
 export class ChangeStatusDto {
-  @IsIn(JOB_STATUSES)
-  status!: (typeof JOB_STATUSES)[number];
+  /** A status of the job's route, or COMPLETED or CANCELLED. The route decides which moves are allowed. */
+  @IsString()
+  @MaxLength(60)
+  status!: string;
 
   @IsOptional()
   @IsString()

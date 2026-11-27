@@ -5,11 +5,11 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import {
+  firstStatus,
   getJobStage,
-  getStatusLabel,
-  JOB_STATUSES,
-  STATUS_TRANSITIONS,
+  moveProblem,
   moneyLineProblem,
+  statusLabel,
   type JobStatus,
   type MoneyLineKind,
 } from '@vip/shared';
@@ -20,6 +20,11 @@ import { AuditService } from '../audit/audit.service';
 import { TrackingService } from '../tracking/tracking.service';
 import { UsageService } from '../tenancy/usage.service';
 import { RouteTemplatesService } from '../routes/route-templates.service';
+import {
+  toWorkflow,
+  WorkflowRoutesService,
+  type RouteRow,
+} from '../workflow/workflow-routes.service';
 import { AiTransport } from '../integrations/ai-transport';
 import {
   buildCustomerNoteDraft,
@@ -47,6 +52,10 @@ import {
   UpdateTaskDto,
 } from './dto/import-job.dto';
 
+/** A route loaded with its stages, as the detail view includes it, rather than the list's summary. */
+const isFullRoute = (value: unknown): value is RouteRow =>
+  typeof value === 'object' && value !== null && 'stages' in value;
+
 const publicUserSelect = {
   id: true,
   name: true,
@@ -55,12 +64,21 @@ const publicUserSelect = {
 
 const jobListInclude = {
   customer: true,
+  route: { select: { id: true, name: true, shortLabel: true } },
   vehicle: true,
   _count: { select: { tasks: true, documents: true, photos: true } },
 } satisfies Prisma.ImportJobInclude;
 
 const jobDetailInclude = {
   customer: true,
+  route: {
+    include: {
+      stages: {
+        orderBy: { sortOrder: 'asc' },
+        include: { statuses: { orderBy: { sortOrder: 'asc' } } },
+      },
+    },
+  },
   vehicle: { include: { registrations: true } },
   routeTemplate: true,
   statusHistory: {
@@ -97,6 +115,7 @@ export class ImportJobsService {
     private readonly tracking: TrackingService,
     private readonly usage: UsageService,
     private readonly routes: RouteTemplatesService,
+    private readonly workflows: WorkflowRoutesService,
     private readonly ai: AiTransport,
   ) {}
 
@@ -225,6 +244,14 @@ export class ImportJobsService {
       },
     });
     const reference = `${prefix}${String(count + 1).padStart(5, '0')}`;
+    const route = await this.workflows.routeForNewJob(
+      user.organisationId,
+      dto.routeId,
+    );
+    const startStatus = firstStatus(route);
+    if (!startStatus) {
+      throw new BadRequestException(`${route.name} has no statuses yet.`);
+    }
     const routeTemplateId = await this.routes.defaultTemplateId();
 
     const job = await this.prisma.importJob.create({
@@ -233,9 +260,10 @@ export class ImportJobsService {
         customerId: customer.id,
         vehicleId,
         reference,
-        status: 'NEW',
-        originCountry: dto.originCountry ?? 'GB',
-        destinationCountry: dto.destinationCountry ?? 'CY',
+        routeId: route.id,
+        status: startStatus,
+        originCountry: dto.originCountry ?? route.originCountry,
+        destinationCountry: dto.destinationCountry ?? route.destinationCountry,
         registrationCountry: dto.registrationCountry,
         routeTemplateId: routeTemplateId ?? undefined,
         expectedDeliveryDate: dto.expectedDeliveryDate
@@ -246,7 +274,7 @@ export class ImportJobsService {
           create: {
             organisationId: user.organisationId,
             fromStatus: null,
-            toStatus: 'NEW',
+            toStatus: startStatus,
             changedById: user.id,
             note: 'Import job created',
           },
@@ -405,14 +433,15 @@ export class ImportJobsService {
 
   async changeStatus(user: AuthUser, id: string, dto: ChangeStatusDto) {
     const current = await this.get(user, id);
-    const from = current.status as JobStatus;
+    const from = current.status;
     const to = dto.status;
-    if (!JOB_STATUSES.includes(to)) {
-      throw new BadRequestException('Unknown status');
-    }
-    const allowed = STATUS_TRANSITIONS[from] ?? [];
-    if (!allowed.includes(to)) {
-      throw new BadRequestException(`Cannot move from ${from} to ${to}`);
+    const route = await this.workflows.workflowFor(
+      user.organisationId,
+      current.routeId,
+    );
+    const problem = moveProblem(route, from, to);
+    if (problem) {
+      throw new BadRequestException(problem);
     }
     const lastHistory = await this.prisma.jobStatusHistory.findFirst({
       where: { importJobId: id },
@@ -451,9 +480,9 @@ export class ImportJobsService {
       organisationId: user.organisationId,
       importJobId: id,
       customerId: current.customerId,
-      message: `Your vehicle is now: ${getStatusLabel(to)}`,
+      message: `Your vehicle is now: ${statusLabel(route, to)}`,
     });
-    await this.tracking.alignToStatus(id, user.organisationId, to);
+    await this.tracking.alignToStatus(id, user.organisationId, to as JobStatus);
     return this.get(user, id);
   }
 
@@ -718,6 +747,7 @@ export class ImportJobsService {
       select: {
         reference: true,
         status: true,
+        routeId: true,
         vehicle: {
           select: {
             make: true,
@@ -732,11 +762,15 @@ export class ImportJobsService {
       throw new NotFoundException('Import job not found');
     }
 
-    const statusLabel = getStatusLabel(job.status as JobStatus);
+    const route = await this.workflows.workflowFor(
+      user.organisationId,
+      job.routeId,
+    );
+    const currentLabel = statusLabel(route, job.status);
     const vehicleSummary = vehicleSummaryFromParts(job.vehicle ?? {});
     const logDraft = buildCustomerNoteDraft({
       reference: job.reference,
-      statusLabel,
+      statusLabel: currentLabel,
       vehicleSummary,
       intent: dto.intent,
       tone: dto.tone,
@@ -749,7 +783,7 @@ export class ImportJobsService {
         intent: dto.intent.trim(),
         tone: dto.tone?.trim() || 'professional',
         reference: job.reference,
-        statusLabel,
+        statusLabel: currentLabel,
         vehicleSummary: vehicleSummary || null,
       }),
       logFallback: logDraft,
@@ -1050,8 +1084,14 @@ export class ImportJobsService {
         : 'routeTemplate' in job
           ? null
           : undefined;
+    // The detail view carries the whole route, so the web app shows the same moves the API allows.
+    const route =
+      'route' in job && isFullRoute(job.route)
+        ? toWorkflow(job.route)
+        : undefined;
     return {
       ...job,
+      ...(route ? { route } : {}),
       ...(routeTemplate !== undefined ? { routeTemplate } : {}),
       documents,
       photos,

@@ -65,6 +65,7 @@ function serviceWith(cost: Record<string, unknown> | null) {
     none,
     none,
     none,
+    none,
   );
   return { service, prisma, records };
 }
