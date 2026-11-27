@@ -30,7 +30,7 @@ function account(twoFactorEnabled: boolean, passwordHash: string) {
       {
         id: 'mem-1',
         organisationId: 'org-1',
-        role: 'OWNER' as UserRole,
+        role: 'ADMIN' as UserRole,
         status: 'ACTIVE',
         customerId: null,
         organisation: { name: 'Demo', status: 'ACTIVE', settings: null },

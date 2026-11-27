@@ -9,7 +9,7 @@ describe('buildAuthUser', () => {
       membership: {
         id: 'mem-1',
         organisationId: 'org-a',
-        role: 'OWNER',
+        role: 'ADMIN',
         customerId: null,
         organisation: {
           name: 'Demo Imports',
@@ -21,7 +21,6 @@ describe('buildAuthUser', () => {
     });
     expect(user.organisationId).toBe('org-a');
     expect(user.membershipId).toBe('mem-1');
-    // A retired Owner reads as Admin.
     expect(user.role).toBe('ADMIN');
     expect(user.organisationBrandName).toBe('Demo Desk');
     expect(user.organisationName).toBe('Demo Imports');

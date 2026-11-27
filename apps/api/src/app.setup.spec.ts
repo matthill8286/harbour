@@ -95,7 +95,9 @@ async function start(env: NodeJS.ProcessEnv) {
     logger: false,
   });
   configureApp(app, env);
-  await app.init();
+  // One listening port per app. Left unlistened, supertest opens a new port for every
+  // request, and that can reach another test's server while the suites run side by side.
+  await app.listen(0, '127.0.0.1');
   return app;
 }
 

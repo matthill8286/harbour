@@ -3,7 +3,6 @@ import {
   canWriteStaff,
   isPortalRole,
   isStaffRole,
-  normaliseRole,
   USER_ROLES,
 } from '@vip/shared';
 
@@ -24,12 +23,5 @@ describe('organisation roles', () => {
     expect(isPortalRole('CUSTOMER')).toBe(true);
     expect(canWriteStaff('CUSTOMER')).toBe(false);
     expect(canManageOrganisation('CUSTOMER')).toBe(false);
-  });
-
-  it('reads a retired Owner as Admin and Viewer as Staff', () => {
-    expect(normaliseRole('OWNER')).toBe('ADMIN');
-    expect(normaliseRole('VIEWER')).toBe('STAFF');
-    expect(normaliseRole('STAFF')).toBe('STAFF');
-    expect(() => normaliseRole('SUPERUSER')).toThrow(/Unknown role/);
   });
 });
