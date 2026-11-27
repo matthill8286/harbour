@@ -58,7 +58,6 @@ function serviceWith(cost: Record<string, unknown> | null) {
   const none = {} as never;
   const service = new ImportJobsService(
     prisma as never,
-    none,
     audit as never,
     none,
     none,

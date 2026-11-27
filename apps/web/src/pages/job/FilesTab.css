@@ -65,6 +65,11 @@
   inset-block-end: 8px;
 }
 
+.job-photo-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
 .job-doc-kind {
   display: inline-flex;
   align-items: center;
@@ -76,6 +81,10 @@
   font-size: 10px;
   font-weight: 600;
   color: var(--impakt-color-text-muted);
+}
+
+.job-file-name {
+  overflow-wrap: anywhere;
 }
 
 .job-doc-end {
@@ -102,5 +111,14 @@
 @media (max-width: 48rem) {
   .job-upload {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The badge and buttons go onto two lines, so the file's name keeps its room. */
+@media (max-width: 48rem) {
+  .job-doc-end {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    max-inline-size: 9.5rem;
   }
 }

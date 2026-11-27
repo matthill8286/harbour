@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -34,27 +42,27 @@ export class PortalController {
   }
 
   @Get('jobs/:id/documents/:fileId')
-  async downloadDocument(
+  downloadDocument(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Param('fileId') fileId: string,
   ) {
-    const file = await this.portal.readVisibleFile(
-      user,
-      id,
-      'document',
-      fileId,
-    );
-    return this.portal.toStream(file);
+    return this.portal.downloadDocument(user, id, fileId);
   }
 
   @Get('jobs/:id/photos/:fileId')
-  async downloadPhoto(
+  downloadPhoto(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Param('fileId') fileId: string,
+    @Query('size') size?: string,
   ) {
-    const file = await this.portal.readVisibleFile(user, id, 'photo', fileId);
-    return this.portal.toStream(file);
+    // There is no way to ask for the original, which can say where it was taken.
+    return this.portal.viewPhoto(
+      user,
+      id,
+      fileId,
+      size === 'thumb' ? 'thumb' : 'display',
+    );
   }
 }

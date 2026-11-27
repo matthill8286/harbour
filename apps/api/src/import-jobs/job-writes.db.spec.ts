@@ -37,7 +37,6 @@ describeWithDatabase('job writes against PostgreSQL', () => {
     const none = {} as never;
     service = new ImportJobsService(
       prisma,
-      none,
       audit,
       { notify: jest.fn() } as never,
       { alignToStatus: jest.fn() } as never,
