@@ -3,7 +3,7 @@
  * backfill's SQL cannot be checked with a mock. Skipped unless
  * TEST_DATABASE_URL names a scratch database that already has the schema:
  *
- *   DATABASE_URL=<scratch url> pnpm exec prisma db push --skip-generate
+ *   DATABASE_URL=<scratch url> pnpm run db:deploy
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest job-writes
  */
 import { randomUUID } from 'node:crypto';

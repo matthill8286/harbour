@@ -3,7 +3,7 @@
  * against a real PostgreSQL database. Skipped unless TEST_DATABASE_URL names a
  * scratch database that already has the schema:
  *
- *   DATABASE_URL=<scratch url> pnpm exec prisma db push --skip-generate
+ *   DATABASE_URL=<scratch url> pnpm run db:deploy
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest db.spec
  */
 import { RateLimiter } from '../rate-limit/rate-limiter';
