@@ -1,11 +1,25 @@
+import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
-import { JOB_STAGE_LABELS, type JobStatus } from '@vip/shared';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  DateTile,
+  EmptyState,
+  Heading,
+  Progress,
+  Row,
+  StatTile,
+  Text,
+} from '@atomic-ui/ui-react';
+import { JOB_STAGE_LABELS, JOB_STAGES, getJobStage, getStatusLabel, type JobStage, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
-import { StatusBadge } from '../components/StatusBadge';
-import { Card, EmptyState, LoadingScreen, PageHeader, StaffPage, primaryBtn } from '../components/ui';
+import { PhoneHeader } from '../components/PhoneHeader';
+import { LoadingScreen } from '../components/ui';
+import './DashboardPage.css';
 
 type Dashboard = {
   activeJobs: number;
@@ -22,12 +36,7 @@ type Dashboard = {
     status: JobStatus;
     expectedDeliveryDate: string;
     customer: { firstName: string; lastName: string };
-    vehicle: { make: string | null; model: string | null };
-  }[];
-  offlineTrackers: {
-    id: string;
-    serialNumber: string;
-    assignments: { importJob: { id: string; reference: string } }[];
+    vehicle: { make: string | null; model: string | null; ukRegistration?: string | null };
   }[];
   opsAlerts: {
     kind: 'STALE_TRACKER' | 'NEAR_DESTINATION';
@@ -40,144 +49,247 @@ type Dashboard = {
   }[];
 };
 
+/** The stages a job moves through on the way, for the journey bars. */
+const JOURNEY: JobStage[] = JOB_STAGES.filter((stage) => stage !== 'completed' && stage !== 'cancelled');
+const journeySteps = JOURNEY.map((stage) => ({ id: stage, label: JOB_STAGE_LABELS[stage] }));
+
+const vehicleName = (vehicle: { make: string | null; model: string | null }) =>
+  [vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
+const customerName = (customer: { firstName: string; lastName: string }) => `${customer.firstName} ${customer.lastName}`.trim();
+const day = (iso: string) => iso.slice(0, 10);
+
 export function DashboardPage() {
   const { canWrite, workspace } = useSession();
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => api<Dashboard>('/dashboard'),
   });
 
-  if (isLoading || !data) return <LoadingScreen label="Loading workspace…" />;
+  if (isLoading) return <LoadingScreen label="Loading the Board…" />;
+
+  if (isError || !data) {
+    return (
+      <div className="board">
+        <BoardHeading />
+        <Alert tone="danger" heading="The Board could not load">
+          Check your connection, then try again.
+          <div className="board-retry">
+            <Button variant="secondary" busy={isFetching} busyLabel="Trying again" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
+        </Alert>
+      </div>
+    );
+  }
+
+  const arriving = data.upcomingDeliveries;
+  const next = arriving[0];
+  const stages = data.byStage.filter((item) => item.stage !== 'cancelled');
+  const arrivingCaption = `${arriving.length} arriving in the next two weeks`;
 
   return (
-    <StaffPage>
-      <PageHeader
-        eyebrow={workspace}
-        title="Board"
-        description="What needs attention in this workspace today."
-        actions={
-          <div className="flex flex-wrap gap-2">
-            <Link to="/tracking" className="rounded-xl border border-ink/15 bg-paper px-4 py-2 text-sm font-semibold">
-              Live map
-            </Link>
-            {canWrite ? (
-              <Link to="/jobs/new" className={primaryBtn}>
-                New job
-              </Link>
-            ) : null}
-          </div>
+    <div className="board">
+      <PhoneHeader>
+        <div className="board-phone">
+          <Text size="sm">{workspace}</Text>
+          <p className="board-phone-count">
+            <span className="board-phone-number">{data.activeJobs}</span>
+            <span>
+              <strong>active import jobs</strong>
+              <small>{arrivingCaption}</small>
+            </span>
+          </p>
+        </div>
+      </PhoneHeader>
+
+      <BoardHeading
+        action={
+          <Button variant="secondary" href="/jobs" iconAfter="arrow-right">
+            Browse all jobs
+          </Button>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-        <div className="rounded-2xl bg-ink p-5 text-paper">
-          <p className="text-sm text-mist">Active import jobs</p>
-          <p className="display text-5xl">{data.activeJobs}</p>
-        </div>
-        <Link to="/jobs" className="text-sm font-semibold text-harbour sm:pb-2">
-          Browse all jobs →
-        </Link>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
-        {data.byStage
-          .filter((item) => item.stage !== 'cancelled')
-          .map((item) => (
-            <Link
-              key={item.stage}
-              to={`/jobs?stage=${encodeURIComponent(item.stage)}`}
-              className="rounded-2xl bg-paper p-3 transition hover:ring-2 hover:ring-harbour/30"
-            >
-              <p className="text-[11px] uppercase tracking-widest text-ink/50">
-                {JOB_STAGE_LABELS[item.stage as keyof typeof JOB_STAGE_LABELS] ?? item.label}
-              </p>
-              <p className="display text-2xl">{item.count}</p>
-            </Link>
-          ))}
-      </div>
-
-      <section className="grid gap-3 md:grid-cols-2">
-        <Card>
-          <h2 className="font-semibold">Needs attention</h2>
-          {data.overdueTasks.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/50">No overdue tasks.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {data.overdueTasks.map((task) => (
-                <li key={task.id}>
-                  <Link to={`/jobs/${task.importJob.id}?tab=overview`} className="font-semibold text-harbour">
-                    {task.importJob.reference}
-                  </Link>
-                  <p className="text-ink/70">{task.title}</p>
-                  {task.dueDate ? <p className="text-xs text-ink/45">Due {formatDate(task.dueDate)}</p> : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-        <Card>
-          <h2 className="font-semibold">Arriving soon</h2>
-          {data.upcomingDeliveries.length === 0 ? (
-            <p className="mt-2 text-sm text-ink/50">Nothing in the next two weeks.</p>
-          ) : (
-            <ul className="mt-2 space-y-2 text-sm">
-              {data.upcomingDeliveries.map((job) => (
-                <li key={job.id} className="flex items-start justify-between gap-2">
-                  <div>
-                    <Link to={`/jobs/${job.id}`} className="font-semibold text-harbour">
-                      {job.reference}
-                    </Link>
-                    <p className="text-ink/60">
-                      {job.vehicle.make} {job.vehicle.model} · {formatDate(job.expectedDeliveryDate)}
-                    </p>
-                  </div>
-                  <StatusBadge status={job.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </section>
-
-      {data.opsAlerts.length > 0 ? (
-        <Card>
-          <h2 className="font-semibold">GPS ops alerts</h2>
-          <ul className="mt-2 space-y-2 text-sm">
-            {data.opsAlerts.map((alert) => (
-              <li key={`${alert.kind}-${alert.importJobId}`}>
-                <Link
-                  className="font-semibold text-harbour"
-                  to={`/jobs/${alert.importJobId}?tab=tracking`}
-                >
-                  {alert.title} · {alert.reference}
-                </Link>
-                <p className="text-ink/70">{alert.detail}</p>
-                {alert.aiSummary ? (
-                  <p className="mt-0.5 text-xs text-ink/55">{alert.aiSummary}</p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-
       {data.activeJobs === 0 ? (
         <EmptyState
-          title="No active import jobs"
-          description={
+          heading="No active import jobs"
+          lead={
             canWrite
-              ? 'Create a job to start tracking a vehicle from collection to delivery.'
-              : 'No active imports in this workspace yet.'
+              ? 'Create a job to follow a vehicle from collection to delivery.'
+              : 'There are no active imports in this workspace yet.'
           }
-          action={
-            canWrite ? (
-              <Link to="/jobs/new" className={primaryBtn}>
-                New job
-              </Link>
-            ) : undefined
-          }
-        />
-      ) : null}
-    </StaffPage>
+          framed
+        >
+          {canWrite ? (
+            <Button slot="actions" href="/jobs/new" iconBefore="plus">
+              New job
+            </Button>
+          ) : null}
+        </EmptyState>
+      ) : (
+        <>
+          <div className="board-row board-row-top">
+            <StatTile
+              className="board-lead"
+              label="Active import jobs"
+              value={String(data.activeJobs)}
+              caption={arrivingCaption}
+              href="/jobs"
+              tone="brand"
+              size="lg"
+            />
+            <Card className="board-card">
+              <Heading level={2} size="md">
+                Jobs by stage
+              </Heading>
+              <ul className="board-stages" role="list">
+                {stages.map((item) => (
+                  <li key={item.stage}>
+                    <StatTile
+                      label={JOB_STAGE_LABELS[item.stage as JobStage] ?? item.label}
+                      value={String(item.count)}
+                      href={`/jobs?stage=${encodeURIComponent(item.stage)}`}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+
+          <div className="board-row board-row-middle">
+            <Card className="board-card">
+              <div className="board-card-head">
+                <Heading level={2} size="md">
+                  Needs attention
+                </Heading>
+                {data.overdueTasks.length > 0 ? <Badge tone="danger">{`${data.overdueTasks.length} overdue`}</Badge> : null}
+              </div>
+              {data.overdueTasks.length === 0 ? (
+                <Text tone="muted">No overdue tasks.</Text>
+              ) : (
+                <div role="list">
+                  {data.overdueTasks.map((task) => (
+                    <Row
+                      key={task.id}
+                      role="listitem"
+                      heading={task.title}
+                      meta={[task.importJob.reference, task.dueDate ? `Due ${formatDate(task.dueDate)}` : null].filter(Boolean).join(' · ')}
+                      href={`/jobs/${task.importJob.id}?tab=overview`}
+                    >
+                      <span slot="start" className="board-dot" aria-hidden="true" />
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            <Card className="board-card">
+              <div className="board-card-head">
+                <Heading level={2} size="md">
+                  Arriving soon
+                </Heading>
+                <Text size="sm" tone="muted">
+                  Next two weeks
+                </Text>
+              </div>
+              {arriving.length === 0 ? (
+                <Text tone="muted">Nothing is due in the next two weeks.</Text>
+              ) : (
+                <div role="list">
+                  {arriving.map((job) => (
+                    <Row
+                      key={job.id}
+                      role="listitem"
+                      heading={job.reference}
+                      meta={`${vehicleName(job.vehicle)} · ${customerName(job.customer)}`}
+                      href={`/jobs/${job.id}`}
+                    >
+                      <DateTile slot="start" date={day(job.expectedDeliveryDate)} />
+                      <Badge slot="end">{getStatusLabel(job.status)}</Badge>
+                    </Row>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {next ? (
+              <section className="board-next" aria-labelledby="board-next-heading">
+                <div className="board-next-badges">
+                  <Badge>Arriving next</Badge>
+                  <Badge tone="inverse">{next.reference}</Badge>
+                </div>
+                <Heading level={2} size="2xl" id="board-next-heading">
+                  {vehicleName(next.vehicle)}
+                </Heading>
+                <Text size="sm">
+                  {[next.vehicle.ukRegistration, customerName(next.customer)].filter(Boolean).join(' · ')}
+                </Text>
+                <div className="board-next-status">
+                  <Progress look="bars" label="Journey" steps={journeySteps} current={getJobStage(next.status)} />
+                  <div className="board-next-line">
+                    <span>
+                      <strong>{getStatusLabel(next.status)}</strong>
+                      <Text size="sm" tone="muted">{`Expected delivery ${formatDate(next.expectedDeliveryDate)}`}</Text>
+                    </span>
+                    <Button icon="arrow-up-right" label={`Open ${next.reference}`} href={`/jobs/${next.id}`} />
+                  </div>
+                </div>
+              </section>
+            ) : null}
+          </div>
+
+          {data.opsAlerts.length > 0 ? (
+            <Card className="board-card">
+              <div className="board-card-head">
+                <div>
+                  <Heading level={2} size="md">
+                    GPS alerts
+                  </Heading>
+                  <Text size="sm" tone="muted">
+                    Trackers that went silent and vehicles close to their destination
+                  </Text>
+                </div>
+                <Button variant="secondary" href="/tracking">
+                  Live map
+                </Button>
+              </div>
+              <ul className="board-alerts" role="list">
+                {data.opsAlerts.map((alert) => (
+                  <li key={`${alert.kind}-${alert.importJobId}`} className="board-alert">
+                    <div className="board-alert-head">
+                      <strong>
+                        {alert.title} · {alert.reference}
+                      </strong>
+                      {alert.kind === 'STALE_TRACKER' ? <Badge tone="danger">No signal</Badge> : <Badge tone="solid">Arriving</Badge>}
+                    </div>
+                    <Text size="sm" tone="muted">
+                      {alert.aiSummary ?? alert.detail}
+                    </Text>
+                    <a className="board-alert-link" href={`/jobs/${alert.importJobId}?tab=tracking`}>
+                      Open tracking<span className="board-visually-hidden"> for {alert.reference}</span> →
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
+function BoardHeading({ action }: { action?: ReactNode }) {
+  return (
+    <div className="board-heading">
+      <div>
+        <Heading level={1} size="4xl" className="board-title">
+          Board
+        </Heading>
+        <Text tone="muted">What needs attention in this workspace today.</Text>
+      </div>
+      {action}
+    </div>
   );
 }

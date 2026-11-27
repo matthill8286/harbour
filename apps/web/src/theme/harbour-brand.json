@@ -1,0 +1,24 @@
+{
+  "color": {
+    "brand": "#B24424",
+    "accent": "#B24424",
+    "surfacePage": "#F2F5F4",
+    "surfaceCard": "#FFFFFF",
+    "surfaceHeader": "#F2F5F4",
+    "surfaceFooter": "#E8EEED",
+    "text": "#0B1F33",
+    "textHeading": "#0B1F33",
+    "danger": "#C2185B",
+    "warning": "#9A6700",
+    "success": "#2E7D5B",
+    "info": "#2F6FA3"
+  },
+  "font": {
+    "body": "Urbanist, \"Avenir Next\", \"Helvetica Neue\", Arial, sans-serif",
+    "heading": "Urbanist, \"Avenir Next\", \"Helvetica Neue\", Arial, sans-serif",
+    "sizeBase": 15,
+    "scale": 1.2
+  },
+  "shape": { "radiusBase": 18, "spaceBase": 4, "borderWidth": 1, "fields": "outlined", "buttonHover": "shade" },
+  "assets": { "logo": "", "logoAlt": "Harbour" }
+}

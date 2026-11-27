@@ -1,0 +1,209 @@
+/* The Board's layout, after the Figma frame "Business · Board". The cards,
+   tiles, rows and badges are design-system elements; this only places them. */
+.board {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.board-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.board-title {
+  --impakt-font-weight-bold: 300;
+}
+
+.board-row {
+  display: grid;
+  gap: 20px;
+}
+
+.board-row-top {
+  grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+}
+
+.board-row-middle {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.board-card {
+  display: block;
+}
+
+.board-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 12px;
+}
+
+.board-stages {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-stages impakt-stat-tile {
+  block-size: 100%;
+}
+
+.board-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 999px;
+  background: var(--impakt-color-status-danger-default, #c2185b);
+}
+
+.board-next {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 20px;
+  border-radius: 28px;
+  background: #cbccce;
+  color: var(--impakt-color-text-default);
+}
+
+.board-next-badges {
+  display: flex;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.board-next-status {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-block-start: auto;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--impakt-color-surface-card);
+}
+
+.board-next-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.board-next-line span {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-alerts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.board-alert-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.board-alert-link {
+  color: var(--impakt-color-text-link);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.board-retry {
+  margin-block-start: 12px;
+}
+
+.board-visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.board-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.board-phone-count {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+}
+
+.board-phone-number {
+  font-size: 64px;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.board-phone-count span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.board-phone-count small {
+  color: var(--impakt-color-text-muted);
+}
+
+/* Three cards side by side need the Figma frame's 1440. Below it the
+   attention and arrivals cards share a row and the next arrival spans under them. */
+@media (max-width: 89.9375rem) {
+  .board-row-middle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .board-next {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 75rem) {
+  .board-stages {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 48rem) {
+  .board-heading,
+  .board-lead {
+    display: none;
+  }
+  .board-row-top,
+  .board-row-middle,
+  .board-alerts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .board-next {
+    grid-column: auto;
+  }
+  .board-stages {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
