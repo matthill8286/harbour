@@ -1,84 +1,21 @@
-import { useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
-import {
-  CHARGE_CATEGORIES,
-  COST_CATEGORIES,
-  NOTE_VISIBILITIES,
-  STATUS_TRANSITIONS,
-  TASK_PRIORITIES,
-  getStatusLabel,
-  type JobStatus,
-  type TaskPriority,
-} from '@vip/shared';
+import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Alert, Button, Heading, Tabs, Text } from '@atomic-ui/ui-react';
+import { getStatusLabel } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
-import { formatCategory, formatDate, money } from '../lib/format';
-import { JobTrackingPanel } from '../components/JobTrackingPanel';
-import { JobFilesPanel, JobJourneys } from '../components/JobFilesPanel';
-import { JobActivity } from '../components/JobActivity';
-import { JourneyStepper } from '../components/JourneyStepper';
-import { StatusBadge } from '../components/StatusBadge';
-import { Card, ErrorBanner, LoadingScreen, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
+import { formatDate } from '../lib/format';
 import { toLocationPoint } from '../lib/tracking';
-import { useSession } from '../lib/session';
-
-type JobDetail = {
-  id: string;
-  reference: string;
-  status: JobStatus;
-  originCountry: string;
-  destinationCountry: string;
-  registrationCountry: string | null;
-  expectedDeliveryDate: string | null;
-  totals: { totalCost: number; totalCharge: number; margin: number };
-  customer: { id: string; firstName: string; lastName: string; email: string | null; phone: string | null };
-  vehicle: {
-    make: string | null;
-    model: string | null;
-    variant: string | null;
-    ukRegistration: string | null;
-    vin: string | null;
-  };
-  statusHistory: { id: string; toStatus: string; note: string | null; createdAt: string }[];
-  tasks: {
-    id: string;
-    title: string;
-    status: string;
-    priority: TaskPriority;
-    dueDate: string | null;
-    createdAt?: string;
-  }[];
-  costs: { id: string; category: string; description: string; amount: string }[];
-  charges: { id: string; category: string; description: string; amount: string }[];
-  notes: { id: string; body: string; visibility: string; createdAt: string; author: { name: string } }[];
-  journeys: { id: string; type: string; origin: string; destination: string; status: string }[];
-  photos: {
-    id: string;
-    filename: string;
-    category: string;
-    mimeType: string;
-    customerVisible: boolean;
-    createdAt: string;
-  }[];
-  documents: {
-    id: string;
-    name: string;
-    type: string;
-    mimeType: string;
-    sizeBytes: number;
-    customerVisible: boolean;
-    createdAt: string;
-  }[];
-  locationEvents?: Array<{
-    id?: string;
-    latitude: string | number;
-    longitude: string | number;
-    accuracy?: string | number | null;
-    speed?: string | number | null;
-    heading?: string | number | null;
-    recordedAt: string;
-  }>;
-};
+import { JobTrackingPanel } from '../components/JobTrackingPanel';
+import { JobFilesPanel } from '../components/JobFilesPanel';
+import { JobActivity } from '../components/JobActivity';
+import { PhoneHeader } from '../components/PhoneHeader';
+import { LoadingScreen } from '../components/ui';
+import { OverviewTab } from './job/OverviewTab';
+import { closedAt } from './job/history';
+import { MoneyTab } from './job/MoneyTab';
+import { NotesTab } from './job/NotesTab';
+import type { JobDetail } from './job/types';
+import './job/JobWorkspace.css';
 
 const TABS = [
   { id: 'overview', label: 'Overview' },
@@ -91,638 +28,101 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
-type TaskPatch = {
-  taskId: string;
-  status?: string;
-  priority?: TaskPriority;
-  dueDate?: string | null;
-};
-
-function toDateInputValue(value: string | null) {
-  if (!value) return '';
-  return value.slice(0, 10);
-}
-
+/**
+ * The job workspace, after the Figma section "04 · Job workspace". This frame
+ * holds the heading, the closed-job notice and the tabs; each tab is its own
+ * component. The tabs are links, so every tab has an address to share.
+ */
 export function JobDetailPage() {
-  const { canWrite, currency } = useSession();
   const { id = '' } = useParams();
-  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
   const tabParam = params.get('tab');
-  const activeTab: TabId = TABS.some((tab) => tab.id === tabParam)
-    ? (tabParam as TabId)
-    : 'overview';
-  const queryClient = useQueryClient();
+  const activeTab: TabId = TABS.some((tab) => tab.id === tabParam) ? (tabParam as TabId) : 'overview';
+  const tabHref = (tab: string) => (tab === 'overview' ? `/jobs/${id}` : `/jobs/${id}?tab=${tab}`);
+
   const jobQuery = useQuery({
     queryKey: ['job', id],
     queryFn: () => api<JobDetail>(`/import-jobs/${id}`),
     enabled: Boolean(id),
   });
   const job = jobQuery.data;
-  const [taskForm, setTaskForm] = useState<{
-    title: string;
-    priority: TaskPriority;
-    dueDate: string;
-  }>({ title: '', priority: 'MEDIUM', dueDate: '' });
-  const [cost, setCost] = useState({ category: 'TRANSPORT', description: '', amount: '' });
-  const [charge, setCharge] = useState({ category: 'TRANSPORT', description: '', amount: '' });
-  const [note, setNote] = useState({ body: '', visibility: 'INTERNAL' });
-  const [draftIntent, setDraftIntent] = useState('');
-  const [draftTone, setDraftTone] = useState('professional');
-  const [draftSource, setDraftSource] = useState<'log' | 'openai' | null>(null);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job', id] });
-
-  const statusMutation = useMutation({
-    mutationFn: (status: JobStatus) =>
-      api(`/import-jobs/${id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
-    onSuccess: invalidate,
-  });
-  const taskMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/tasks`, {
-        method: 'POST',
-        body: JSON.stringify({
-          title: taskForm.title.trim(),
-          priority: taskForm.priority,
-          ...(taskForm.dueDate ? { dueDate: taskForm.dueDate } : {}),
-        }),
-      }),
-    onSuccess: () => {
-      setTaskForm({ title: '', priority: 'MEDIUM', dueDate: '' });
-      void invalidate();
-    },
-  });
-  const taskUpdate = useMutation({
-    mutationFn: ({ taskId, ...patch }: TaskPatch) =>
-      api(`/import-jobs/${id}/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(patch) }),
-    onMutate: async ({ taskId, ...patch }) => {
-      await queryClient.cancelQueries({ queryKey: ['job', id] });
-      const previous = queryClient.getQueryData<JobDetail>(['job', id]);
-      if (previous) {
-        queryClient.setQueryData<JobDetail>(['job', id], {
-          ...previous,
-          tasks: previous.tasks.map((task) =>
-            task.id === taskId ? { ...task, ...patch } : task,
-          ),
-        });
-      }
-      return { previous };
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['job', id], context.previous);
-      }
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['job', id] });
-    },
-  });
-  const costMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/costs`, {
-        method: 'POST',
-        body: JSON.stringify({ ...cost, amount: Number(cost.amount) }),
-      }),
-    onSuccess: () => {
-      setCost({ category: 'TRANSPORT', description: '', amount: '' });
-      void invalidate();
-    },
-  });
-  const chargeMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/charges`, {
-        method: 'POST',
-        body: JSON.stringify({ ...charge, amount: Number(charge.amount) }),
-      }),
-    onSuccess: () => {
-      setCharge({ category: 'TRANSPORT', description: '', amount: '' });
-      void invalidate();
-    },
-  });
-  const noteMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/notes`, { method: 'POST', body: JSON.stringify(note) }),
-    onSuccess: () => {
-      setNote({ body: '', visibility: 'INTERNAL' });
-      setDraftSource(null);
-      void invalidate();
-    },
-  });
-  const draftNoteMutation = useMutation({
-    mutationFn: () =>
-      api<{ draft: string; source: 'log' | 'openai' }>(`/import-jobs/${id}/draft-customer-note`, {
-        method: 'POST',
-        body: JSON.stringify({
-          intent: draftIntent.trim() || note.body.trim(),
-          tone: draftTone,
-        }),
-      }),
-    onSuccess: (result) => {
-      setNote((prev) => ({
-        ...prev,
-        body: result.draft,
-        visibility: 'CUSTOMER',
-      }));
-      setDraftSource(result.source);
-    },
-  });
-
-  // Stable checklist order — never reshuffle when a box is ticked.
-  const orderedTasks = useMemo(() => {
-    const tasks = jobQuery.data?.tasks ?? [];
-    return [...tasks].sort((a, b) => {
-      const aAt = a.createdAt ?? '';
-      const bAt = b.createdAt ?? '';
-      if (aAt !== bAt) return aAt.localeCompare(bAt);
-      return a.id.localeCompare(b.id);
-    });
-  }, [jobQuery.data?.tasks]);
-
-  if (jobQuery.isLoading) return <LoadingScreen label="Loading job…" />;
+  if (jobQuery.isLoading) return <LoadingScreen label="Loading the job…" />;
   if (jobQuery.isError || !job) {
+    const notFound = jobQuery.error instanceof ApiError && jobQuery.error.status === 404;
     return (
-      <ErrorBanner
-        message={jobQuery.error instanceof ApiError ? jobQuery.error.message : 'Could not load this job.'}
-      />
+      <div className="job-workspace">
+        <Alert tone="danger" heading={notFound ? 'This job does not exist' : 'The job could not load'}>
+          {notFound ? 'It may have been removed, or the link is wrong.' : 'Check your connection, then try again.'}
+          <div className="job-retry">
+            {notFound ? null : (
+              <Button variant="secondary" busy={jobQuery.isFetching} busyLabel="Trying again" onClick={() => void jobQuery.refetch()}>
+                Try again
+              </Button>
+            )}
+            <Button variant="ghost" href="/jobs">
+              Back to jobs
+            </Button>
+          </div>
+        </Alert>
+      </div>
     );
   }
 
-  const nextStatuses = STATUS_TRANSITIONS[job.status] ?? [];
-  const forward = nextStatuses.filter((status) => status !== 'CANCELLED');
-  const canCancel = nextStatuses.includes('CANCELLED');
-  const openTasks = orderedTasks.filter((task) => task.status !== 'COMPLETED');
-
-  function moveTo(status: JobStatus) {
-    if (status === 'CANCELLED' && !window.confirm('Cancel this import job? This is a terminal status.')) {
-      return;
-    }
-    statusMutation.mutate(status);
-  }
-
-  function setTab(next: TabId) {
-    const nextParams = new URLSearchParams(params);
-    if (next === 'overview') nextParams.delete('tab');
-    else nextParams.set('tab', next);
-    setParams(nextParams, { replace: true });
-  }
+  const vehicle = [job.vehicle.make, job.vehicle.model, job.vehicle.variant].filter(Boolean).join(' ') || 'Vehicle';
+  const customer = `${job.customer.firstName} ${job.customer.lastName}`.trim();
+  const closed = job.status === 'COMPLETED' || job.status === 'CANCELLED';
+  // A closed job's tasks are stopped, so the Overview tab counts none.
+  const openTasks = closed ? 0 : job.tasks.filter((task) => task.status !== 'COMPLETED' && task.status !== 'CANCELLED').length;
+  const ending = closedAt(job);
+  const items = TABS.map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+    href: tabHref(tab.id),
+    ...(tab.id === 'overview' && openTasks > 0 ? { count: openTasks, countLabel: `${openTasks} open ${openTasks === 1 ? 'task' : 'tasks'}` } : {}),
+  }));
 
   return (
     <div className="job-workspace">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-        <Link to="/jobs" className="text-sm font-semibold text-harbour">
-          ← All jobs
-        </Link>
-        <Link to={`/tracking?job=${job.id}`} className="text-sm font-semibold text-harbour">
-          Open on fleet map
-        </Link>
-      </div>
+      <PhoneHeader>
+        <Text size="sm">{`${job.reference} · ${customer}`}</Text>
+        <Heading level={1} size="3xl">
+          {vehicle}
+        </Heading>
+      </PhoneHeader>
 
-      <div className="job-chrome">
-        <div className="job-chrome-header rounded-t-2xl bg-ink p-4 text-paper">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-mist">{job.reference}</p>
-              <h1 className="display text-2xl sm:text-3xl">
-                {job.vehicle.make} {job.vehicle.model} {job.vehicle.variant}
-              </h1>
-              <p className="mt-1 text-sm text-mist">
-                <Link to={`/customers/${job.customer.id}`} className="underline-offset-4 hover:underline">
-                  {job.customer.firstName} {job.customer.lastName}
-                </Link>
-                {job.vehicle.ukRegistration ? ` · ${job.vehicle.ukRegistration}` : ''}
-                {` · ${job.originCountry} → ${job.destinationCountry}`}
-              </p>
-            </div>
-            <StatusBadge status={job.status} inverted />
-          </div>
-          {nextStatuses.length > 0 && canWrite ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {forward.map((status) => (
-                <button
-                  key={status}
-                  type="button"
-                  className="rounded-xl bg-harbour px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
-                  disabled={statusMutation.isPending}
-                  onClick={() => moveTo(status)}
-                >
-                  {getStatusLabel(status)}
-                </button>
-              ))}
-              {canCancel ? (
-                <button
-                  type="button"
-                  className="rounded-xl border border-paper/30 px-3 py-1.5 text-sm font-semibold text-paper disabled:opacity-50"
-                  disabled={statusMutation.isPending}
-                  onClick={() => moveTo('CANCELLED')}
-                >
-                  Cancel
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-          {statusMutation.isError ? (
-            <div className="mt-3">
-              <ErrorBanner
-                message={
-                  statusMutation.error instanceof Error
-                    ? statusMutation.error.message
-                    : 'Could not update status'
-                }
-              />
-            </div>
-          ) : null}
-          <div className="mt-4">
-            <JourneyStepper status={job.status} embedded />
-          </div>
-        </div>
-
-        <div className="job-tabs" role="tablist" aria-label="Job sections">
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeTab === tab.id}
-              className={`job-tab${activeTab === tab.id ? ' is-active' : ''}`}
-              onClick={() => setTab(tab.id)}
-            >
-              {tab.label}
-              {tab.id === 'overview' && openTasks.length > 0 ? ` · ${openTasks.length}` : ''}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="job-tab-panel">
-      {activeTab === 'overview' ? (
-        <div className="space-y-4">
-          <dl className="grid gap-3 rounded-2xl bg-paper p-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="text-[11px] uppercase tracking-widest text-ink/45">Contact</dt>
-              <dd>{job.customer.email ?? job.customer.phone ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] uppercase tracking-widest text-ink/45">Registration country</dt>
-              <dd>{job.registrationCountry ?? '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-[11px] uppercase tracking-widest text-ink/45">Expected delivery</dt>
-              <dd>{job.expectedDeliveryDate ? formatDate(job.expectedDeliveryDate) : 'Not set'}</dd>
-            </div>
-          </dl>
-
-          <section className="grid gap-3 sm:grid-cols-3">
-            <button type="button" className="rounded-2xl bg-paper p-4 text-left" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-ink/50">Internal cost</p>
-              <p className="display text-2xl">{money(job.totals.totalCost, currency)}</p>
-            </button>
-            <button type="button" className="rounded-2xl bg-paper p-4 text-left" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-ink/50">Customer charges</p>
-              <p className="display text-2xl">{money(job.totals.totalCharge, currency)}</p>
-            </button>
-            <button type="button" className="rounded-2xl bg-harbour p-4 text-left text-paper" onClick={() => setTab('money')}>
-              <p className="text-xs uppercase tracking-widest text-mist">Gross margin</p>
-              <p className="display text-2xl">{money(job.totals.margin, currency)}</p>
-            </button>
-          </section>
-
-          <Card>
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-semibold">Tasks</h2>
-              {openTasks.length > 0 ? (
-                <span className="text-xs text-ink/50">{openTasks.length} open</span>
-              ) : null}
-            </div>
-            {orderedTasks.length === 0 ? (
-              <p className="mt-2 text-sm text-ink/50">No tasks yet.</p>
-            ) : (
-              <ul className="mt-3 space-y-2">
-                {orderedTasks.map((task) => {
-                  const done = task.status === 'COMPLETED';
-                  return (
-                    <li key={task.id} className="flex flex-wrap items-center gap-2 text-sm sm:gap-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 shrink-0 accent-harbour"
-                        disabled={!canWrite || taskUpdate.isPending}
-                        checked={done}
-                        onChange={() =>
-                          taskUpdate.mutate({ taskId: task.id, status: done ? 'TODO' : 'COMPLETED' })
-                        }
-                      />
-                      <span className={`min-w-0 flex-1 ${done ? 'text-ink/45 line-through' : ''}`}>
-                        {task.title}
-                      </span>
-                      {canWrite ? (
-                        <>
-                          <select
-                            className={`${fieldClass} w-auto py-1`}
-                            aria-label={`Priority for ${task.title}`}
-                            value={task.priority}
-                            disabled={taskUpdate.isPending}
-                            onChange={(event) =>
-                              taskUpdate.mutate({
-                                taskId: task.id,
-                                priority: event.target.value as TaskPriority,
-                              })
-                            }
-                          >
-                            {TASK_PRIORITIES.map((priority) => (
-                              <option key={priority} value={priority}>
-                                {formatCategory(priority)}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="date"
-                            className={`${fieldClass} w-auto py-1`}
-                            aria-label={`Due date for ${task.title}`}
-                            value={toDateInputValue(task.dueDate)}
-                            disabled={taskUpdate.isPending}
-                            onChange={(event) =>
-                              taskUpdate.mutate({
-                                taskId: task.id,
-                                dueDate: event.target.value || null,
-                              })
-                            }
-                          />
-                        </>
-                      ) : (
-                        <span className="ml-auto flex items-center gap-2 text-xs text-ink/45">
-                          <span>{formatCategory(task.priority)}</span>
-                          {task.dueDate ? <span>{formatDate(task.dueDate)}</span> : null}
-                        </span>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {canWrite ? (
-              <form
-                className="mt-4 flex flex-wrap gap-2"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (taskForm.title.trim()) taskMutation.mutate();
-                }}
-              >
-                <input
-                  className={`${fieldClass} min-w-[12rem] flex-1`}
-                  value={taskForm.title}
-                  onChange={(event) => setTaskForm({ ...taskForm, title: event.target.value })}
-                  placeholder="Add a task"
-                />
-                <select
-                  className={`${fieldClass} w-auto`}
-                  aria-label="Task priority"
-                  value={taskForm.priority}
-                  onChange={(event) =>
-                    setTaskForm({ ...taskForm, priority: event.target.value as TaskPriority })
-                  }
-                >
-                  {TASK_PRIORITIES.map((priority) => (
-                    <option key={priority} value={priority}>
-                      {formatCategory(priority)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="date"
-                  className={`${fieldClass} w-auto`}
-                  aria-label="Task due date"
-                  value={taskForm.dueDate}
-                  onChange={(event) => setTaskForm({ ...taskForm, dueDate: event.target.value })}
-                />
-                <button className={primaryBtn} type="submit">
-                  Add
-                </button>
-              </form>
-            ) : null}
-          </Card>
-
-          <JobJourneys jobId={job.id} journeys={job.journeys ?? []} />
-        </div>
+      {closed ? (
+        <Alert tone={job.status === 'CANCELLED' ? 'danger' : 'success'} toneLabel="Job closed" heading={getStatusLabel(job.status)}>
+          {[
+            ending ? `${getStatusLabel(job.status)} on ${formatDate(ending.createdAt)}${ending.changedBy?.name ? ` by ${ending.changedBy.name}` : ''}.` : null,
+            job.status === 'CANCELLED' && ending?.note ? `Reason: ${ending.note}.` : null,
+            'The job is closed and nothing can change; the customer portal shows it as ' + (job.status === 'CANCELLED' ? 'cancelled.' : 'delivered.'),
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        </Alert>
       ) : null}
 
+      <div className="job-heading">
+        <Button icon="arrow-left" label="Back to jobs" variant="secondary" onClick={() => navigate('/jobs')} />
+        <div className="job-title">
+          <Text size="sm" tone="muted">{`${job.reference} · ${customer}`}</Text>
+          <Heading level={1} size="3xl">
+            {vehicle}
+          </Heading>
+        </div>
+        <Tabs className="job-tabs" look="pill" label="Job sections" selected={activeTab} items={items} />
+      </div>
+
+      {activeTab === 'overview' ? <OverviewTab job={job} onTab={tabHref} /> : null}
       {activeTab === 'tracking' ? (
-        <div className="space-y-4">
-          <JobTrackingPanel
-            jobId={job.id}
-            lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null}
-          />
-        </div>
+        <JobTrackingPanel jobId={job.id} lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null} />
       ) : null}
-
-      {activeTab === 'files' ? (
-        <JobFilesPanel jobId={job.id} photos={job.photos ?? []} documents={job.documents ?? []} />
-      ) : null}
-
-      {activeTab === 'money' ? (
-        <section className="grid gap-4 md:grid-cols-2">
-          <Card>
-            <h2 className="font-semibold">Internal costs</h2>
-            <p className="text-xs text-ink/45">Never shown to the customer.</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {job.costs.map((item) => (
-                <li key={item.id} className="flex justify-between gap-3">
-                  <span>
-                    {item.description}
-                    <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
-                  </span>
-                  <span className="font-semibold">{money(item.amount, currency)}</span>
-                </li>
-              ))}
-            </ul>
-            {canWrite ? (
-              <div className="mt-4 grid gap-2">
-                <select
-                  className={fieldClass}
-                  value={cost.category}
-                  onChange={(event) => setCost({ ...cost, category: event.target.value })}
-                >
-                  {COST_CATEGORIES.map((item) => (
-                    <option key={item} value={item}>
-                      {formatCategory(item)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={fieldClass}
-                  placeholder="Description"
-                  value={cost.description}
-                  onChange={(event) => setCost({ ...cost, description: event.target.value })}
-                />
-                <input
-                  className={fieldClass}
-                  placeholder="Amount"
-                  value={cost.amount}
-                  onChange={(event) => setCost({ ...cost, amount: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  onClick={() => costMutation.mutate()}
-                  disabled={!cost.description || !cost.amount}
-                >
-                  Add cost
-                </button>
-              </div>
-            ) : null}
-          </Card>
-          <Card>
-            <h2 className="font-semibold">Customer charges</h2>
-            <p className="text-xs text-ink/45">What the customer is billed.</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {job.charges.map((item) => (
-                <li key={item.id} className="flex justify-between gap-3">
-                  <span>
-                    {item.description}
-                    <span className="block text-xs text-ink/45">{formatCategory(item.category)}</span>
-                  </span>
-                  <span className="font-semibold">{money(item.amount, currency)}</span>
-                </li>
-              ))}
-            </ul>
-            {canWrite ? (
-              <div className="mt-4 grid gap-2">
-                <select
-                  className={fieldClass}
-                  value={charge.category}
-                  onChange={(event) => setCharge({ ...charge, category: event.target.value })}
-                >
-                  {CHARGE_CATEGORIES.map((item) => (
-                    <option key={item} value={item}>
-                      {formatCategory(item)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className={fieldClass}
-                  placeholder="Description"
-                  value={charge.description}
-                  onChange={(event) => setCharge({ ...charge, description: event.target.value })}
-                />
-                <input
-                  className={fieldClass}
-                  placeholder="Amount"
-                  value={charge.amount}
-                  onChange={(event) => setCharge({ ...charge, amount: event.target.value })}
-                />
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  onClick={() => chargeMutation.mutate()}
-                  disabled={!charge.description || !charge.amount}
-                >
-                  Add charge
-                </button>
-              </div>
-            ) : null}
-          </Card>
-        </section>
-      ) : null}
-
+      {activeTab === 'files' ? <JobFilesPanel jobId={job.id} photos={job.photos ?? []} documents={job.documents ?? []} /> : null}
+      {activeTab === 'money' ? <MoneyTab job={job} /> : null}
       {activeTab === 'activity' ? <JobActivity jobId={job.id} /> : null}
-
-      {activeTab === 'notes' ? (
-        <Card>
-          <h2 className="font-semibold">Notes</h2>
-          <ul className="mt-3 space-y-3 text-sm">
-            {job.notes.map((item) => (
-              <li key={item.id} className="rounded-xl bg-sand/70 p-3">
-                <p className="text-xs font-semibold uppercase tracking-widest text-ink/45">
-                  {item.visibility === 'CUSTOMER' ? 'Visible to customer' : 'Internal only'} ·{' '}
-                  {item.author.name}
-                </p>
-                <p className="mt-1">{item.body}</p>
-              </li>
-            ))}
-          </ul>
-          {canWrite ? (
-            <>
-              <div className="mt-4 grid gap-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    className={`${fieldClass} min-w-[12rem] flex-1`}
-                    value={draftIntent}
-                    onChange={(event) => setDraftIntent(event.target.value)}
-                    placeholder="Intent for AI draft (e.g. ferry delayed overnight)"
-                  />
-                  <select
-                    className={`${fieldClass} w-auto`}
-                    aria-label="Draft tone"
-                    value={draftTone}
-                    onChange={(event) => setDraftTone(event.target.value)}
-                  >
-                    <option value="professional">Professional</option>
-                    <option value="warm">Warm</option>
-                    <option value="brief">Brief</option>
-                  </select>
-                  <button
-                    type="button"
-                    className={secondaryBtn}
-                    disabled={
-                      draftNoteMutation.isPending ||
-                      !(draftIntent.trim() || note.body.trim())
-                    }
-                    onClick={() => draftNoteMutation.mutate()}
-                  >
-                    {draftNoteMutation.isPending ? 'Drafting…' : 'Draft with AI'}
-                  </button>
-                  {draftSource ? (
-                    <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">
-                      Source: {draftSource}
-                    </span>
-                  ) : null}
-                </div>
-                {draftNoteMutation.isError ? (
-                  <ErrorBanner
-                    message={
-                      draftNoteMutation.error instanceof Error
-                        ? draftNoteMutation.error.message
-                        : 'Could not draft note'
-                    }
-                  />
-                ) : null}
-                <p className="text-xs text-ink/45">
-                  AI fills the text below — review it, then click Add note. Nothing is posted or emailed until you save.
-                </p>
-              </div>
-              <textarea
-                className={`${fieldClass} mt-2 min-h-24`}
-                value={note.body}
-                onChange={(event) => {
-                  setNote({ ...note, body: event.target.value });
-                  setDraftSource(null);
-                }}
-                placeholder="Write an update"
-              />
-              <div className="mt-2 flex flex-wrap gap-2">
-                <select
-                  className={fieldClass}
-                  value={note.visibility}
-                  onChange={(event) => setNote({ ...note, visibility: event.target.value })}
-                >
-                  {NOTE_VISIBILITIES.map((item) => (
-                    <option key={item} value={item}>
-                      {item === 'CUSTOMER' ? 'Visible to customer' : 'Internal only'}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className={primaryBtn}
-                  onClick={() => noteMutation.mutate()}
-                  disabled={!note.body.trim()}
-                >
-                  Add note
-                </button>
-              </div>
-            </>
-          ) : null}
-        </Card>
-      ) : null}
-      </div>
+      {activeTab === 'notes' ? <NotesTab job={job} /> : null}
     </div>
   );
 }

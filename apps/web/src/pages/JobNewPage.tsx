@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
 import { PhoneHeader } from '../components/PhoneHeader';
+import { COUNTRY_CODES, countryName } from './job/countries';
 import './JobNewPage.css';
 
 type Customer = {
@@ -27,18 +28,6 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 const STEP_NAMES: Record<Step, string> = { customer: 'Customer', vehicle: 'Vehicle', confirm: 'Confirm' };
 
-/** The countries a corridor runs through today. A workspace's own country is added when it is not one of them. */
-const COUNTRIES: Record<string, string> = {
-  GB: 'United Kingdom',
-  IE: 'Ireland',
-  BG: 'Bulgaria',
-  GR: 'Greece',
-  CY: 'Cyprus',
-  MT: 'Malta',
-  DE: 'Germany',
-};
-
-const countryName = (code: string) => COUNTRIES[code] ?? code;
 const fullName = (customer: { firstName: string; lastName: string }) => `${customer.firstName} ${customer.lastName}`.trim();
 const vehicleTitle = (lookup: VehicleLookupResult) => [lookup.make, lookup.model, lookup.variant].filter(Boolean).join(' ') || 'Vehicle';
 
@@ -59,7 +48,7 @@ export function JobNewPage() {
   const [lookingUp, setLookingUp] = useState(false);
 
   const countryOptions = useMemo(() => {
-    const codes = new Set([...Object.keys(COUNTRIES), country, originCountry, destinationCountry, registrationCountry]);
+    const codes = new Set([...COUNTRY_CODES, country, originCountry, destinationCountry, registrationCountry]);
     return [...codes].map((code) => ({ value: code, label: countryName(code) }));
   }, [country, originCountry, destinationCountry, registrationCountry]);
 
