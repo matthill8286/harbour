@@ -1,10 +1,30 @@
+# Dependencies and build output are made inside the build.
 **/node_modules
 **/dist
+**/coverage
 **/*.tsbuildinfo
+**/*.log
+
+# Secrets and local settings, including .env.local and every other .env file.
+**/.env*
+
+# Docs and tests are not part of any image.
+docs
+**/*.md
+**/test
+**/tests
+**/__tests__
+**/*.spec.*
+**/*.test.*
+
+# Local data, tooling and repository files.
 .git
-.env
-**/.env
-apps/api/uploads
-.demo-output
-.idea
+.github
+.claude
 .cursor
+.idea
+.demo-output
+apps/api/uploads
+docker-compose.yml
+Dockerfile
+.dockerignore

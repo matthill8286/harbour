@@ -1,0 +1,23 @@
+{
+  "_comment": "High and critical advisories in production dependencies that CI accepts for now. Each needs a reason and a review date. After that date CI fails until the advisory is fixed or the entry is reviewed again.",
+  "exceptions": [
+    {
+      "id": "GHSA-ggr8-5vv4-36mx",
+      "package": "deepmerge-ts",
+      "reason": "Only the Prisma CLI's config loader uses it (@prisma/config). It is not in the api image. In the migrate image it merges only this repository's own Prisma settings, so no outside input reaches it. The fix is in 8.0.0, a major version that Prisma 6 does not use.",
+      "reviewBy": "2027-02-28"
+    },
+    {
+      "id": "GHSA-7589-6fvf-x4pw",
+      "package": "effect",
+      "reason": "Only the Prisma CLI's config loader uses it (@prisma/config). It is not in the api image. The fault needs Schema.TemplateLiteral to decode outside input, and the CLI in the migrate image takes none. The fix, 3.22.1 or later, needs a lockfile change.",
+      "reviewBy": "2027-02-28"
+    },
+    {
+      "id": "GHSA-mrhx-c7xc-m3w5",
+      "package": "zod",
+      "reason": "@atomic-ui/design-tokens uses it to read this repository's own brand file in the theme build script and its test. It is not in the web bundle or in any image's run-time files. The fix, 4.6.6 or later, needs a lockfile change.",
+      "reviewBy": "2027-02-28"
+    }
+  ]
+}
