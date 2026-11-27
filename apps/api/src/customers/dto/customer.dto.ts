@@ -1,13 +1,16 @@
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength, MaxLength } from 'class-validator';
 import { TrimmedEmail } from '../../common/trimmed-email';
+import { IfSent } from '../../common/validators';
 
 export class CreateCustomerDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   firstName!: string;
 
   @IsString()
   @MinLength(1)
+  @MaxLength(100)
   lastName!: string;
 
   @IsOptional()
@@ -16,24 +19,31 @@ export class CreateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   phone?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   address?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   notes?: string;
 }
 
 export class UpdateCustomerDto {
-  @IsOptional()
+  @IfSent()
   @IsString()
+  @MinLength(1)
+  @MaxLength(100)
   firstName?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
+  @MinLength(1)
+  @MaxLength(100)
   lastName?: string;
 
   @IsOptional()
@@ -42,13 +52,16 @@ export class UpdateCustomerDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   phone?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(500)
   address?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   notes?: string;
 }

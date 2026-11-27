@@ -2,10 +2,14 @@ import { ConfigService } from '@nestjs/config';
 import { EmailTransport } from './email-transport';
 
 describe('EmailTransport', () => {
-  const make = (env: Record<string, string | undefined>) =>
-    new EmailTransport({
+  const make = (env: Record<string, string | undefined>) => {
+    const transport = new EmailTransport({
       get: (key: string, fallback?: string) => env[key] ?? fallback,
     } as ConfigService);
+    // Retries have their own tests, in email-retry.spec.ts.
+    transport.retryDelaysMs = [];
+    return transport;
+  };
 
   afterEach(() => jest.restoreAllMocks());
 

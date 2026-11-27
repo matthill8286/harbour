@@ -1,6 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { parseFlespiBatch, type FlespiPing } from './flespi-message';
+import { OutboundStatusError, outboundCall } from './outbound-call';
+
+export const FLESPI_TIMEOUT_MS = 10_000;
 
 @Injectable()
 export class FlespiGpsClient {
@@ -22,21 +25,24 @@ export class FlespiGpsClient {
       .replace(/\/$/, '');
     const selector = encodeURIComponent(`ident='${imei.replace(/'/g, '')}'`);
     const url = `${base}/gw/devices/${selector}/messages?data=${encodeURIComponent(JSON.stringify({ count, reverse: true }))}`;
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `FlespiToken ${token}`,
-        Accept: 'application/json',
+    return outboundCall(this.logger, {
+      service: 'Flespi',
+      url,
+      timeoutMs: FLESPI_TIMEOUT_MS,
+      unavailable:
+        'The GPS gateway is not answering. Please try again shortly.',
+      init: {
+        headers: {
+          Authorization: `FlespiToken ${token}`,
+          Accept: 'application/json',
+        },
+      },
+      read: async (response) => {
+        if (!response.ok) throw new OutboundStatusError(response.status);
+        const payload = (await response.json()) as { result?: unknown };
+        return parseFlespiBatch(payload.result ?? payload);
       },
     });
-    if (!response.ok) {
-      const detail = await response.text();
-      this.logger.warn(
-        `Flespi messages ${response.status}: ${detail.slice(0, 240)}`,
-      );
-      throw new Error(`Flespi returned ${response.status}`);
-    }
-    const payload = (await response.json()) as { result?: unknown };
-    return parseFlespiBatch(payload.result ?? payload);
   }
 
   private token() {
