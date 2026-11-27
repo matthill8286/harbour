@@ -1,0 +1,178 @@
+/* The Tracking tab and the status strip, after the Figma frames "Job workspace · Tracking". */
+.job-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 12px 12px 20px;
+  border-radius: 24px;
+  background: var(--impakt-color-surface-card);
+}
+
+.job-strip-facts {
+  flex: 1 1 14rem;
+  min-inline-size: 0;
+}
+
+.job-strip-bars {
+  flex: 0 1 24rem;
+  min-inline-size: 16rem;
+}
+
+.job-strip-error {
+  flex-basis: 100%;
+}
+
+.job-tracking {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+  gap: 20px;
+  align-items: start;
+}
+
+.job-tracking.is-empty {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.job-tracking-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-inline-size: 0;
+}
+
+.job-map-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.job-map {
+  overflow: hidden;
+  border-radius: 20px;
+}
+
+.job-map .harbour-map {
+  block-size: 26rem;
+}
+
+.job-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0 0;
+}
+
+.job-tiles > div {
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.job-tiles dt,
+.job-pairs dt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--impakt-color-text-muted);
+}
+
+.job-tiles dd {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.job-tracker-name {
+  margin: 0 0 12px;
+  font-size: 32px;
+  font-weight: 300;
+  overflow-wrap: anywhere;
+}
+
+.job-pairs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.job-pairs > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.job-pairs dt {
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.job-pairs dd {
+  margin: 0;
+  font-weight: 500;
+  text-align: end;
+}
+
+.job-two-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-block-start: 16px;
+}
+
+.job-two-buttons impakt-button,
+.job-card-title {
+  display: block;
+}
+
+.job-card-title {
+  margin-block-end: 12px;
+}
+
+.job-field {
+  margin: 0 0 8px;
+}
+
+.job-suggestion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-block-end: 12px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.job-dialog-scan {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.job-dialog-scan impakt-text-input {
+  flex: 1;
+}
+
+@media (max-width: 75rem) {
+  .job-tracking {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 48rem) {
+  .job-strip-bars {
+    flex-basis: 100%;
+  }
+  .job-map .harbour-map {
+    block-size: 18rem;
+  }
+}
