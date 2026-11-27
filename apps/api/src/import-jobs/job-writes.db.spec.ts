@@ -314,7 +314,12 @@ describeWithDatabase('job writes against PostgreSQL', () => {
         data: { createdAt: new Date(dates[i]) },
       });
     }
-    await prisma.usageRecord.deleteMany();
+    // Only this test's workspaces: other database specs share these tables and run alongside.
+    await prisma.usageRecord.deleteMany({
+      where: {
+        organisationId: { in: [a.organisationId, b.organisationId] },
+      },
+    });
     // A count already higher than the jobs that remain is kept.
     const bMonth = monthStartUtc(new Date());
     await usage.incrementImportJobs(b.organisationId, bMonth);
@@ -324,16 +329,23 @@ describeWithDatabase('job writes against PostgreSQL', () => {
     });
 
     await usage.onApplicationBootstrap();
-    const rows = await prisma.usageRecord.findMany({
-      where: { organisationId: a.organisationId },
-      orderBy: { periodStart: 'asc' },
-    });
-    expect(rows.map((r) => [r.periodStart.toISOString(), r.quantity])).toEqual([
+    const monthly = async () =>
+      (
+        await prisma.usageRecord.findMany({
+          where: { organisationId: a.organisationId },
+          orderBy: { periodStart: 'asc' },
+        })
+      ).map((r) => [r.periodStart.toISOString(), r.quantity]);
+    expect(await monthly()).toEqual([
       ['2026-01-01T00:00:00.000Z', 1],
       ['2026-02-01T00:00:00.000Z', 2],
     ]);
     expect((await counts(b)).used).toBe(9);
-    await expect(usage.backfillImportJobs()).resolves.toBe(0);
+    const before = await monthly();
+    // The number of rows it changes covers every workspace, so compare this one's counts.
+    await usage.backfillImportJobs();
+    expect(await monthly()).toEqual(before);
+    expect((await counts(b)).used).toBe(9);
     // Live metering adds to the row the backfill made.
     await usage.incrementImportJobs(a.organisationId, new Date(dates[2]));
     expect((await counts(a)).used).toBe(4);
