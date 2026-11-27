@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Alert, Button, Dialog, Icon, RadioGroup, Select, Switch, Text, TextInput } from '@atomic-ui/ui-react';
 import type { WorkflowStageDef } from '@vip/shared';
-import { onSwitch } from '../../lib/switch';
 import { COUNTRY_CODES, countryName } from '../job/countries';
 import { jobsInStage, routeApi, routeLabel, routeName, stagesWord, statusesWord, useRouteChange, type RouteSummary, type StageInput } from './routes';
 import { useReorder } from './useReorder';
@@ -59,7 +58,10 @@ export function StageDialog({ route, stage, onClose }: { route: RouteSummary; st
           label="Show this stage in the customer portal"
           description="Off: the customer sees it as part of the next visible stage."
           checked={form.customerVisible}
-          onClick={onSwitch(form.customerVisible, (checked) => setForm((f) => ({ ...f, customerVisible: checked })))}
+          onChange={(event) => {
+            const checked = event.detail.checked;
+            setForm((f) => ({ ...f, customerVisible: checked }));
+          }}
         />
         {form.customerVisible ? (
           <TextInput

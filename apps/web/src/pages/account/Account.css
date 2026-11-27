@@ -153,7 +153,7 @@
 .workspace-member-actions {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }

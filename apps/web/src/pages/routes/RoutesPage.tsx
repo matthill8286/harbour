@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Breadcrumbs, Button, Card, Heading, Icon, Select, Switch, Text, TextInput } from '@atomic-ui/ui-react';
 import { routeProblem, type WorkflowStageDef } from '@vip/shared';
-import { onSwitch } from '../../lib/switch';
 import { PhoneHeader } from '../../components/PhoneHeader';
 import { LoadingScreen } from '../../components/ui';
 import { COUNTRY_CODES, countryName } from '../job/countries';
@@ -215,11 +214,13 @@ function Stages({
               </ul>
               <div className="routes-visibility">
                 <Switch
-                  label={stage.customerVisible ? `Customer sees ${stage.customerName || stage.name}` : 'Hidden from the customer'}
+                  label={`Customer sees ${stage.name}`}
+                  hideLabel
                   checked={stage.customerVisible}
                   disabled={visibility.isPending}
-                  onClick={onSwitch(stage.customerVisible, (visible) => visibility.mutate({ stage, visible }))}
+                  onChange={(event) => visibility.mutate({ stage, visible: event.detail.checked })}
                 />
+                <span aria-hidden="true">{stage.customerVisible ? stage.customerName || stage.name : 'Hidden'}</span>
               </div>
               <div className="routes-stage-actions">
                 <Button variant="ghost" size="sm" icon="pencil" label={`Edit ${stage.name}`} onClick={() => onEdit(stage)} />
