@@ -73,7 +73,17 @@ If a variable is missing, short or one of the public passwords, the seed stops b
 
 ## Live GPS (Teltonika TAT140 + Flespi)
 
-Demo jobs use a simulated corridor. Real units:
+In the demo workspaces, changing a job's status moves its simulated trail along the corridor. Elsewhere a simulated tracker moves only with **Advance GPS**. Reading a job never changes GPS data.
+
+An IMEI can be registered once on the whole platform. Registering it is only a claim. The unit receives nothing, from the stream or from **Pull from Flespi**, until the platform operator has seen proof that the workspace holds the unit and has confirmed it on the server:
+
+```bash
+node dist/src/trackers/confirm-device-owner.js <imei> <workspace-slug>
+```
+
+Positions recorded before that confirmation are not delivered. Running the command for another workspace moves the unit to it and disputes the earlier claim, which then receives nothing. If an upgrade finds the same IMEI registered more than once, all of those claims are disputed until the operator confirms an owner. No GPS data is deleted automatically; see [the proposed retention rule](docs/adr/ADR-004-gps-retention.md).
+
+Real units:
 
 1. Create a Flespi account and a **Teltonika** channel. Point the TAT140-QJIB0 at that host/port ([quick start](https://flespi.com/kb/quick-start-guide-physical-tracker)).
 2. Create an HTTP stream to `https://<your-api>/api/integrations/gps/flespi` with header `X-Harbour-Gps-Secret: <secret>` ([stream docs](https://flespi.com/kb/how-to-get-data-in-your-platform-via-flespi-http-stream)).
