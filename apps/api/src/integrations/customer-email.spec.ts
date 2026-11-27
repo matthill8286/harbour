@@ -20,7 +20,7 @@ describe('composeCustomerEmail', () => {
     expect(email.subject).toContain('Demo Imports');
     expect(email.text).toContain('http://localhost:5173/invite/tok_abc');
     expect(email.html).toContain('http://localhost:5173/invite/tok_abc');
-    expect(email.html).toContain('Set your password');
+    expect(email.html).toContain('Accept and open the portal');
   });
 
   it('includes job reference on status updates', () => {

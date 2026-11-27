@@ -12,7 +12,8 @@ type AuthState = {
   ready: boolean;
   challenge: Challenge | null;
   login: (email: string, password: string) => Promise<SignInResult>;
-  acceptInvite: (token: string, password: string) => Promise<SignInResult>;
+  /** For an account that already exists, the password is its current one. */
+  acceptInvite: (token: string, password: string, secondStep?: { code?: string; backupCode?: string }) => Promise<SignInResult>;
   completeChallenge: (input: { code?: string; backupCode?: string }) => Promise<PublicUser>;
   refresh: () => Promise<PublicUser | null>;
   /** Swap in a session the api handed back, as after a password change. */
@@ -54,11 +55,11 @@ export const useAuth = create<AuthState>((set, get) => {
           body: JSON.stringify({ email: email.trim(), password }),
         }),
       ),
-    acceptInvite: async (token, password) =>
+    acceptInvite: async (token, password, secondStep) =>
       start(
         await api<LoginResponse>(`/auth/invites/${encodeURIComponent(token)}/accept`, {
           method: 'POST',
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({ password, ...secondStep }),
         }),
       ),
     completeChallenge: async (input) => {

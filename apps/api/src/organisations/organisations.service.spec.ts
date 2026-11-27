@@ -25,7 +25,7 @@ describe('OrganisationsService staff invites', () => {
     user: {
       findUnique: jest.fn(),
       create: jest.fn(),
-      update: jest.fn(),
+      updateMany: jest.fn(),
     },
     organisationMembership: {
       findUnique: jest.fn(),
@@ -147,6 +147,8 @@ describe('OrganisationsService staff invites', () => {
     prisma.organisationMembership.update.mockResolvedValue({
       id: 'mem-other',
       role: 'STAFF',
+      status: 'ACTIVE',
+      acceptedAt: null,
       user: { id: 'user-2' },
     });
 
