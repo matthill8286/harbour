@@ -7,6 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/// Three roles are in use: ADMIN, STAFF and CUSTOMER. OWNER and VIEWER are
+/// retired; the API converts them to ADMIN and STAFF at startup. Remove them
+/// once every database has started on that version.
 enum UserRole {
   OWNER
   ADMIN

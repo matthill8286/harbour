@@ -21,6 +21,29 @@ import {
 } from './totp';
 
 export const TWO_FACTOR_ISSUER = 'Harbour';
+
+const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\]|::1)$|\.(localhost|test)$/;
+
+/**
+ * The name an authenticator app shows for this site, so a local or staging
+ * entry never looks like the live one: "Harbour" for the live site,
+ * "Harbour (localhost)" locally, "Harbour (staging)" on staging, and the host
+ * in brackets anywhere else that is not a harbour.* address.
+ */
+export function authenticatorIssuer(webOrigin: string | undefined): string {
+  const first = (webOrigin ?? '').split(',')[0]?.trim();
+  let host: string;
+  try {
+    host = new URL(first || 'http://localhost').hostname;
+  } catch {
+    return TWO_FACTOR_ISSUER;
+  }
+  if (LOCAL_HOST.test(host)) return `${TWO_FACTOR_ISSUER} (localhost)`;
+  if (/(^|[.-])staging([.-]|$)/.test(host))
+    return `${TWO_FACTOR_ISSUER} (staging)`;
+  if (/^harbour\./.test(host)) return TWO_FACTOR_ISSUER;
+  return `${TWO_FACTOR_ISSUER} (${host})`;
+}
 /** How long the sign-in challenge stays valid, matching Kleidi's ten-minute window. */
 export const CHALLENGE_TTL_SECONDS = 10 * 60;
 export const CHALLENGE_PURPOSE = 'two-factor';
@@ -47,6 +70,8 @@ type TwoFactorRow = {
 @Injectable()
 export class TwoFactorService {
   private readonly box: SecretBox;
+  /** What the authenticator app calls this site. */
+  private readonly issuer: string;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -58,6 +83,7 @@ export class TwoFactorService {
       config.get<string>('TWO_FACTOR_ENCRYPTION_KEY') ||
       config.get<string>('JWT_SECRET', 'replace-with-a-long-random-secret');
     this.box = new SecretBox(key);
+    this.issuer = authenticatorIssuer(config.get<string>('WEB_ORIGIN'));
   }
 
   async status(user: AuthUser) {
@@ -95,7 +121,7 @@ export class TwoFactorService {
     });
     return {
       totpURI: totpUri({
-        issuer: TWO_FACTOR_ISSUER,
+        issuer: this.issuer,
         account: account.email,
         secret,
       }),

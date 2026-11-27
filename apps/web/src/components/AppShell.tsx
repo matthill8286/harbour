@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { AppShell as Shell, Avatar, Button, Menu, SideNav, TabBar, Text, TextInput } from '@atomic-ui/ui-react';
+import { AppShell as Shell, Avatar, Button, Menu, SideNav, TabBar, TextInput } from '@atomic-ui/ui-react';
 import type { ShellNavItem } from '@atomic-ui/ui';
 import harbourMark from '../assets/harbour-mark.svg';
 import { useAppLinks } from '../lib/links';
@@ -169,12 +169,6 @@ export function AppShell() {
           </div>
         ) : null}
       </div>
-
-      {isStaff && !canWrite ? (
-        <Text size="sm" tone="muted" className="harbour-view-only">
-          View access. You can look through this workspace, but not change jobs, trackers or customers.
-        </Text>
-      ) : null}
 
       <PhoneHeaderSlot.Provider value={slot}>
         <ErrorBoundary>

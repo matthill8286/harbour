@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -23,7 +23,7 @@ export class TrackersController {
   ) {}
 
   @Get()
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   list(@CurrentUser() user: AuthUser) {
     return this.trackers.list(user);
   }
