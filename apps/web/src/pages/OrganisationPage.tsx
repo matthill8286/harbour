@@ -344,7 +344,8 @@ function Team() {
                 <div className="workspace-member-actions">
                   {editable ? (
                     <Select
-                      label="Role"
+                      label={`Role for ${member.user.name}`}
+                      hideLabel
                       options={ROLE_OPTIONS}
                       value={member.role}
                       disabled={update.isPending}
