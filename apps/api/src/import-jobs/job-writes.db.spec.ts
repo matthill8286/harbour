@@ -18,7 +18,8 @@ import { ImportJobsService } from './import-jobs.service';
 const url = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = url ? describe : describe.skip;
 const year = new Date().getFullYear();
-const ref = (n: number) => `CY-${year}-${String(n).padStart(5, '0')}`;
+const ref = (n: number, country = 'CY') =>
+  `${country}-${year}-${String(n).padStart(5, '0')}`;
 
 describeWithDatabase('job writes against PostgreSQL', () => {
   let prisma: PrismaService;
@@ -71,6 +72,7 @@ describeWithDatabase('job writes against PostgreSQL', () => {
     const user = {
       id: admin.id,
       organisationId: organisation.id,
+      organisationCountry: organisation.country,
       role: 'ADMIN',
     } as AuthUser;
     return { user, customer, route, organisationId: organisation.id };
@@ -79,6 +81,12 @@ describeWithDatabase('job writes against PostgreSQL', () => {
 
   const create = (w: Workspace) =>
     service.create(w.user, { customerId: w.customer.id, make: 'Test' });
+
+  const createFor = (w: Workspace, destinationCountry: string) =>
+    service.create(w.user, {
+      customerId: w.customer.id,
+      destinationCountry,
+    });
 
   const counts = async ({ organisationId }: Workspace) => {
     const where = { organisationId };
@@ -113,6 +121,48 @@ describeWithDatabase('job writes against PostgreSQL', () => {
     });
     expect((await counts(b)).used).toBe(3);
   }, 30_000);
+
+  it('numbers each destination country on its own, per workspace', async () => {
+    const [a, b] = [await workspace(), await workspace()];
+    const jobs = await Promise.all([
+      ...Array.from({ length: 4 }, () => create(a)),
+      ...Array.from({ length: 4 }, () => createFor(a, 'MT')),
+      ...Array.from({ length: 2 }, () => createFor(b, 'mt')),
+    ]);
+    expect(jobs.map((job) => job.reference).sort()).toEqual(
+      [
+        ...[1, 2, 3, 4].map((n) => ref(n)),
+        ...[1, 2, 3, 4].map((n) => ref(n, 'MT')),
+        ...[1, 2].map((n) => ref(n, 'MT')),
+      ].sort(),
+    );
+  }, 30_000);
+
+  it('takes the prefix from the route, then from the workspace', async () => {
+    const w = await workspace();
+    const first = await create(w);
+    await prisma.route.update({
+      where: { id: w.route.id },
+      data: { destinationCountry: 'IE' },
+    });
+    await expect(create(w)).resolves.toMatchObject({
+      reference: ref(1, 'IE'),
+      destinationCountry: 'IE',
+    });
+    // Not a country code, so the workspace's own country is used.
+    const user = { ...w.user, organisationCountry: 'GR' };
+    await expect(
+      service.create(user, {
+        customerId: w.customer.id,
+        destinationCountry: 'Malta',
+      }),
+    ).resolves.toMatchObject({ reference: ref(1, 'GR') });
+    // Changing a job's destination later does not rename it.
+    await service.update(user, first.id, { destinationCountry: 'MT' });
+    await expect(
+      prisma.importJob.findUnique({ where: { id: first.id } }),
+    ).resolves.toMatchObject({ reference: ref(1) });
+  });
 
   it('carries on from the highest existing reference and leaves it unchanged', async () => {
     const w = await workspace();
