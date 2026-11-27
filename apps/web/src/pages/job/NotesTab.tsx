@@ -1,145 +1,145 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { NOTE_VISIBILITIES } from '@vip/shared';
+import { Alert, Badge, Button, Card, EmptyState, Heading, SegmentedControl, Select, Text, Textarea, TextInput } from '@atomic-ui/ui-react';
 import { api } from '../../lib/api';
+import { formatDate } from '../../lib/format';
 import { useSession } from '../../lib/session';
-import { Card, ErrorBanner, fieldClass, primaryBtn, secondaryBtn } from '../../components/ui';
 import type { JobDetail } from './types';
+import './NotesTab.css';
 
-/** The Notes tab, moved out of the job page as it was. It is redesigned in its own change. */
+const VISIBILITY = [
+  { value: 'INTERNAL', label: 'Internal' },
+  { value: 'CUSTOMER', label: 'Visible to customer' },
+];
+const TONES = [
+  { value: 'professional', label: 'Tone: Professional' },
+  { value: 'warm', label: 'Tone: Warm' },
+  { value: 'brief', label: 'Tone: Brief' },
+];
+
+/**
+ * The Notes tab, after the Figma frames "Job workspace · Notes": a note to write,
+ * with a draft for the customer that the AI can start from, and the notes so far,
+ * newest first. A note visible to the customer is emailed to them.
+ */
 export function NotesTab({ job }: { job: JobDetail }) {
   const { canWrite } = useSession();
   const queryClient = useQueryClient();
-  const id = job.id;
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['job', id] });
-  const [note, setNote] = useState({ body: '', visibility: 'INTERNAL' });
-  const [draftIntent, setDraftIntent] = useState('');
-  const [draftTone, setDraftTone] = useState('professional');
-  const [draftSource, setDraftSource] = useState<'log' | 'openai' | null>(null);
-  const noteMutation = useMutation({
-    mutationFn: () =>
-      api(`/import-jobs/${id}/notes`, { method: 'POST', body: JSON.stringify(note) }),
-    onSuccess: () => {
-      setNote({ body: '', visibility: 'INTERNAL' });
-      setDraftSource(null);
-      void invalidate();
+  const [body, setBody] = useState('');
+  const [visibility, setVisibility] = useState('INTERNAL');
+  const [intent, setIntent] = useState('');
+  const [tone, setTone] = useState('professional');
+  const [source, setSource] = useState<'log' | 'openai' | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => api(`/import-jobs/${job.id}/notes`, { method: 'POST', body: JSON.stringify({ body: body.trim(), visibility }) }),
+    onSuccess: async () => {
+      setBody('');
+      setIntent('');
+      setSource(null);
+      setVisibility('INTERNAL');
+      await queryClient.invalidateQueries({ queryKey: ['job', job.id] });
     },
   });
-  const draftNoteMutation = useMutation({
+  const draft = useMutation({
     mutationFn: () =>
-      api<{ draft: string; source: 'log' | 'openai' }>(`/import-jobs/${id}/draft-customer-note`, {
+      api<{ draft: string; source: 'log' | 'openai' }>(`/import-jobs/${job.id}/draft-customer-note`, {
         method: 'POST',
-        body: JSON.stringify({
-          intent: draftIntent.trim() || note.body.trim(),
-          tone: draftTone,
-        }),
+        body: JSON.stringify({ intent: intent.trim() || body.trim(), tone }),
       }),
     onSuccess: (result) => {
-      setNote((prev) => ({
-        ...prev,
-        body: result.draft,
-        visibility: 'CUSTOMER',
-      }));
-      setDraftSource(result.source);
+      setBody(result.draft);
+      setVisibility('CUSTOMER');
+      setSource(result.source);
     },
   });
 
+  const notes = [...job.notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const visibleCount = notes.filter((n) => n.visibility === 'CUSTOMER').length;
+
   return (
-    <Card>
-      <h2 className="font-semibold">Notes</h2>
-      <ul className="mt-3 space-y-3 text-sm">
-        {job.notes.map((item) => (
-          <li key={item.id} className="rounded-xl bg-sand/70 p-3">
-            <p className="text-xs font-semibold uppercase tracking-widest text-ink/45">
-              {item.visibility === 'CUSTOMER' ? 'Visible to customer' : 'Internal only'} ·{' '}
-              {item.author.name}
-            </p>
-            <p className="mt-1">{item.body}</p>
-          </li>
-        ))}
-      </ul>
+    <div className={`job-notes${canWrite ? '' : ' is-read-only'}`}>
       {canWrite ? (
-        <>
-          <div className="mt-4 grid gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                className={`${fieldClass} min-w-[12rem] flex-1`}
-                value={draftIntent}
-                onChange={(event) => setDraftIntent(event.target.value)}
-                placeholder="Intent for AI draft (e.g. ferry delayed overnight)"
-              />
-              <select
-                className={`${fieldClass} w-auto`}
-                aria-label="Draft tone"
-                value={draftTone}
-                onChange={(event) => setDraftTone(event.target.value)}
-              >
-                <option value="professional">Professional</option>
-                <option value="warm">Warm</option>
-                <option value="brief">Brief</option>
-              </select>
-              <button
-                type="button"
-                className={secondaryBtn}
-                disabled={
-                  draftNoteMutation.isPending ||
-                  !(draftIntent.trim() || note.body.trim())
-                }
-                onClick={() => draftNoteMutation.mutate()}
-              >
-                {draftNoteMutation.isPending ? 'Drafting…' : 'Draft with AI'}
-              </button>
-              {draftSource ? (
-                <span className="text-xs font-semibold uppercase tracking-widest text-ink/45">
-                  Source: {draftSource}
-                </span>
-              ) : null}
-            </div>
-            {draftNoteMutation.isError ? (
-              <ErrorBanner
-                message={
-                  draftNoteMutation.error instanceof Error
-                    ? draftNoteMutation.error.message
-                    : 'Could not draft note'
-                }
-              />
-            ) : null}
-            <p className="text-xs text-ink/45">
-              AI fills the text below — review it, then click Add note. Nothing is posted or emailed until you save.
-            </p>
-          </div>
-          <textarea
-            className={`${fieldClass} mt-2 min-h-24`}
-            value={note.body}
-            onChange={(event) => {
-              setNote({ ...note, body: event.target.value });
-              setDraftSource(null);
+        <Card className="job-card">
+          <form
+            className="job-notes-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (body.trim()) save.mutate();
             }}
-            placeholder="Write an update"
-          />
-          <div className="mt-2 flex flex-wrap gap-2">
-            <select
-              className={fieldClass}
-              value={note.visibility}
-              onChange={(event) => setNote({ ...note, visibility: event.target.value })}
-            >
-              {NOTE_VISIBILITIES.map((item) => (
-                <option key={item} value={item}>
-                  {item === 'CUSTOMER' ? 'Visible to customer' : 'Internal only'}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              className={primaryBtn}
-              onClick={() => noteMutation.mutate()}
-              disabled={!note.body.trim()}
-            >
-              Add note
-            </button>
-          </div>
-        </>
+          >
+            <Textarea
+              label="Write an update"
+              rows={5}
+              value={body}
+              onChange={(e) => {
+                const value = e.detail.value;
+                setBody(value);
+                setSource(null);
+              }}
+            />
+            <SegmentedControl label="Who can see this" options={VISIBILITY} value={visibility} onChange={(e) => setVisibility(e.detail.value)} />
+            <fieldset className="job-notes-draft">
+              <legend>Draft a customer update</legend>
+              <TextInput label="What happened?" placeholder="For example, ferry delayed overnight" value={intent} onChange={(e) => setIntent(e.detail.value)} />
+              <div className="job-notes-draft-row">
+                <Select label="Tone" options={TONES} value={tone} onChange={(e) => setTone(e.detail.value)} />
+                <Button
+                  variant="subtle"
+                  disabled={!(intent.trim() || body.trim())}
+                  busy={draft.isPending}
+                  busyLabel="Drafting the update"
+                  onClick={() => draft.mutate()}
+                >
+                  Draft
+                </Button>
+              </div>
+              <Text size="sm" tone="muted">
+                {source
+                  ? `Drafted ${source === 'openai' ? 'by AI' : "from the job's history"}. Read it through before saving; nothing is sent until you save.`
+                  : 'The draft fills the update above. Nothing is sent until you save.'}
+              </Text>
+            </fieldset>
+            {draft.isError || save.isError ? (
+              <Alert tone="danger" heading={draft.isError ? 'No draft was written' : 'The note was not saved'}>
+                {(draft.error ?? save.error) instanceof Error ? (draft.error ?? save.error)!.message : 'Try again.'}
+              </Alert>
+            ) : null}
+            <div className="job-notes-foot">
+              <Text size="sm" tone="muted">
+                Customer-visible notes are emailed to the customer.
+              </Text>
+              <Button type="submit" disabled={!body.trim()} busy={save.isPending} busyLabel="Saving the note">
+                Save note
+              </Button>
+            </div>
+          </form>
+        </Card>
       ) : null}
-    </Card>
+
+      <Card className="job-card">
+        <div className="job-card-head">
+          <Heading level={2} size="md">
+            Notes
+          </Heading>
+          <Text size="sm" tone="muted">{`${notes.length} ${notes.length === 1 ? 'note' : 'notes'} · ${visibleCount} visible to customer`}</Text>
+        </div>
+        {notes.length === 0 ? (
+          <EmptyState heading="No notes yet" lead="Internal notes stay with the team. Notes visible to the customer are emailed to them and shown in their portal." />
+        ) : (
+          <ol className="job-notes-list">
+            {notes.map((note) => (
+              <li key={note.id} className={note.visibility === 'CUSTOMER' ? 'is-shared' : ''}>
+                <div className="job-notes-head">
+                  <Text size="sm">{`${note.author.name} · ${formatDate(note.createdAt)}`}</Text>
+                  {note.visibility === 'CUSTOMER' ? <Badge tone="solid">Visible to customer</Badge> : <Badge>Internal</Badge>}
+                </div>
+                <p>{note.body}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+    </div>
   );
 }
