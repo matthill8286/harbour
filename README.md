@@ -129,5 +129,18 @@ When `NODE_ENV` is `production`, mock data is shown only in the demo workspaces 
 ## File uploads
 
 - Job photos, job documents and plate photos are limited to 12 MB, one file per request.
+- Staff can delete a wrongly uploaded photo or document. The deletion appears in the job's activity.
+- File names are kept in any language.
 - The API checks that a file’s first bytes match its declared type. It does not scan for malware.
 - Each organisation may store up to `STORAGE_ORG_QUOTA_MB` megabytes of files (default 2048).
+- All organisations together may store up to `STORAGE_TOTAL_QUOTA_MB` (default 20480). Uploads also stop before the disk has less than `STORAGE_MIN_FREE_MB` free (default 10240). The API logs a warning when either limit refuses a file.
+- [Malware scanning](docs/malware-scanning.md) is a proposal. It is not built.
+
+### Photos and their metadata
+
+- A photo is stored exactly as uploaded. Beside it, the API makes a JPEG for viewing (up to 2560 pixels) and a thumbnail (up to 640 pixels). HEIC photos can therefore be viewed in every browser.
+- These copies carry no location, camera, owner or capture time. Colours are converted to standard sRGB where the file's profile allows it. HEIC colour profiles are not read.
+- The customer portal only ever sends copies. A JPEG, PNG, WebP, HEIC or single-page TIFF that was uploaded as a document is also sent to customers as a copy without metadata. A TIFF with several pages is not sent to customers; share it as a PDF.
+- PDF and Word files are sent unchanged, including any metadata and pictures inside them.
+- Photos stored before copies existed get theirs the first time someone views them. Nothing has to be run, and no original is rewritten or deleted.
+- Copies count towards the storage limits. Making a missing copy is not held to the organisation's own limit, so a full workspace can still show its photos.

@@ -19,6 +19,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { VehiclesService } from './vehicles.service';
+import { VehicleListQuery } from './dto/vehicle-list.query';
 import {
   CreateVehicleDto,
   LookupVehicleDto,
@@ -33,8 +34,8 @@ export class VehiclesController {
 
   @Get()
   @Roles(...STAFF_ROLES)
-  list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
-    return this.vehicles.list(user, search);
+  list(@CurrentUser() user: AuthUser, @Query() query: VehicleListQuery) {
+    return this.vehicles.list(user, query);
   }
 
   /** Declared before `:id`, so the word is not read as a vehicle id. */

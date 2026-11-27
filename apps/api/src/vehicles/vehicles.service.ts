@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { Prisma } from '@prisma/client';
 import type { VehicleCapabilities } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { VehicleDataService } from '../integrations/vehicle-data.service';
@@ -7,6 +8,10 @@ import { AnprService } from '../integrations/anpr.service';
 import { sampleDataAllowed } from '../integrations/sample-data';
 import type { AuthUser } from '../auth/auth.types';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
+import { afterNewest, newestCursor, toPage } from '../common/pagination';
+import type { VehicleListQuery } from './dto/vehicle-list.query';
+
+const VEHICLE_PAGE_SIZE = 25;
 
 @Injectable()
 export class VehiclesService {
@@ -17,33 +22,47 @@ export class VehiclesService {
     private readonly config: ConfigService,
   ) {}
 
-  list(user: AuthUser, search?: string) {
-    return this.prisma.vehicle.findMany({
-      where: {
-        organisationId: user.organisationId,
-        ...(search
-          ? {
+  /** One page of vehicles, newest first. */
+  async list(user: AuthUser, query: VehicleListQuery = {}) {
+    const limit = query.limit ?? VEHICLE_PAGE_SIZE;
+    const match = {
+      contains: query.search ?? '',
+      mode: 'insensitive',
+    } as const;
+    const where: Prisma.VehicleWhereInput[] = [
+      { organisationId: user.organisationId },
+      ...(query.search
+        ? [
+            {
               OR: [
-                { vin: { contains: search, mode: 'insensitive' } },
-                { make: { contains: search, mode: 'insensitive' } },
-                { model: { contains: search, mode: 'insensitive' } },
-                { ukRegistration: { contains: search, mode: 'insensitive' } },
-                {
-                  cyprusRegistration: { contains: search, mode: 'insensitive' },
-                },
+                { vin: match },
+                { make: match },
+                { model: match },
+                { ukRegistration: match },
+                { cyprusRegistration: match },
               ],
-            }
-          : {}),
-      },
-      include: {
-        importJobs: {
-          select: { id: true, reference: true, status: true },
-          orderBy: { createdAt: 'desc' },
-          take: 3,
+            },
+          ]
+        : []),
+    ];
+    const [rows, total] = await Promise.all([
+      this.prisma.vehicle.findMany({
+        where: {
+          AND: [...where, ...(query.cursor ? [afterNewest(query.cursor)] : [])],
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        include: {
+          importJobs: {
+            select: { id: true, reference: true, status: true },
+            orderBy: { createdAt: 'desc' },
+            take: 3,
+          },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+      }),
+      this.prisma.vehicle.count({ where: { AND: where } }),
+    ]);
+    return { ...toPage(rows, limit, newestCursor), total };
   }
 
   async get(user: AuthUser, id: string) {

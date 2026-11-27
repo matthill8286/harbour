@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import type { Html5Qrcode } from 'html5-qrcode';
 import { parseTrackerImeiFromScan } from '../lib/tracker-scan';
+import { cameraMessage } from '../lib/errors';
 import { Button } from '@atomic-ui/ui-react';
 import { ErrorBanner, secondaryBtn } from './ui';
 
@@ -30,6 +31,16 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
   const callbacksRef = useRef({ onClose, onImei, onError });
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // A modal dialog keeps the keyboard inside it and sits above the form that opened it.
+  // Closing it hands the focus back to where it was, which works only while it is still
+  // on the page, so this is a layout effect.
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => dialog?.close();
+  }, []);
 
   callbacksRef.current = { onClose, onImei, onError };
 
@@ -41,6 +52,22 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
       // React StrictMode mounts twice in dev — wait for the first cleanup cycle.
       await new Promise((resolve) => setTimeout(resolve, 80));
       if (disposed) return;
+
+      // The scanner library is large, so it is fetched only when the camera is opened.
+      // A failure does not reload the tab, because the form behind may be half typed.
+      let library: typeof import('html5-qrcode');
+      try {
+        library = await import('html5-qrcode');
+      } catch {
+        if (disposed) return;
+        const message = 'The scanner did not load. Type the IMEI instead, or reload the page and try again.';
+        setError(message);
+        callbacksRef.current.onError?.(message);
+        setStarting(false);
+        return;
+      }
+      if (disposed) return;
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = library;
 
       const container = document.getElementById(regionId);
       if (!container || container.childElementCount > 0) {
@@ -84,7 +111,8 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
         if (!disposed) setStarting(false);
       } catch (err: unknown) {
         if (disposed) return;
-        const message = err instanceof Error ? err.message : 'Could not open the camera. Check browser permissions.';
+        console.error(err);
+        const message = cameraMessage(err);
         setError(message);
         callbacksRef.current.onError?.(message);
         setStarting(false);
@@ -111,12 +139,25 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
   }, [regionId]);
 
   return (
-    <div className="tracker-qr-overlay" role="dialog" aria-modal="true" aria-label="Scan tracker QR code">
+    <dialog
+      ref={dialogRef}
+      className="tracker-qr-overlay"
+      aria-label="Scan tracker QR code"
+      // Escape closes the scanner only, not the dialog it was opened from.
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') event.stopPropagation();
+      }}
+      onCancel={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+    >
       <div className="tracker-qr-panel rounded-2xl bg-paper p-4 shadow-xl">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
             <h2 className="display text-2xl">Scan tracker QR</h2>
-            <p className="mt-1 text-sm text-ink/60">Point your camera at the IMEI QR on the Teltonika TAT140 sticker.</p>
+            <p className="mt-1 text-sm text-ink/70">Point your camera at the IMEI QR on the Teltonika TAT140 sticker.</p>
           </div>
           <button type="button" className={secondaryBtn} onClick={onClose}>
             Cancel
@@ -125,7 +166,10 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
         <div className="relative">
           <div id={regionId} className="tracker-qr-viewfinder overflow-hidden rounded-xl" />
           {starting ? (
-            <p className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-ink/35 text-sm font-semibold text-paper">
+            <p
+              role="status"
+              className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-ink/35 text-sm font-semibold text-paper"
+            >
               Opening camera…
             </p>
           ) : null}
@@ -136,6 +180,6 @@ function TrackerQrScannerDialog({ onClose, onImei, onError }: { onClose: () => v
           </div>
         ) : null}
       </div>
-    </div>
+    </dialog>
   );
 }
