@@ -42,13 +42,17 @@ export function EmptyState({ title, description, action }: { title: string; desc
 }
 
 export function ErrorBanner({ message }: { message: string }) {
-  return <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{message}</p>;
+  return (
+    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      {message}
+    </p>
+  );
 }
 
 export function LoadingScreen({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="flex items-center gap-3 py-10 text-sm text-ink/55">
-      <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-harbour" />
+    <div role="status" className="flex items-center gap-3 py-10 text-sm text-ink/55">
+      <span aria-hidden="true" className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-harbour" />
       {label}
     </div>
   );
