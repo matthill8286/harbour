@@ -99,3 +99,26 @@ describe('two-step sign-in', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe('accepting an invite for an existing account', () => {
+  it('sends the two-factor code with the password once the api asks for it', async () => {
+    fetchMock.mockReturnValueOnce(reply({ message: 'Enter the code from your authenticator app.', code: 'invite_two_factor_required' }, 400));
+    await expect(auth.useAuth.getState().acceptInvite('token-1', 'current-password')).rejects.toMatchObject({
+      code: 'invite_two_factor_required',
+    });
+
+    fetchMock.mockReturnValueOnce(reply({ accessToken: 'access-3', user: staff }));
+    await auth.useAuth.getState().acceptInvite('token-1', 'current-password', { code: '123456' });
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe('/api/auth/invites/token-1/accept');
+    expect(JSON.parse(String(init.body))).toEqual({ password: 'current-password', code: '123456' });
+    expect(store.get('harbour.token')).toBe('access-3');
+  });
+
+  it('does not end the current session over a wrong code', async () => {
+    store.set('harbour.token', 'signed-in');
+    fetchMock.mockReturnValueOnce(reply({ message: 'That code is not right.' }, 401));
+    await expect(auth.useAuth.getState().acceptInvite('token-2', 'current-password', { code: '000000' })).rejects.toThrow('That code is not right.');
+    expect(store.get('harbour.token')).toBe('signed-in');
+  });
+});
