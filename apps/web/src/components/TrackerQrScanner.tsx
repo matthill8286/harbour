@@ -1,7 +1,8 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
-import { parseTrackerImeiFromScan } from '../lib/tracker-scan';
-import { ErrorBanner, secondaryBtn } from './ui';
+import { useEffect, useId, useRef, useState } from "react";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { parseTrackerImeiFromScan } from "../lib/tracker-scan";
+import { Button } from "@atomic-ui/ui-react";
+import { ErrorBanner, secondaryBtn } from "./ui";
 
 type TrackerQrScanButtonProps = {
   onImei: (imei: string) => void;
@@ -14,20 +15,20 @@ export function TrackerQrScanButton({
   onImei,
   onError,
   disabled = false,
-  label = 'Scan QR',
+  label = "Scan QR",
 }: TrackerQrScanButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <button
-        type="button"
-        className={secondaryBtn}
+      <Button
+        variant="secondary"
+        iconBefore="qr-code"
         disabled={disabled}
         onClick={() => setOpen(true)}
       >
         {label}
-      </button>
+      </Button>
       {open ? (
         <TrackerQrScannerDialog
           onClose={() => setOpen(false)}
@@ -49,7 +50,7 @@ function TrackerQrScannerDialog({
   onError?: (message: string) => void;
 }) {
   const reactId = useId();
-  const regionId = `tracker-qr-${reactId.replace(/:/g, '')}`;
+  const regionId = `tracker-qr-${reactId.replace(/:/g, "")}`;
   const callbacksRef = useRef({ onClose, onImei, onError });
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(true);
@@ -81,11 +82,12 @@ function TrackerQrScannerDialog({
 
       try {
         await scanner.start(
-          { facingMode: 'environment' },
+          { facingMode: "environment" },
           {
             fps: 10,
             qrbox: (viewfinderWidth, viewfinderHeight) => {
-              const edge = Math.min(viewfinderWidth, viewfinderHeight, 280) * 0.72;
+              const edge =
+                Math.min(viewfinderWidth, viewfinderHeight, 280) * 0.72;
               return { width: edge, height: edge };
             },
           },
@@ -93,7 +95,7 @@ function TrackerQrScannerDialog({
             const imei = parseTrackerImeiFromScan(text);
             if (!imei) {
               const message =
-                'That code did not contain a valid IMEI. Point at the TAT140 sticker QR.';
+                "That code did not contain a valid IMEI. Point at the TAT140 sticker QR.";
               setError(message);
               callbacksRef.current.onError?.(message);
               return;
@@ -114,7 +116,7 @@ function TrackerQrScannerDialog({
         const message =
           err instanceof Error
             ? err.message
-            : 'Could not open the camera. Check browser permissions.';
+            : "Could not open the camera. Check browser permissions.";
         setError(message);
         callbacksRef.current.onError?.(message);
         setStarting(false);
@@ -160,7 +162,10 @@ function TrackerQrScannerDialog({
           </button>
         </div>
         <div className="relative">
-          <div id={regionId} className="tracker-qr-viewfinder overflow-hidden rounded-xl" />
+          <div
+            id={regionId}
+            className="tracker-qr-viewfinder overflow-hidden rounded-xl"
+          />
           {starting ? (
             <p className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-xl bg-ink/35 text-sm font-semibold text-paper">
               Opening camera…
