@@ -9,13 +9,11 @@ import {
   customerProgress,
   customerStatusLabel,
   routeStatusCodes,
-  type JobStatus,
   type RouteWorkflow,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../integrations/storage.service';
-import { TrackingService } from '../tracking/tracking.service';
 import type { AuthUser } from '../auth/auth.types';
 import { WorkflowRoutesService } from '../workflow/workflow-routes.service';
 import { toPortalJob } from './portal.view';
@@ -34,7 +32,6 @@ export class PortalService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
-    private readonly tracking: TrackingService,
     private readonly workflows: WorkflowRoutesService,
     private readonly audit: AuditService,
   ) {}
@@ -116,20 +113,14 @@ export class PortalService {
 
   async get(user: AuthUser, id: string) {
     const job = await this.loadCustomerJob(user, id);
-    await this.tracking.alignToStatus(
-      job.id,
-      user.organisationId,
-      job.status as JobStatus,
-    );
-    const fresh = await this.loadCustomerJob(user, id);
     const route = await this.workflows.workflowFor(
       user.organisationId,
-      fresh.routeId,
+      job.routeId,
     );
-    const portalJob = toPortalJob(fresh);
+    const portalJob = toPortalJob(job);
     return {
       ...portalJob,
-      ...this.view(route, fresh.status),
+      ...this.view(route, job.status),
       statusHistory: portalJob.statusHistory.map((entry) => ({
         ...entry,
         label: customerStatusLabel(route, entry.toStatus),

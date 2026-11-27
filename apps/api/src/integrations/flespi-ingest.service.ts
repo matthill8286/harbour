@@ -1,12 +1,26 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { savePings } from '../tracking/location-writes';
 import { FlespiGpsClient } from './flespi-gps.client';
 import { parseFlespiBatch, type FlespiPing } from './flespi-message';
+import { imeiKey, imeiKeySql, realProviderSql } from './gps-device';
+
+/** A ping dated further ahead than this has a broken clock and is dropped. */
+const MAX_CLOCK_AHEAD_MS = 24 * 60 * 60 * 1000;
+
+type Device = {
+  id: string;
+  organisationId: string;
+  ownershipConfirmedAt: Date;
+  key: string;
+};
 
 @Injectable()
 export class FlespiIngestService {
@@ -17,18 +31,8 @@ export class FlespiIngestService {
     private readonly flespi: FlespiGpsClient,
   ) {}
 
-  async ingestBody(body: unknown) {
-    const pings = parseFlespiBatch(body);
-    let accepted = 0;
-    let skipped = 0;
-    let unknown = 0;
-    for (const ping of pings) {
-      const result = await this.ingestPing(ping);
-      accepted += result.accepted;
-      skipped += result.skipped;
-      unknown += result.unknown;
-    }
-    return { received: pings.length, accepted, skipped, unknown };
+  ingestBody(body: unknown) {
+    return this.deliver(parseFlespiBatch(body));
   }
 
   async syncTracker(organisationId: string, trackerId: string) {
@@ -43,71 +47,95 @@ export class FlespiIngestService {
         'Only Flespi trackers can be synced from the gateway',
       );
     }
+    // Checked before the gateway is asked: the account is shared by every
+    // workspace, so only a confirmed owner may read a device from it.
+    if (!tracker.ownershipConfirmedAt || tracker.imeiConflictAt) {
+      throw new ForbiddenException(
+        'Positions start once the platform operator has confirmed that your workspace owns this unit.',
+      );
+    }
     if (!this.flespi.configured()) {
       throw new BadRequestException('FLESPI_TOKEN is not configured');
     }
+    const key = imeiKey(tracker.serialNumber);
     const pings = await this.flespi.latestForImei(tracker.serialNumber);
-    let accepted = 0;
-    let skipped = 0;
-    for (const ping of pings) {
-      const result = await this.ingestPing(ping, tracker.id);
-      accepted += result.accepted;
-      skipped += result.skipped;
-    }
-    return { received: pings.length, accepted, skipped };
+    const { received, accepted, skipped } = await this.deliver(
+      pings.filter((ping) => imeiKey(ping.ident) === key),
+      tracker.id,
+    );
+    return { received, accepted, skipped };
   }
 
-  private async ingestPing(ping: FlespiPing, trackerId?: string) {
-    const trackers = await this.prisma.tracker.findMany({
-      where: trackerId ? { id: trackerId } : { serialNumber: ping.ident },
-      include: { assignments: { where: { removedAt: null }, take: 1 } },
-    });
-    if (trackers.length === 0) {
-      this.logger.debug(`No Harbour tracker registered for IMEI ${ping.ident}`);
-      return { accepted: 0, skipped: 0, unknown: 1 };
-    }
-    let accepted = 0;
-    let skipped = 0;
-    for (const tracker of trackers) {
-      const duplicate = await this.prisma.locationEvent.findFirst({
-        where: { trackerId: tracker.id, recordedAt: ping.recordedAt },
-        select: { id: true },
-      });
-      if (duplicate) {
-        skipped += 1;
+  /**
+   * Gives each ping to the one tracker confirmed to own its IMEI, and to nobody
+   * when there is no such tracker. With `onlyTrackerId`, no other tracker can
+   * receive anything.
+   */
+  private async deliver(pings: FlespiPing[], onlyTrackerId?: string) {
+    const devices = await this.owners(pings, onlyTrackerId);
+    const latest = Date.now() + MAX_CLOCK_AHEAD_MS;
+    const deliveries = new Map<
+      string,
+      { tracker: Device; pings: FlespiPing[] }
+    >();
+    let unknown = 0;
+    let refused = 0;
+    for (const ping of pings) {
+      const device = devices.get(imeiKey(ping.ident));
+      if (!device) {
+        unknown += 1;
         continue;
       }
-      const assignment = tracker.assignments[0];
-      if (assignment) {
-        await this.prisma.locationEvent.create({
-          data: {
-            organisationId: tracker.organisationId,
-            trackerId: tracker.id,
-            vehicleId: assignment.vehicleId,
-            importJobId: assignment.importJobId,
-            latitude: ping.latitude,
-            longitude: ping.longitude,
-            accuracy: ping.accuracy,
-            speed: ping.speed,
-            heading: ping.heading,
-            recordedAt: ping.recordedAt,
-          },
-        });
+      // Anything recorded before ownership was confirmed may be another
+      // holder's journey.
+      if (
+        ping.recordedAt < device.ownershipConfirmedAt ||
+        ping.recordedAt.getTime() > latest
+      ) {
+        refused += 1;
+        continue;
       }
-      await this.prisma.tracker.update({
-        where: { id: tracker.id },
-        data: {
-          lastSeenAt: ping.recordedAt,
-          batteryLevel: ping.batteryLevel ?? tracker.batteryLevel,
-          status: assignment
-            ? 'ASSIGNED'
-            : tracker.status === 'OFFLINE'
-              ? 'AVAILABLE'
-              : tracker.status,
-        },
-      });
-      accepted += 1;
+      const delivery = deliveries.get(device.id) ?? {
+        tracker: device,
+        pings: [],
+      };
+      delivery.pings.push(ping);
+      deliveries.set(device.id, delivery);
     }
-    return { accepted, skipped, unknown: 0 };
+    if (unknown) {
+      this.logger.debug(`${unknown} pings had no confirmed Harbour tracker`);
+    }
+    const result = await savePings(this.prisma, [...deliveries.values()], {
+      keepUnassigned: false,
+    });
+    return {
+      received: pings.length,
+      // A ping from outside every assignment still counts: it is a heartbeat.
+      accepted: result.saved + result.unassigned,
+      skipped: result.duplicates + refused,
+      unknown,
+    };
+  }
+
+  private async owners(pings: FlespiPing[], onlyTrackerId?: string) {
+    const keys = [...new Set(pings.map((ping) => imeiKey(ping.ident)))];
+    if (keys.length === 0) return new Map<string, Device>();
+    const rows = await this.prisma.$queryRaw<Device[]>`
+      SELECT "id", "organisationId", "ownershipConfirmedAt", ${imeiKeySql} AS "key"
+      FROM "Tracker"
+      WHERE ${realProviderSql}
+        AND "imeiConflictAt" IS NULL
+        AND "ownershipConfirmedAt" IS NOT NULL
+        AND ${imeiKeySql} IN (${Prisma.join(keys)})`;
+    const owners = new Map<string, Device>();
+    for (const row of rows) {
+      // The unique index allows one. If there are ever two, neither receives.
+      if (rows.filter((other) => other.key === row.key).length > 1) {
+        this.logger.error(`Tracker ${row.id} shares its IMEI. Nothing sent.`);
+        continue;
+      }
+      if (!onlyTrackerId || row.id === onlyTrackerId) owners.set(row.key, row);
+    }
+    return owners;
   }
 }
