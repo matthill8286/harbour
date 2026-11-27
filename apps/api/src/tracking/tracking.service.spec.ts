@@ -12,7 +12,11 @@ type FakeEvent = {
   speed?: number;
 };
 
-function createPrisma(events: FakeEvent[], provider = 'generic') {
+function createPrisma(
+  events: FakeEvent[],
+  provider = 'generic',
+  systemKey: string | null = 'uk-cyprus',
+) {
   const state = { events: [...events] };
   const prisma = {
     journey: { findMany: jest.fn().mockResolvedValue([]) },
@@ -35,6 +39,7 @@ function createPrisma(events: FakeEvent[], provider = 'generic') {
     },
     tracker: { update: jest.fn().mockResolvedValue({}) },
     importJob: {
+      findUnique: jest.fn().mockResolvedValue({ route: { systemKey } }),
       findFirst: jest.fn(
         ({
           include,
@@ -193,5 +198,27 @@ describe('TrackingService.alignToStatus', () => {
     const last = state.events[state.events.length - 1];
     expect(last.latitude).toBeCloseTo(LIMASSOL.latitude, 3);
     expect(last.longitude).toBeCloseTo(LIMASSOL.longitude, 3);
+  });
+
+  it('leaves GPS alone for a job on a route other than UK → Cyprus', async () => {
+    const { prisma, state } = createPrisma(
+      [
+        {
+          id: 'cy',
+          ...LIMASSOL,
+          recordedAt: new Date('2026-08-23T23:10:00Z'),
+          speed: 18,
+        },
+      ],
+      'generic',
+      null,
+    );
+    await service(prisma).alignToStatus(
+      'job-1',
+      'org-1',
+      'READY_FOR_COLLECTION',
+    );
+    expect(prisma.locationEvent.deleteMany).not.toHaveBeenCalled();
+    expect(state.events.map((event) => event.id)).toEqual(['cy']);
   });
 });

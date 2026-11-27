@@ -12,6 +12,7 @@ import { PortalModule } from './portal/portal.module';
 import { TrackersModule } from './trackers/trackers.module';
 import { TrackingModule } from './tracking/tracking.module';
 import { OrganisationsModule } from './organisations/organisations.module';
+import { WorkflowModule } from './workflow/workflow.module';
 import { RouteTemplatesModule } from './routes/route-templates.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { HealthController } from './health.controller';
@@ -36,6 +37,7 @@ import { HealthController } from './health.controller';
     TrackingModule,
     OrganisationsModule,
     RouteTemplatesModule,
+    WorkflowModule,
   ],
   controllers: [HealthController],
 })
