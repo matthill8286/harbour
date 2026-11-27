@@ -6,7 +6,7 @@
 #
 # Pins: keep the two Node/Alpine pins on the same Alpine release, because the Node binary
 # is copied from one into the other.
-FROM node:24.22.3-alpine3.24@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS node
+FROM node:26.13.1-alpine3.24@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS node
 
 FROM node AS build
 ENV PNPM_HOME=/pnpm PATH=/pnpm:$PATH CI=true CHECKPOINT_DISABLE=1
