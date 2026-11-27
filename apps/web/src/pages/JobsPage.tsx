@@ -136,6 +136,7 @@ export function JobsPage() {
           <Select
             className="jobs-status"
             label="Route"
+            hideLabel
             options={[{ value: '', label: 'All routes' }, ...workflows.routes.map((r) => ({ value: r.id, label: r.name }))]}
             value={routeId}
             onChange={(event) => setParam('route', event.detail.value)}
@@ -144,6 +145,7 @@ export function JobsPage() {
         <Select
           className="jobs-status"
           label="Status"
+          hideLabel
           placeholder="All statuses"
           options={statusOptions}
           value={status}

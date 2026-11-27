@@ -142,11 +142,11 @@ importers:
   apps/web:
     dependencies:
       '@atomic-ui/ui':
-        specifier: ^0.7.1
-        version: 0.7.1
+        specifier: ^0.7.2
+        version: 0.7.2
       '@atomic-ui/ui-react':
-        specifier: ^0.7.1
-        version: 0.7.1(@types/react@19.2.18)(react@19.2.8)
+        specifier: ^0.7.2
+        version: 0.7.2(@types/react@19.2.18)(react@19.2.8)
       '@tanstack/react-query':
         specifier: ^5.85.5
         version: 5.102.1(react@19.2.8)
@@ -182,8 +182,8 @@ importers:
         version: 5.0.15(@types/react@19.2.18)(react@19.2.8)
     devDependencies:
       '@atomic-ui/design-tokens':
-        specifier: ^0.7.1
-        version: 0.7.1
+        specifier: ^0.7.2
+        version: 0.7.2
       '@tailwindcss/vite':
         specifier: ^4.1.12
         version: 4.3.3(vite@8.2.2(@types/node@24.13.3)(jiti@2.7.0)(terser@5.50.0))
@@ -260,20 +260,20 @@ packages:
     resolution: {integrity: sha512-/PZmyAlb2NGWPikRRuiWLdfHQd8Wrx6lX4HqvTcaDhlU43M3T0ud4PH2T3QDp7BzHYY92xtD8iPxX2asg67G1A==}
     engines: {node: ^18.19.1 || ^20.11.1 || >=22.0.0, npm: ^6.11.0 || ^7.5.6 || >=8.0.0, yarn: '>= 1.13.0'}
 
-  '@atomic-ui/design-tokens@0.7.1':
-    resolution: {integrity: sha512-/JMEcCJHF+B/zaC/SDSerHexp3T/oOHU31Zm3Weh+VGIpx6rj2YNP2UK+WRkAKsu78kuJWTcPa3kUIqRTNdpxw==}
+  '@atomic-ui/design-tokens@0.7.2':
+    resolution: {integrity: sha512-sQ4qYebnyq6MXWm65mVQX7AC9A17RYy1y3TY6x8mUTTbOZORNgvzyassuz5MS5Sf1CsiBj3MjJaA86dhFTfv5w==}
 
-  '@atomic-ui/ui-react@0.7.1':
-    resolution: {integrity: sha512-nyS2swrqr7Mu2CQRPJzeinPd5RfHPuAdPVESWSYtaxMdlcRnJ4BtpuQZaCObvqrTrPL3PQZuliVRSbRa2wCb4g==}
+  '@atomic-ui/ui-react@0.7.2':
+    resolution: {integrity: sha512-/Q8wNXBNSyhuY/vrN+43EsS6lKiB4qC42zeuPyTEPF8HNcLf7sQzkLc8LEapn2kqdqHfPAGORPTGugas6J13aQ==}
     peerDependencies:
-      '@atomic-ui/blocks': ^0.7.1
+      '@atomic-ui/blocks': ^0.7.2
       react: ^18.3.0 || ^19.0.0
     peerDependenciesMeta:
       '@atomic-ui/blocks':
         optional: true
 
-  '@atomic-ui/ui@0.7.1':
-    resolution: {integrity: sha512-parc3s9p4jRdwoe+kjZ5QFRf7NZrsg1GlHjoL82nCzYGRcUS/QXz+/mA8ys5T/m1TfSz8I6+oz+sj2ottwSAYg==}
+  '@atomic-ui/ui@0.7.2':
+    resolution: {integrity: sha512-g3Q7kQpX1bJSvDNBGwTScl7niXDyLXE/jV7DK62u4JzSkd+JqvhYnWLeSZYJafTgPnuNmJ92hj1Wa9yEUGyabg==}
     hasBin: true
 
   '@babel/code-frame@7.29.7':
@@ -4316,21 +4316,21 @@ snapshots:
     transitivePeerDependencies:
       - chokidar
 
-  '@atomic-ui/design-tokens@0.7.1':
+  '@atomic-ui/design-tokens@0.7.2':
     dependencies:
       zod: 3.25.76
 
-  '@atomic-ui/ui-react@0.7.1(@types/react@19.2.18)(react@19.2.8)':
+  '@atomic-ui/ui-react@0.7.2(@types/react@19.2.18)(react@19.2.8)':
     dependencies:
-      '@atomic-ui/ui': 0.7.1
+      '@atomic-ui/ui': 0.7.2
       '@lit/react': 1.0.8(@types/react@19.2.18)
       react: 19.2.8
     transitivePeerDependencies:
       - '@types/react'
 
-  '@atomic-ui/ui@0.7.1':
+  '@atomic-ui/ui@0.7.2':
     dependencies:
-      '@atomic-ui/design-tokens': 0.7.1
+      '@atomic-ui/design-tokens': 0.7.2
       lit: 3.3.3
 
   '@babel/code-frame@7.29.7':

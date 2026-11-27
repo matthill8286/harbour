@@ -145,14 +145,24 @@ export function AppShell() {
         ) : null}
         <Menu
           className="harbour-account-menu"
-          label={user?.name ?? 'Account'}
-          icon="user"
+          label="Account"
           edge="end"
           items={accountItems}
           onSelect={(event) => {
             if (event.detail.value === 'sign-out') signOut();
           }}
-        />
+        >
+          <span slot="trigger" className="harbour-account-trigger">
+            <Avatar fullName={user?.name ?? 'Account'} size="sm" />
+            <span>{user?.name ?? 'Account'}</span>
+          </span>
+          {user ? (
+            <span slot="header" className="harbour-account-header">
+              <strong>{user.name}</strong>
+              <span>{user.email}</span>
+            </span>
+          ) : null}
+        </Menu>
       </div>
 
       <div slot="phone-header" className="harbour-phone-header">

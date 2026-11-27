@@ -42,7 +42,7 @@
 /* The account menu's trigger, shaped like the workspace chip. */
 .harbour-account-menu::part(trigger) {
   min-block-size: 48px;
-  padding: 6px 14px;
+  padding: 6px 16px 6px 6px;
   border: 0;
   border-radius: 999px;
   background: var(--impakt-color-surface-card);
@@ -53,6 +53,24 @@
 
 .harbour-account-menu::part(trigger):hover {
   background: var(--impakt-color-surface-inset);
+}
+
+.harbour-account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.harbour-account-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.harbour-account-header strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--impakt-color-text-default);
 }
 
 .harbour-search {
