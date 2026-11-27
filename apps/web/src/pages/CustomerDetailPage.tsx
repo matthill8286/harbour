@@ -151,7 +151,14 @@ export function CustomerDetailPage() {
             <TextInput label="Email" type="email" disabled={!canWrite} value={contact.email} onChange={set('email')} />
             <TextInput label="Phone" type="tel" disabled={!canWrite} value={contact.phone} onChange={set('phone')} />
             <TextInput label="Address" disabled={!canWrite} value={contact.address} onChange={set('address')} className="customer-wide" />
-            <Textarea label="Internal notes, never shown in the portal" rows={3} disabled={!canWrite} value={contact.notes} onChange={set('notes')} className="customer-wide" />
+            <Textarea
+              label="Internal notes, never shown in the portal"
+              rows={3}
+              disabled={!canWrite}
+              value={contact.notes}
+              onChange={set('notes')}
+              className="customer-wide"
+            />
             {save.isError ? (
               <Alert tone="danger" heading="The changes were not saved" className="customer-wide">
                 {save.error instanceof Error ? save.error.message : 'Try again.'}
@@ -159,8 +166,17 @@ export function CustomerDetailPage() {
             ) : null}
             {canWrite ? (
               <div className="customer-wide customer-save">
-                {save.isSuccess && !changed ? <Text size="sm" tone="muted">Saved.</Text> : null}
-                <Button type="submit" disabled={!changed || !contact.firstName.trim() || !contact.lastName.trim()} busy={save.isPending} busyLabel="Saving the changes">
+                {save.isSuccess && !changed ? (
+                  <Text size="sm" tone="muted">
+                    Saved.
+                  </Text>
+                ) : null}
+                <Button
+                  type="submit"
+                  disabled={!changed || !contact.firstName.trim() || !contact.lastName.trim()}
+                  busy={save.isPending}
+                  busyLabel="Saving the changes"
+                >
                   Save changes
                 </Button>
               </div>
@@ -187,8 +203,19 @@ export function CustomerDetailPage() {
             ) : null}
             {canWrite ? (
               <div className="customer-portal-action">
-                {customer.email ? null : <Text size="sm" tone="muted">Add an email above first; the invite goes to it.</Text>}
-                <Button variant={customer.portal.status === 'NONE' ? 'primary' : 'secondary'} full disabled={!customer.email} busy={invite.isPending} busyLabel="Creating the link" onClick={() => invite.mutate()}>
+                {customer.email ? null : (
+                  <Text size="sm" tone="muted">
+                    Add an email above first; the invite goes to it.
+                  </Text>
+                )}
+                <Button
+                  variant={customer.portal.status === 'NONE' ? 'primary' : 'secondary'}
+                  full
+                  disabled={!customer.email}
+                  busy={invite.isPending}
+                  busyLabel="Creating the link"
+                  onClick={() => invite.mutate()}
+                >
                   {portal.action}
                 </Button>
               </div>

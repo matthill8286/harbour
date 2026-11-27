@@ -19,9 +19,7 @@ export function SecuritySetupPage() {
       lead="Harbour holds customer and vehicle records, so every team member signs in with a password and a code from an authenticator app."
     >
       <h2 className="display text-3xl">Set up two-factor sign-in</h2>
-      <p className="text-sm text-ink/60">
-        You need an authenticator app on your phone. This takes about a minute.
-      </p>
+      <p className="text-sm text-ink/60">You need an authenticator app on your phone. This takes about a minute.</p>
       <TwoFactorEnrolment
         onEnabled={async () => {
           const updated = await refresh();

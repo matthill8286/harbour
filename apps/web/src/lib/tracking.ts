@@ -84,10 +84,7 @@ export function trackerKindLabel(provider: string) {
 }
 
 /** Nudge stacked fleet pings so two London jobs are both clickable. */
-export function spreadOverlappingMarkers<T extends { latitude: number; longitude: number }>(
-  markers: T[],
-  radiusDeg = 0.55,
-): T[] {
+export function spreadOverlappingMarkers<T extends { latitude: number; longitude: number }>(markers: T[], radiusDeg = 0.55): T[] {
   const groups = new Map<string, number[]>();
   markers.forEach((marker, index) => {
     const key = `${marker.latitude.toFixed(2)}:${marker.longitude.toFixed(2)}`;

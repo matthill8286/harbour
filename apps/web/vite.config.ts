@@ -18,16 +18,9 @@ export default defineConfig({
         changeOrigin: true,
         configure(proxy) {
           proxy.on('error', (_error, _req, res) => {
-            if (
-              res &&
-              'writeHead' in res &&
-              'headersSent' in res &&
-              !res.headersSent
-            ) {
+            if (res && 'writeHead' in res && 'headersSent' in res && !res.headersSent) {
               res.writeHead(503, { 'Content-Type': 'application/json' });
-              res.end(
-                JSON.stringify({ message: 'API is starting. Retry in a moment.' }),
-              );
+              res.end(JSON.stringify({ message: 'API is starting. Retry in a moment.' }));
             }
           });
         },

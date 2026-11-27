@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { describeActivity, type ActivityItem } from './activityText';
 
-const item = (action: string, metadata: ActivityItem['metadata']): ActivityItem => ({ id: '1', action, createdAt: '2026-11-24T09:12:00Z', actor: { name: 'Chris Owner' }, metadata });
+const item = (action: string, metadata: ActivityItem['metadata']): ActivityItem => ({
+  id: '1',
+  action,
+  createdAt: '2026-11-24T09:12:00Z',
+  actor: { name: 'Chris Owner' },
+  metadata,
+});
 
 describe('describeActivity', () => {
   it('reads a status change as from and to', () => {
@@ -18,7 +24,13 @@ describe('describeActivity', () => {
   });
 
   it('shows what a money line was before an edit, in the workspace currency', () => {
-    const edit = item('MONEY_LINE_UPDATED', { kind: 'charge', category: 'TRANSPORT', description: 'Transport service', amount: 1950, before: { amount: 1800 } });
+    const edit = item('MONEY_LINE_UPDATED', {
+      kind: 'charge',
+      category: 'TRANSPORT',
+      description: 'Transport service',
+      amount: 1950,
+      before: { amount: 1800 },
+    });
     const { verb, detail } = describeActivity(edit, 'EUR');
     expect(verb).toBe('edited a charge');
     expect(detail).toContain('Transport service');
@@ -26,7 +38,9 @@ describe('describeActivity', () => {
   });
 
   it('names a money line by its category when it has no description', () => {
-    expect(describeActivity(item('MONEY_LINE_ADDED', { kind: 'cost', category: 'TRANSPORT', description: '', amount: 300 }), 'EUR').detail).toMatch(/^Transport · .*300\.00$/);
+    expect(describeActivity(item('MONEY_LINE_ADDED', { kind: 'cost', category: 'TRANSPORT', description: '', amount: 300 }), 'EUR').detail).toMatch(
+      /^Transport · .*300\.00$/,
+    );
   });
 
   it('falls back to the action in words for anything it does not know', () => {

@@ -132,16 +132,14 @@
 .workspace-routes {
   margin-block-start: 8px;
   padding-block-start: 16px;
-  border-block-start: 1px solid
-    color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+  border-block-start: 1px solid color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
 }
 
 .workspace-invite {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(
-      10rem,
-      12rem
-    ) auto;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(0, 1.2fr) minmax(10rem, 12rem)
+    auto;
   align-items: end;
   gap: 12px;
   margin-block: 16px;

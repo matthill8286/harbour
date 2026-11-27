@@ -141,11 +141,7 @@
 }
 
 .fleet-vehicle:hover {
-  background: color-mix(
-    in srgb,
-    var(--impakt-color-surface-inset),
-    var(--impakt-color-text-default) 4%
-  );
+  background: color-mix(in srgb, var(--impakt-color-surface-inset), var(--impakt-color-text-default) 4%);
 }
 
 .fleet-vehicle:focus-visible {

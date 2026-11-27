@@ -183,7 +183,9 @@ export function CancelJobDialog({ jobId, onClose }: { jobId: string; onClose: ()
           cancel.mutate();
         }}
       >
-        <p className="job-dialog-lead">The customer is told by email if they have an address on file. You can still open the job afterwards, but it cannot be moved again.</p>
+        <p className="job-dialog-lead">
+          The customer is told by email if they have an address on file. You can still open the job afterwards, but it cannot be moved again.
+        </p>
         <Textarea
           label="Reason (optional)"
           rows={3}

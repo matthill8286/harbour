@@ -14,15 +14,7 @@ function customerActiveKey(stage: JobStage) {
   return stage;
 }
 
-export function JourneyStepper({
-  status,
-  variant = 'staff',
-  embedded = false,
-}: {
-  status: JobStatus;
-  variant?: 'staff' | 'customer';
-  embedded?: boolean;
-}) {
+export function JourneyStepper({ status, variant = 'staff', embedded = false }: { status: JobStatus; variant?: 'staff' | 'customer'; embedded?: boolean }) {
   const stage = getJobStage(status);
   const shell = embedded ? '' : 'rounded-2xl bg-paper p-4';
   if (variant === 'customer') {
@@ -48,9 +40,7 @@ export function JourneyStepper({
   const completed = stage === 'completed';
   return (
     <ol
-      className={`grid grid-cols-5 gap-1 text-center text-[10px] text-mist sm:text-[11px] ${
-        embedded ? '' : 'rounded-2xl bg-paper p-3 text-ink'
-      }`}
+      className={`grid grid-cols-5 gap-1 text-center text-[10px] text-mist sm:text-[11px] ${embedded ? '' : 'rounded-2xl bg-paper p-3 text-ink'}`}
       aria-label="Journey progress"
     >
       {STAFF_STEPS.map((step, index) => {
@@ -76,17 +66,7 @@ export function JourneyStepper({
             {step.label}
             <div
               className={`mx-auto mt-1.5 h-1 w-full max-w-16 rounded-full ${
-                current
-                  ? embedded
-                    ? 'bg-harbour'
-                    : 'bg-harbour'
-                  : done
-                    ? embedded
-                      ? 'bg-mist/70'
-                      : 'bg-ink/40'
-                    : embedded
-                      ? 'bg-paper/20'
-                      : 'bg-ink/10'
+                current ? (embedded ? 'bg-harbour' : 'bg-harbour') : done ? (embedded ? 'bg-mist/70' : 'bg-ink/40') : embedded ? 'bg-paper/20' : 'bg-ink/10'
               }`}
             />
           </li>

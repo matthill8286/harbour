@@ -37,8 +37,7 @@ export function LoginPage() {
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              Each importer is a workspace. Jobs, GPS, documents and customers stay inside that
-              organisation — never mixed with another business.
+              Each importer is a workspace. Jobs, GPS, documents and customers stay inside that organisation — never mixed with another business.
             </p>
           </div>
           <p className="text-sm text-mist">Sign in to your organisation workspace.</p>
@@ -49,12 +48,7 @@ export function LoginPage() {
             <h2 className="display text-3xl">Sign in</h2>
             <label className="block text-sm font-semibold">
               Email
-              <input
-                className={`${fieldClass} mt-1`}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
-              />
+              <input className={`${fieldClass} mt-1`} value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
             </label>
             <label className="block text-sm font-semibold">
               Password
