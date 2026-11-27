@@ -8,6 +8,7 @@ import type { LocationEvent, Prisma } from '@prisma/client';
 import {
   bearingDegrees,
   journeyStatusesForJob,
+  parseRouteWaypoints,
   type JobStatus,
   type LocationPoint,
   UK_CYPRUS_ROUTE_KEY,
@@ -19,6 +20,7 @@ import { isSimulatedGpsProvider } from '../integrations/gps-providers';
 import { DEMO_WORKSPACE_SLUGS } from '../integrations/sample-data';
 import { MapsService } from '../integrations/maps.service';
 import { plannedRouteForJob } from '../routes/planned-route';
+import { latestPositions } from './latest-positions';
 import type { AuthUser } from '../auth/auth.types';
 
 const trackingJobInclude = {
@@ -39,6 +41,7 @@ const latestTrail = (take: number) =>
     take,
   }) as const;
 
+const LIVE_TRAIL_POINTS = 80;
 const PING_GAP_MS = 5 * 60 * 1000;
 
 type Tx = Prisma.TransactionClient;
@@ -51,21 +54,106 @@ export class TrackingService {
     private readonly maps: MapsService,
   ) {}
 
+  /**
+   * Every open job with where it is now. It carries no trails: `liveTrail`
+   * sends the one the screen has selected. Corridors are sent once each, and a
+   * vehicle says how far along its own it is.
+   */
   async live(user: AuthUser) {
     const jobs = await this.prisma.importJob.findMany({
       where: {
         organisationId: user.organisationId,
         status: { notIn: ['COMPLETED', 'CANCELLED'] },
       },
-      include: {
-        ...trackingJobInclude,
-        locationEvents: latestTrail(80),
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        routeId: true,
+        routeTemplateId: true,
+        customer: trackingJobInclude.customer,
+        vehicle: trackingJobInclude.vehicle,
+        trackerAssignments: trackingJobInclude.trackerAssignments,
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
     });
+    const templateIds = [
+      ...new Set(
+        jobs.flatMap((job) =>
+          job.routeTemplateId ? [job.routeTemplateId] : [],
+        ),
+      ),
+    ];
+    const [templates, positions] = await Promise.all([
+      templateIds.length
+        ? this.prisma.routeTemplate.findMany({
+            where: { id: { in: templateIds } },
+            select: { id: true, waypoints: true },
+          })
+        : [],
+      latestPositions(
+        this.prisma,
+        user.organisationId,
+        jobs.map((job) => job.id),
+      ),
+    ]);
+    const corridors = Object.fromEntries(
+      templates.map((template) => [
+        template.id,
+        parseRouteWaypoints(template.waypoints),
+      ]),
+    );
     return {
       map: this.maps.getConfig(),
-      vehicles: jobs.map((job) => this.toVehicleTracking(job, true)),
+      corridors,
+      vehicles: jobs.map((job) => {
+        const ping = positions.get(job.id);
+        const current = ping ? this.serializePoint(ping) : null;
+        const corridor = job.routeTemplateId
+          ? (corridors[job.routeTemplateId] ?? [])
+          : [];
+        // What is left of a corridor is always its tail.
+        const ahead = plannedRouteForJob({
+          status: job.status,
+          current,
+          waypoints: corridor,
+        }).length;
+        return {
+          importJobId: job.id,
+          reference: job.reference,
+          status: job.status,
+          routeId: job.routeId,
+          customer: job.customer,
+          vehicle: job.vehicle,
+          current,
+          corridor: ahead
+            ? { id: job.routeTemplateId!, from: corridor.length - ahead }
+            : null,
+          tracker: this.assignedTracker(job.trackerAssignments[0]),
+        };
+      }),
+    };
+  }
+
+  /** The recent trail of the vehicle selected on the live screen. */
+  async liveTrail(user: AuthUser, jobId: string) {
+    const job = await this.prisma.importJob.findFirst({
+      where: { id: jobId, organisationId: user.organisationId },
+      select: { id: true },
+    });
+    if (!job) {
+      throw new NotFoundException('Import job not found');
+    }
+    const newest = await this.prisma.locationEvent.findMany({
+      ...latestTrail(LIVE_TRAIL_POINTS),
+      where: {
+        importJobId: job.id,
+        organisationId: user.organisationId,
+        isDuplicate: false,
+      },
+    });
+    return {
+      trail: newest.reverse().map((event) => this.serializePoint(event)),
     };
   }
 
@@ -448,19 +536,37 @@ export class TrackingService {
             description: job.routeTemplate.description,
           }
         : null,
-      tracker:
-        includeTracker && assignment
-          ? {
-              assignmentId: assignment.id,
-              assignedAt: assignment.assignedAt,
-              id: assignment.tracker.id,
-              serialNumber: assignment.tracker.serialNumber,
-              provider: assignment.tracker.provider,
-              batteryLevel: assignment.tracker.batteryLevel,
-              lastSeenAt: assignment.tracker.lastSeenAt,
-              status: assignment.tracker.status,
-            }
-          : null,
+      tracker: includeTracker ? this.assignedTracker(assignment) : null,
+    };
+  }
+
+  private assignedTracker(
+    assignment:
+      | {
+          id: string;
+          assignedAt: Date;
+          tracker: {
+            id: string;
+            serialNumber: string;
+            provider: string;
+            batteryLevel: number | null;
+            lastSeenAt: Date | null;
+            status: string;
+          };
+        }
+      | null
+      | undefined,
+  ) {
+    if (!assignment) return null;
+    return {
+      assignmentId: assignment.id,
+      assignedAt: assignment.assignedAt,
+      id: assignment.tracker.id,
+      serialNumber: assignment.tracker.serialNumber,
+      provider: assignment.tracker.provider,
+      batteryLevel: assignment.tracker.batteryLevel,
+      lastSeenAt: assignment.tracker.lastSeenAt,
+      status: assignment.tracker.status,
     };
   }
 

@@ -1,12 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { isTerminalStatus } from '@vip/shared';
+import { Prisma } from '@prisma/client';
+import { isTerminalStatus, TERMINAL_STATUSES } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { WorkflowRoutesService } from '../workflow/workflow-routes.service';
 import type { AuthUser } from '../auth/auth.types';
 import { AiTransport } from '../integrations/ai-transport';
+import { AlertPolish } from './alert-polish';
 import {
-  applyTriagePolish,
   enrichOpsAlertsHeuristic,
   type EnrichedOpsAlert,
 } from './ops-alert-triage';
@@ -17,14 +18,41 @@ import {
   DEFAULT_STALE_TRACKER_MS,
   haversineMeters,
   isNearDestination,
-  isTrackerStale,
   parsePositiveNumber,
   routeDestination,
-  type OpsAlert,
 } from './ops-alerts';
+
+/** How many overdue tasks and arrivals the Board lists. */
+const BOARD_ROWS = 8;
+/** How many GPS alerts of each kind it lists. The rest are counted. */
+export const ALERTS_PER_KIND = 25;
+
+const CLOSED = [...TERMINAL_STATUSES];
+
+type StatusCount = {
+  routeId: string | null;
+  status: string;
+  _count: { _all: number };
+};
+
+type BoardRoute = Awaited<ReturnType<WorkflowRoutesService['list']>>[number];
+
+type TrackedPosition = {
+  id: string;
+  reference: string;
+  status: string;
+  routeTemplateId: string | null;
+  latitude: Prisma.Decimal;
+  longitude: Prisma.Decimal;
+};
 
 @Injectable()
 export class DashboardService {
+  private readonly logger = new Logger(DashboardService.name);
+  private readonly polish = new AlertPolish((error) =>
+    this.logger.warn(`Could not polish GPS alerts: ${String(error)}`),
+  );
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
@@ -32,235 +60,287 @@ export class DashboardService {
     private readonly workflows: WorkflowRoutesService,
   ) {}
 
-  /** The Board, for every route or, with `routeId`, for one. */
+  /**
+   * The Board, for every route or, with `routeId`, for one. The database does
+   * the counting, and every list it sends has a limit.
+   */
   async get(user: AuthUser, routeId?: string) {
+    const organisationId = user.organisationId;
+    const routes = await this.workflows.list(user);
     // Checks the route belongs to this workspace before filtering by it.
-    if (routeId) await this.workflows.workflowFor(user.organisationId, routeId);
+    if (routeId && !routes.some((route) => route.id === routeId)) {
+      throw new NotFoundException('Route not found');
+    }
     const onRoute = routeId ? { routeId } : {};
+    const now = new Date();
+
+    const overdue: Prisma.TaskWhereInput = {
+      organisationId,
+      status: { notIn: ['COMPLETED', 'CANCELLED'] },
+      dueDate: { lt: now },
+      ...(routeId ? { importJob: { routeId } } : {}),
+    };
+    const arriving: Prisma.ImportJobWhereInput = {
+      organisationId,
+      status: { notIn: CLOSED },
+      ...onRoute,
+      expectedDeliveryDate: {
+        gte: now,
+        lte: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+      },
+    };
+
+    const [
+      counts,
+      overdueTasks,
+      overdueTaskCount,
+      upcomingDeliveries,
+      upcomingDeliveryCount,
+      alerts,
+    ] = await Promise.all([
+      this.prisma.importJob.groupBy({
+        by: ['routeId', 'status'],
+        where: { organisationId, ...onRoute },
+        _count: { _all: true },
+      }),
+      this.prisma.task.findMany({
+        where: overdue,
+        select: {
+          id: true,
+          title: true,
+          dueDate: true,
+          importJob: { select: { id: true, reference: true } },
+        },
+        orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+        take: BOARD_ROWS,
+      }),
+      this.prisma.task.count({ where: overdue }),
+      this.prisma.importJob.findMany({
+        where: arriving,
+        select: {
+          id: true,
+          reference: true,
+          status: true,
+          routeId: true,
+          expectedDeliveryDate: true,
+          customer: { select: { firstName: true, lastName: true } },
+          vehicle: {
+            select: { make: true, model: true, ukRegistration: true },
+          },
+        },
+        orderBy: [{ expectedDeliveryDate: 'asc' }, { id: 'asc' }],
+        take: BOARD_ROWS,
+      }),
+      this.prisma.importJob.count({ where: arriving }),
+      this.gpsAlerts(organisationId, now, routeId),
+    ]);
+
+    return {
+      activeJobs: counts
+        .filter((row) => !isTerminalStatus(row.status))
+        .reduce((sum, row) => sum + row._count._all, 0),
+      byRoute: this.byRoute(routes, counts, routeId),
+      overdueTasks,
+      overdueTaskCount,
+      upcomingDeliveries,
+      upcomingDeliveryCount,
+      opsAlerts: this.enrichOpsAlerts(organisationId, alerts.shown),
+      opsAlertCount: alerts.total,
+    };
+  }
+
+  /** Quiet trackers, longest quiet first, then vehicles close to arriving. */
+  private async gpsAlerts(organisationId: string, now: Date, routeId?: string) {
     const staleThresholdMs = parsePositiveNumber(
       this.config.get<string>('GPS_STALE_TRACKER_MS'),
       DEFAULT_STALE_TRACKER_MS,
     );
-    const nearRadiusMeters = parsePositiveNumber(
+    const quiet: Prisma.TrackerAssignmentWhereInput = {
+      organisationId,
+      removedAt: null,
+      importJob: {
+        organisationId,
+        status: { notIn: CLOSED },
+        ...(routeId ? { routeId } : {}),
+      },
+      tracker: {
+        OR: [
+          { status: 'OFFLINE' },
+          { lastSeenAt: null },
+          { lastSeenAt: { lte: new Date(now.getTime() - staleThresholdMs) } },
+        ],
+      },
+    };
+    const [stale, staleCount, near] = await Promise.all([
+      this.prisma.trackerAssignment.findMany({
+        where: quiet,
+        select: {
+          importJob: { select: { id: true, reference: true } },
+          tracker: { select: { serialNumber: true, lastSeenAt: true } },
+        },
+        orderBy: [
+          { tracker: { lastSeenAt: { sort: 'asc', nulls: 'first' } } },
+          { id: 'asc' },
+        ],
+        take: ALERTS_PER_KIND,
+      }),
+      this.prisma.trackerAssignment.count({ where: quiet }),
+      this.nearDestination(organisationId, routeId),
+    ]);
+    return {
+      shown: [
+        ...stale.map((assignment) =>
+          buildStaleTrackerAlert({
+            importJobId: assignment.importJob!.id,
+            reference: assignment.importJob!.reference,
+            trackerSerial: assignment.tracker.serialNumber,
+            lastSeenAt: assignment.tracker.lastSeenAt,
+          }),
+        ),
+        ...near.slice(0, ALERTS_PER_KIND),
+      ],
+      total: staleCount + near.length,
+    };
+  }
+
+  /**
+   * Distance is worked out here, so this reads one small row for each open job
+   * with a tracker: its newest position, never its trail.
+   */
+  private async nearDestination(organisationId: string, routeId?: string) {
+    const radiusMeters = parsePositiveNumber(
       this.config.get<string>('GPS_NEAR_DESTINATION_METERS'),
       DEFAULT_NEAR_DESTINATION_METERS,
     );
-    const now = new Date();
+    const tracked = await this.prisma.$queryRaw<TrackedPosition[]>(Prisma.sql`
+      SELECT job."id", job."reference", job."status", job."routeTemplateId",
+             latest."latitude", latest."longitude"
+      FROM "ImportJob" job
+      CROSS JOIN LATERAL (
+        SELECT event."latitude", event."longitude" FROM "LocationEvent" event
+        WHERE event."importJobId" = job."id"
+          AND event."organisationId" = ${organisationId}
+          AND NOT event."isDuplicate"
+        ORDER BY event."recordedAt" DESC
+        LIMIT 1
+      ) latest
+      WHERE job."organisationId" = ${organisationId}
+        AND job."status" NOT IN (${Prisma.join(CLOSED)})
+        ${routeId ? Prisma.sql`AND job."routeId" = ${routeId}` : Prisma.empty}
+        AND EXISTS (
+          SELECT 1 FROM "TrackerAssignment" assignment
+          WHERE assignment."importJobId" = job."id"
+            AND assignment."removedAt" IS NULL
+        )
+      ORDER BY job."createdAt" DESC, job."id" DESC`);
+    const templateIds = [
+      ...new Set(
+        tracked.flatMap((job) =>
+          job.routeTemplateId ? [job.routeTemplateId] : [],
+        ),
+      ),
+    ];
+    const templates = templateIds.length
+      ? await this.prisma.routeTemplate.findMany({
+          where: { id: { in: templateIds } },
+          select: { id: true, waypoints: true },
+        })
+      : [];
+    const destinationOf = new Map(
+      templates.map((template) => [
+        template.id,
+        routeDestination(template.waypoints),
+      ]),
+    );
+    const fallback = routeDestination(undefined);
 
-    const [jobs, overdueTasks, upcomingDeliveries, trackedJobs] =
-      await Promise.all([
-        this.prisma.importJob.findMany({
-          where: { organisationId: user.organisationId, ...onRoute },
-          select: {
-            id: true,
-            reference: true,
-            status: true,
-            routeId: true,
-            expectedDeliveryDate: true,
-            customer: { select: { firstName: true, lastName: true } },
-            vehicle: {
-              select: { make: true, model: true, ukRegistration: true },
-            },
-          },
-        }),
-        this.prisma.task.findMany({
-          where: {
-            organisationId: user.organisationId,
-            status: { notIn: ['COMPLETED', 'CANCELLED'] },
-            dueDate: { lt: new Date() },
-            ...(routeId ? { importJob: { routeId } } : {}),
-          },
-          include: {
-            importJob: { select: { id: true, reference: true } },
-          },
-          orderBy: { dueDate: 'asc' },
-          take: 8,
-        }),
-        this.prisma.importJob.findMany({
-          where: {
-            organisationId: user.organisationId,
-            status: { notIn: ['COMPLETED', 'CANCELLED'] },
-            ...onRoute,
-            expectedDeliveryDate: {
-              gte: new Date(),
-              lte: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-            },
-          },
-          include: {
-            customer: true,
-            vehicle: true,
-          },
-          orderBy: { expectedDeliveryDate: 'asc' },
-          take: 8,
-        }),
-        this.prisma.importJob.findMany({
-          where: {
-            organisationId: user.organisationId,
-            status: { notIn: ['COMPLETED', 'CANCELLED'] },
-            ...onRoute,
-            trackerAssignments: { some: { removedAt: null } },
-          },
-          select: {
-            id: true,
-            reference: true,
-            status: true,
-            routeTemplate: { select: { waypoints: true } },
-            trackerAssignments: {
-              where: { removedAt: null },
-              take: 1,
-              select: {
-                tracker: {
-                  select: {
-                    id: true,
-                    serialNumber: true,
-                    status: true,
-                    lastSeenAt: true,
-                  },
-                },
-              },
-            },
-            locationEvents: {
-              orderBy: { recordedAt: 'desc' },
-              take: 1,
-              select: {
-                latitude: true,
-                longitude: true,
-                recordedAt: true,
-              },
-            },
-          },
-        }),
-      ]);
-
-    const opsAlerts: OpsAlert[] = [];
-    const offlineTrackers: {
-      id: string;
-      serialNumber: string;
-      assignments: { importJob: { id: string; reference: string } }[];
-    }[] = [];
-
-    for (const job of trackedJobs) {
-      const assignment = job.trackerAssignments[0];
-      if (!assignment) continue;
-      const tracker = assignment.tracker;
-
-      const stale =
-        tracker.status === 'OFFLINE' ||
-        isTrackerStale({
-          lastSeenAt: tracker.lastSeenAt,
-          now,
-          thresholdMs: staleThresholdMs,
-        });
-
-      if (stale) {
-        offlineTrackers.push({
-          id: tracker.id,
-          serialNumber: tracker.serialNumber,
-          assignments: [
-            { importJob: { id: job.id, reference: job.reference } },
-          ],
-        });
-        opsAlerts.push(
-          buildStaleTrackerAlert({
-            importJobId: job.id,
-            reference: job.reference,
-            trackerSerial: tracker.serialNumber,
-            lastSeenAt: tracker.lastSeenAt,
-          }),
-        );
-      }
-
-      const lastPing = job.locationEvents[0];
-      const current = lastPing
-        ? {
-            latitude: Number(lastPing.latitude),
-            longitude: Number(lastPing.longitude),
-          }
-        : null;
-      const destination = routeDestination(job.routeTemplate?.waypoints);
+    return tracked.flatMap((job) => {
+      const current = {
+        latitude: Number(job.latitude),
+        longitude: Number(job.longitude),
+      };
+      const destination =
+        destinationOf.get(job.routeTemplateId ?? '') ?? fallback;
       if (
-        isNearDestination({
+        !isNearDestination({
           status: job.status,
           current,
           destination,
-          radiusMeters: nearRadiusMeters,
-        }) &&
-        current
+          radiusMeters,
+        })
       ) {
-        opsAlerts.push(
-          buildNearDestinationAlert({
-            importJobId: job.id,
-            reference: job.reference,
-            destinationLabel: destination.label,
-            distanceMeters: haversineMeters(current, destination),
-          }),
-        );
+        return [];
       }
-    }
-
-    const enrichedAlerts = await this.enrichOpsAlerts(opsAlerts);
-
-    return {
-      activeJobs: jobs.filter(
-        (job) => !['COMPLETED', 'CANCELLED'].includes(job.status),
-      ).length,
-      byRoute: await this.byRoute(user, jobs, routeId),
-      overdueTasks,
-      upcomingDeliveries,
-      offlineTrackers,
-      opsAlerts: enrichedAlerts,
-    };
+      return [
+        buildNearDestinationAlert({
+          importJobId: job.id,
+          reference: job.reference,
+          destinationLabel: destination.label,
+          distanceMeters: haversineMeters(current, destination),
+        }),
+      ];
+    });
   }
 
   /**
    * Open jobs in each stage of each route, plus completed ones. Draft routes
    * appear only once they have jobs.
    */
-  private async byRoute(
-    user: AuthUser,
-    jobs: Array<{ status: string; routeId: string | null }>,
+  private byRoute(
+    routes: BoardRoute[],
+    counts: StatusCount[],
     routeId?: string,
   ) {
-    const routes = await this.workflows.list(user);
     const fallback = routes.find((route) => route.isDefault)?.id ?? null;
-    const routeOf = (job: { routeId: string | null }) =>
-      job.routeId ?? fallback;
+    const total = (rows: StatusCount[]) =>
+      rows.reduce((sum, row) => sum + row._count._all, 0);
     return routes
       .filter((route) =>
         routeId ? route.id === routeId : route.active || route.activeJobs > 0,
       )
       .map((route) => {
-        const mine = jobs.filter((job) => routeOf(job) === route.id);
-        const open = mine.filter((job) => !isTerminalStatus(job.status));
+        const mine = counts.filter(
+          (row) => (row.routeId ?? fallback) === route.id,
+        );
+        const open = mine.filter((row) => !isTerminalStatus(row.status));
         return {
           id: route.id,
           name: route.name,
           shortLabel: route.shortLabel,
           isDefault: route.isDefault,
-          activeJobs: open.length,
-          completed: mine.filter((job) => job.status === 'COMPLETED').length,
+          activeJobs: total(open),
+          completed: total(mine.filter((row) => row.status === 'COMPLETED')),
           stages: route.stages.map((stage) => {
             const codes = new Set(stage.statuses.map((status) => status.code));
             return {
               id: stage.id,
               name: stage.name,
-              count: open.filter((job) => codes.has(job.status)).length,
+              count: total(open.filter((row) => codes.has(row.status))),
             };
           }),
         };
       });
   }
 
-  /** Heuristic triage always; optional OpenAI polish when keyed. Staff-only. */
-  private async enrichOpsAlerts(
-    opsAlerts: OpsAlert[],
-  ): Promise<EnrichedOpsAlert[]> {
+  /**
+   * Heuristic triage always. OpenAI wording, when keyed, is fetched in the
+   * background and shown from a later load. Staff-only.
+   */
+  private enrichOpsAlerts(
+    organisationId: string,
+    opsAlerts: Parameters<typeof enrichOpsAlertsHeuristic>[0],
+  ): EnrichedOpsAlert[] {
     const enriched = enrichOpsAlertsHeuristic(opsAlerts);
-    if (enriched.length === 0) {
+    if (enriched.length === 0 || this.ai.provider() !== 'openai') {
       return enriched;
     }
+    return this.polish.apply(organisationId, enriched, (wanted) =>
+      this.askForPolish(wanted),
+    );
+  }
 
-    const polish = await this.ai.completeJson<{
+  private askForPolish(enriched: EnrichedOpsAlert[]) {
+    return this.ai.completeJson<{
       summaries?: Array<{
         kind?: string;
         importJobId?: string;
@@ -282,15 +362,6 @@ export class DashboardService {
       }),
       schemaHint:
         '{ "summaries": Array<{ "kind": string, "importJobId": string, "aiSummary": string }> }',
-      logFallback: {
-        summaries: enriched.map((a) => ({
-          kind: a.kind,
-          importJobId: a.importJobId,
-          aiSummary: a.aiSummary,
-        })),
-      },
     });
-
-    return applyTriagePolish(enriched, polish);
   }
 }

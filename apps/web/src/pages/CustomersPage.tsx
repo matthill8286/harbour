@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Avatar, Badge, Button, Card, EmptyState, Heading, Table, Text, TextInput } from '@atomic-ui/ui-react';
 import { api } from '../lib/api';
+import { usePagedList, type Page } from '../lib/pages';
 import { useSession } from '../lib/session';
 import { openRowLink } from '../lib/tableRows';
 import { PhoneHeader } from '../components/PhoneHeader';
@@ -28,6 +29,9 @@ const COLUMNS = [
   { key: 'portal', label: 'Portal' },
 ];
 
+/** How many customers show before Load more. */
+const PAGE = 50;
+
 const BLANK = { firstName: '', lastName: '', email: '', phone: '' };
 const fullName = (c: Pick<Customer, 'firstName' | 'lastName'>) => `${c.firstName} ${c.lastName}`.trim();
 const jobs = (n: number) => `${n} ${n === 1 ? 'job' : 'jobs'}`;
@@ -43,7 +47,7 @@ export function CustomersPage() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(BLANK);
   const [tried, setTried] = useState(false);
-  const query = useQuery({ queryKey: ['customers'], queryFn: () => api<Customer[]>('/customers') });
+  const query = usePagedList<Page<Customer>>(['customers', 'list'], '/customers', { limit: PAGE });
   const create = useMutation({
     mutationFn: () =>
       api('/customers', { method: 'POST', body: JSON.stringify({ ...form, email: form.email.trim() || undefined, phone: form.phone.trim() || undefined }) }),
@@ -57,7 +61,8 @@ export function CustomersPage() {
     const value = e.detail.value;
     setForm((f) => ({ ...f, [key]: value }));
   };
-  const customers = query.data ?? [];
+  const customers = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const total = query.data?.pages[0].total ?? 0;
 
   return (
     <div className="customers">
@@ -65,7 +70,7 @@ export function CustomersPage() {
         <Heading level={1} size="3xl">
           Customers
         </Heading>
-        <Text size="sm">{customers.length ? `${customers.length} in this workspace` : ' '}</Text>
+        <Text size="sm">{total ? `${total} in this workspace` : ' '}</Text>
       </PhoneHeader>
 
       <div className="customers-heading">
@@ -123,7 +128,7 @@ export function CustomersPage() {
 
       {query.isLoading ? (
         <LoadingScreen label="Loading customers…" />
-      ) : query.isError ? (
+      ) : query.isError && !query.isFetchNextPageError ? (
         <Alert tone="danger" heading="Customers could not load">
           Check your connection, then try again.
           <div className="job-retry">
@@ -165,6 +170,21 @@ export function CustomersPage() {
               </Badge>,
             ])}
           </Table>
+          {total > PAGE ? (
+            <div className="customers-foot">
+              <Text size="sm" tone="muted">{`Showing ${customers.length} of ${total} customers`}</Text>
+              {query.hasNextPage ? (
+                <Button variant="ghost" size="sm" busy={query.isFetchingNextPage} busyLabel="Loading more customers" onClick={() => void query.fetchNextPage()}>
+                  Load more
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+          {query.isFetchNextPageError ? (
+            <Alert tone="danger" heading="More customers could not load">
+              Check your connection, then choose Load more again.
+            </Alert>
+          ) : null}
         </Card>
       )}
     </div>
