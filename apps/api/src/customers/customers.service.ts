@@ -12,6 +12,7 @@ import type { AuthUser } from '../auth/auth.types';
 import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { describePortalAccess } from './portal-access';
+import { portalMembershipWasAccepted } from '../auth/accepted-membership';
 
 const portalUserSelect = { id: true, email: true, passwordHash: true } as const;
 const pendingInviteSelect = { createdAt: true, expiresAt: true } as const;
@@ -44,7 +45,7 @@ export class CustomersService {
         _count: { select: { importJobs: true } },
         memberships: {
           where: { role: 'CUSTOMER' },
-          select: { user: { select: portalUserSelect } },
+          select: { status: true, user: { select: portalUserSelect } },
           take: 1,
         },
         portalInvites: {
@@ -73,7 +74,7 @@ export class CustomersService {
         },
         memberships: {
           where: { role: 'CUSTOMER' },
-          select: { user: { select: portalUserSelect } },
+          select: { status: true, user: { select: portalUserSelect } },
           take: 1,
         },
         portalInvites: {
@@ -105,29 +106,10 @@ export class CustomersService {
   }
 
   async update(user: AuthUser, id: string, dto: UpdateCustomerDto) {
-    await this.requireCustomer(user, id);
+    const customer = await this.requireCustomer(user, id);
     const email = dto.email?.toLowerCase();
-    if (email) {
-      const membership = await this.prisma.organisationMembership.findFirst({
-        where: {
-          customerId: id,
-          organisationId: user.organisationId,
-          role: 'CUSTOMER',
-        },
-        include: { user: true },
-      });
-      if (membership && membership.user.email !== email) {
-        const taken = await this.prisma.user.findUnique({ where: { email } });
-        if (taken && taken.id !== membership.userId) {
-          throw new ConflictException(
-            'That email already belongs to another account',
-          );
-        }
-        await this.prisma.user.update({
-          where: { id: membership.userId },
-          data: { email },
-        });
-      }
+    if (email && email !== customer.email?.toLowerCase()) {
+      await this.moveUnclaimedPortalAccount(user.organisationId, id, email);
     }
     await this.prisma.customer.update({
       where: { id },
@@ -178,6 +160,24 @@ export class CustomersService {
         },
       }));
 
+    await this.removeOtherPortalAccounts(
+      user.organisationId,
+      customer.id,
+      portalUser.id,
+    );
+
+    // Someone who already accepted stays active. Anyone else has to accept, even
+    // when the email already has a Harbour account.
+    const accepted = existingHere
+      ? await portalMembershipWasAccepted(this.prisma, {
+          organisationId: user.organisationId,
+          userId: portalUser.id,
+          customerId: customer.id,
+          acceptedAt: existingHere.acceptedAt,
+        })
+      : false;
+    const status = accepted ? 'ACTIVE' : 'INVITED';
+
     await this.prisma.organisationMembership.upsert({
       where: {
         organisationId_userId: {
@@ -188,7 +188,7 @@ export class CustomersService {
       update: {
         role: 'CUSTOMER',
         customerId: customer.id,
-        status: portalUser.passwordHash ? 'ACTIVE' : 'INVITED',
+        status,
       },
       create: {
         organisationId: user.organisationId,
@@ -240,6 +240,66 @@ export class CustomersService {
     return { ...presented, inviteUrl, expiresAt };
   }
 
+  /**
+   * A portal account is the person's own, shared by every organisation that
+   * knows that email. An organisation may change its sign-in email only while
+   * nobody has claimed it: no password, and no link to another organisation.
+   * Otherwise only the contact email on the customer record changes.
+   */
+  private async moveUnclaimedPortalAccount(
+    organisationId: string,
+    customerId: string,
+    email: string,
+  ) {
+    const membership = await this.prisma.organisationMembership.findFirst({
+      where: { customerId, organisationId, role: 'CUSTOMER' },
+      select: { userId: true },
+    });
+    if (!membership) return;
+    const unclaimed = {
+      id: membership.userId,
+      passwordHash: null,
+      memberships: { every: { organisationId } },
+    };
+    const account = await this.prisma.user.findFirst({
+      where: unclaimed,
+      select: { email: true },
+    });
+    if (!account || account.email === email) return;
+    const taken = await this.prisma.user.findUnique({ where: { email } });
+    if (taken) {
+      throw new ConflictException(
+        'That email already belongs to another account',
+      );
+    }
+    const moved = await this.prisma.user.updateMany({
+      where: unclaimed,
+      data: { email },
+    });
+    if (moved.count === 0) return;
+    // Links made for the old address must not open the new one.
+    await this.prisma.portalInvite.updateMany({
+      where: { organisationId, userId: membership.userId, acceptedAt: null },
+      data: { expiresAt: new Date() },
+    });
+  }
+
+  /** Inviting a new email moves the customer's portal access to that account. */
+  private async removeOtherPortalAccounts(
+    organisationId: string,
+    customerId: string,
+    keepUserId: string,
+  ) {
+    await this.prisma.organisationMembership.deleteMany({
+      where: {
+        organisationId,
+        customerId,
+        role: 'CUSTOMER',
+        userId: { not: keepUserId },
+      },
+    });
+  }
+
   private webOrigin() {
     return this.config
       .get<string>('WEB_ORIGIN', 'http://localhost:5173')
@@ -259,6 +319,7 @@ export class CustomersService {
   private present<
     T extends {
       memberships: Array<{
+        status: string;
         user: { id: string; email: string; passwordHash: string | null };
       }>;
       portalInvites: Array<{ createdAt: Date; expiresAt: Date }>;
@@ -273,7 +334,9 @@ export class CustomersService {
           ? {
               id: portalAccount.id,
               email: portalAccount.email,
-              hasPassword: Boolean(portalAccount.passwordHash),
+              hasPassword:
+                memberships[0].status !== 'INVITED' &&
+                Boolean(portalAccount.passwordHash),
             }
           : null,
         pendingInvite: portalInvites[0] ?? null,

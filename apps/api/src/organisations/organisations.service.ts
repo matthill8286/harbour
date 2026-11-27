@@ -16,6 +16,7 @@ import { presentOrganisation } from './organisation.view';
 import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
 import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
+import { staffMembershipWasAccepted } from '../auth/accepted-membership';
 
 const organisationInclude = {
   settings: true,
@@ -27,9 +28,40 @@ const memberSelect = {
   id: true,
   role: true,
   status: true,
+  acceptedAt: true,
   createdAt: true,
-  user: { select: { id: true, name: true, email: true } },
+  user: { select: { id: true, name: true, email: true, passwordHash: true } },
 } as const;
+
+/**
+ * Hides the name on an existing account until its owner has accepted, so that
+ * inviting an email address does not reveal who it belongs to.
+ */
+function presentMember<
+  T extends {
+    status: string;
+    acceptedAt: Date | null;
+    user: {
+      id: string;
+      name: string;
+      email: string;
+      passwordHash: string | null;
+    };
+  },
+>(member: T) {
+  const { acceptedAt, user, ...rest } = member;
+  const { passwordHash, ...account } = user;
+  const unconfirmed =
+    member.status === 'INVITED' ||
+    (member.status === 'DISABLED' && !acceptedAt);
+  return {
+    ...rest,
+    user:
+      unconfirmed && passwordHash
+        ? { ...account, name: account.email }
+        : account,
+  };
+}
 
 @Injectable()
 export class OrganisationsService {
@@ -84,8 +116,8 @@ export class OrganisationsService {
     return presentOrganisation(organisation);
   }
 
-  listMembers(user: AuthUser) {
-    return this.prisma.organisationMembership.findMany({
+  async listMembers(user: AuthUser) {
+    const members = await this.prisma.organisationMembership.findMany({
       where: {
         organisationId: user.organisationId,
         role: { not: 'CUSTOMER' },
@@ -93,6 +125,7 @@ export class OrganisationsService {
       select: memberSelect,
       orderBy: [{ role: 'asc' }, { createdAt: 'asc' }],
     });
+    return members.map(presentMember);
   }
 
   async inviteStaff(user: AuthUser, dto: InviteStaffDto) {
@@ -151,9 +184,15 @@ export class OrganisationsService {
       select: memberSelect,
     });
 
+    // The inviter may correct the name only while the account is nobody's yet:
+    // no password, and no link to any other organisation.
     if (account.name !== name) {
-      await this.prisma.user.update({
-        where: { id: account.id },
+      await this.prisma.user.updateMany({
+        where: {
+          id: account.id,
+          passwordHash: null,
+          memberships: { every: { organisationId: user.organisationId } },
+        },
         data: { name },
       });
     }
@@ -193,7 +232,7 @@ export class OrganisationsService {
         where: { id: membership.id },
         select: memberSelect,
       });
-    return { member: presented, inviteUrl, expiresAt };
+    return { member: presentMember(presented), inviteUrl, expiresAt };
   }
 
   async updateMember(
@@ -238,14 +277,53 @@ export class OrganisationsService {
       }
     }
 
+    if (dto.status === 'ACTIVE' && member.status !== 'ACTIVE') {
+      const accepted = await staffMembershipWasAccepted(this.prisma, {
+        organisationId: user.organisationId,
+        userId: member.userId,
+        acceptedAt: member.acceptedAt,
+      });
+      if (!accepted) {
+        throw new BadRequestException(
+          'This person has not accepted an invite yet. Invite them again with the invite form.',
+        );
+      }
+    }
+    // Memberships made before acceptance was recorded were in use if they are
+    // active and the account can sign in. Note that, so they can be re-enabled.
+    let acceptedAt: Date | undefined;
+    if (
+      dto.status === 'DISABLED' &&
+      member.status === 'ACTIVE' &&
+      !member.acceptedAt
+    ) {
+      const account = await this.prisma.user.findUnique({
+        where: { id: member.userId },
+        select: { passwordHash: true },
+      });
+      if (account?.passwordHash) acceptedAt = new Date();
+    }
+
     const updated = await this.prisma.organisationMembership.update({
       where: { id: member.id },
       data: {
         ...(dto.role ? { role: dto.role } : {}),
         ...(dto.status ? { status: dto.status } : {}),
+        ...(acceptedAt ? { acceptedAt } : {}),
       },
       select: memberSelect,
     });
+    if (dto.status === 'DISABLED') {
+      // A link sent earlier must not undo this.
+      await this.prisma.staffInvite.updateMany({
+        where: {
+          organisationId: user.organisationId,
+          userId: member.userId,
+          acceptedAt: null,
+        },
+        data: { expiresAt: new Date() },
+      });
+    }
     void this.audit.record(user, {
       action: 'STAFF_MEMBERSHIP_UPDATED',
       entityType: 'OrganisationMembership',
@@ -256,7 +334,7 @@ export class OrganisationsService {
         userId: updated.user.id,
       },
     });
-    return updated;
+    return presentMember(updated);
   }
 
   async resendInvite(user: AuthUser, membershipId: string) {
@@ -292,6 +370,10 @@ export class OrganisationsService {
         expiresAt,
       },
     });
+    const account = await this.prisma.user.findUnique({
+      where: { id: member.userId },
+      select: { passwordHash: true },
+    });
     const inviteUrl = `${this.webOrigin()}/invite/${token}`;
     void this.audit.record(user, {
       action: 'STAFF_INVITE_RESENT',
@@ -302,7 +384,14 @@ export class OrganisationsService {
         expiresAt: expiresAt.toISOString(),
       },
     });
-    return { member, inviteUrl, expiresAt };
+    return {
+      member: presentMember({
+        ...member,
+        user: { ...member.user, passwordHash: account?.passwordHash ?? null },
+      }),
+      inviteUrl,
+      expiresAt,
+    };
   }
 
   private async requireStaffMembership(user: AuthUser, membershipId: string) {
@@ -317,6 +406,7 @@ export class OrganisationsService {
         role: true,
         status: true,
         userId: true,
+        acceptedAt: true,
         createdAt: true,
         user: { select: { id: true, name: true, email: true } },
       },

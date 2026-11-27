@@ -6,6 +6,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import type { Prisma } from '@prisma/client';
 import { hash, verify } from 'argon2';
 import { isStaffRole, normaliseRole, ROLE_LABELS } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -19,6 +20,71 @@ import { AuditService } from '../audit/audit.service';
 import { TwoFactorService } from './two-factor/two-factor.service';
 import { issuedBeforePasswordChange } from './jwt.strategy';
 
+/** The same minimum as resetting or changing a password. */
+const NEW_PASSWORD_MIN_LENGTH = 10;
+
+type InviteAccount = {
+  id: string;
+  email: string;
+  name: string;
+  passwordHash: string | null;
+  twoFactorEnabled: boolean;
+};
+
+function unusedInvite(id: string, now: Date) {
+  return { id, acceptedAt: null, expiresAt: { gt: now } };
+}
+
+/** Only this organisation's other links: another organisation's invite stays good. */
+function otherPendingInvites(invite: {
+  id: string;
+  userId: string;
+  organisationId: string;
+}) {
+  return {
+    userId: invite.userId,
+    organisationId: invite.organisationId,
+    acceptedAt: null,
+    id: { not: invite.id },
+  };
+}
+
+function assertClaimed(count: number) {
+  if (count === 0) {
+    throw new BadRequestException(
+      'This invite can no longer be used. Ask your team for a new link.',
+    );
+  }
+}
+
+/** Gives a new account its first password, as long as nobody else just did. */
+async function claimAccount(
+  tx: Prisma.TransactionClient,
+  invite: { userId: string; organisationId: string },
+  data: { passwordHash: string; name?: string },
+) {
+  const claimed = await tx.user.updateMany({
+    where: { id: invite.userId, passwordHash: null },
+    data,
+  });
+  if (claimed.count === 0) {
+    throw new BadRequestException(
+      'This account already has a password. Reload this page, then accept with that password.',
+    );
+  }
+  // Nobody could have accepted elsewhere without a password. An active
+  // membership found here was switched on by someone else, so it goes back to
+  // waiting for an invite.
+  await tx.organisationMembership.updateMany({
+    where: {
+      userId: invite.userId,
+      organisationId: { not: invite.organisationId },
+      status: 'ACTIVE',
+    },
+    data: { status: 'INVITED', acceptedAt: null },
+  });
+}
+
 type PortalInviteLoaded = {
   kind: 'portal';
   id: string;
@@ -27,7 +93,7 @@ type PortalInviteLoaded = {
   customerId: string;
   expiresAt: Date;
   acceptedAt: Date | null;
-  user: { email: string; name: string };
+  user: InviteAccount;
   customer: { firstName: string; lastName: string };
   organisation: {
     name: string;
@@ -45,7 +111,7 @@ type StaffInviteLoaded = {
   role: string;
   expiresAt: Date;
   acceptedAt: Date | null;
-  user: { email: string; name: string };
+  user: InviteAccount;
   organisation: {
     name: string;
     status: string;
@@ -147,6 +213,7 @@ export class AuthService {
       return {
         kind: 'portal' as const,
         email: invite.user.email,
+        existingAccount: Boolean(invite.user.passwordHash),
         firstName: invite.customer.firstName,
         lastName: invite.customer.lastName,
         organisationName: invite.organisation.name,
@@ -154,11 +221,15 @@ export class AuthService {
         expiresAt: invite.expiresAt,
       };
     }
-    const [firstName, ...rest] = invite.user.name.trim().split(/\s+/);
+    // The name on an existing account is not the inviter's to see.
+    const existingAccount = Boolean(invite.user.passwordHash);
+    const name = existingAccount ? '' : invite.user.name;
+    const [firstName, ...rest] = name.trim().split(/\s+/);
     return {
       kind: 'staff' as const,
       email: invite.user.email,
-      firstName: firstName || invite.user.name,
+      existingAccount,
+      firstName: firstName || name,
       lastName: rest.join(' '),
       role: invite.role,
       roleLabel: ROLE_LABELS[normaliseRole(invite.role)],
@@ -171,44 +242,46 @@ export class AuthService {
   async acceptInvite(token: string, dto: AcceptInviteDto) {
     const invite = await this.loadInvite(token);
     if (invite.kind === 'portal') {
-      return this.acceptPortalInvite(invite, dto.password);
+      return this.acceptPortalInvite(invite, dto);
     }
-    return this.acceptStaffInvite(invite, dto.password);
+    return this.acceptStaffInvite(invite, dto);
   }
 
   private async acceptPortalInvite(
     invite: PortalInviteLoaded,
-    password: string,
+    dto: AcceptInviteDto,
   ) {
-    const passwordHash = await hash(password);
+    const proof = await this.proveInvitee(invite.user, dto);
     const acceptedAt = new Date();
     const user = await this.prisma.$transaction(async (tx) => {
-      await tx.portalInvite.update({
-        where: { id: invite.id },
+      const claimed = await tx.portalInvite.updateMany({
+        where: unusedInvite(invite.id, acceptedAt),
         data: { acceptedAt },
       });
+      assertClaimed(claimed.count);
       await tx.portalInvite.updateMany({
-        where: {
-          userId: invite.userId,
-          acceptedAt: null,
-          id: { not: invite.id },
-        },
+        where: otherPendingInvites(invite),
         data: { expiresAt: acceptedAt },
       });
-      await tx.organisationMembership.updateMany({
+      const joined = await tx.organisationMembership.updateMany({
         where: {
           userId: invite.userId,
           organisationId: invite.organisationId,
+          customerId: invite.customerId,
           role: 'CUSTOMER',
+          status: { in: ['INVITED', 'ACTIVE'] },
         },
-        data: { status: 'ACTIVE' },
+        data: { status: 'ACTIVE', acceptedAt },
       });
-      return tx.user.update({
-        where: { id: invite.userId },
-        data: {
-          passwordHash,
+      assertClaimed(joined.count);
+      if (proof.newPasswordHash) {
+        await claimAccount(tx, invite, {
+          passwordHash: proof.newPasswordHash,
           name: `${invite.customer.firstName} ${invite.customer.lastName}`.trim(),
-        },
+        });
+      }
+      return tx.user.findUniqueOrThrow({
+        where: { id: invite.userId },
         include: {
           memberships: {
             include: { organisation: { include: { settings: true } } },
@@ -238,40 +311,51 @@ export class AuthService {
         metadata: { customerId: invite.customerId },
       },
     );
-    return this.completeSignIn(user, membership);
+    // proveInvitee has already checked any two-factor code.
+    return this.issueSession(user, membership);
   }
 
-  private async acceptStaffInvite(invite: StaffInviteLoaded, password: string) {
+  private async acceptStaffInvite(
+    invite: StaffInviteLoaded,
+    dto: AcceptInviteDto,
+  ) {
     if (!isStaffRole(normaliseRole(invite.role))) {
       throw new BadRequestException('Invalid staff invite role');
     }
-    const passwordHash = await hash(password);
+    const proof = await this.proveInvitee(invite.user, dto);
     const acceptedAt = new Date();
     const user = await this.prisma.$transaction(async (tx) => {
-      await tx.staffInvite.update({
-        where: { id: invite.id },
+      const claimed = await tx.staffInvite.updateMany({
+        where: unusedInvite(invite.id, acceptedAt),
         data: { acceptedAt },
       });
+      assertClaimed(claimed.count);
       await tx.staffInvite.updateMany({
-        where: {
-          userId: invite.userId,
-          acceptedAt: null,
-          id: { not: invite.id },
-        },
+        where: otherPendingInvites(invite),
         data: { expiresAt: acceptedAt },
       });
-      await tx.organisationMembership.updateMany({
+      const joined = await tx.organisationMembership.updateMany({
         where: {
           userId: invite.userId,
           organisationId: invite.organisationId,
           role: { not: 'CUSTOMER' },
+          status: { in: ['INVITED', 'ACTIVE'] },
         },
         // An invite sent before the roles were reduced still lands on one of the three.
-        data: { status: 'ACTIVE', role: normaliseRole(invite.role) },
+        data: {
+          status: 'ACTIVE',
+          role: normaliseRole(invite.role),
+          acceptedAt,
+        },
       });
-      return tx.user.update({
+      assertClaimed(joined.count);
+      if (proof.newPasswordHash) {
+        await claimAccount(tx, invite, {
+          passwordHash: proof.newPasswordHash,
+        });
+      }
+      return tx.user.findUniqueOrThrow({
         where: { id: invite.userId },
-        data: { passwordHash },
         include: {
           memberships: {
             include: { organisation: { include: { settings: true } } },
@@ -302,7 +386,46 @@ export class AuthService {
         metadata: { role: invite.role },
       },
     );
-    return this.completeSignIn(user, membership);
+    return this.issueSession(user, membership);
+  }
+
+  /**
+   * An account that already has a password belongs to someone, so the invite
+   * link is not enough: they enter that password, and a two-factor code where it
+   * is on. Nothing about the account changes. Only an account without a password
+   * takes the one typed here.
+   */
+  private async proveInvitee(
+    account: InviteAccount,
+    dto: AcceptInviteDto,
+  ): Promise<{ newPasswordHash: string | null }> {
+    if (!account.passwordHash) {
+      if (dto.password.length < NEW_PASSWORD_MIN_LENGTH) {
+        throw new BadRequestException(
+          `Use at least ${NEW_PASSWORD_MIN_LENGTH} characters for your password.`,
+        );
+      }
+      return { newPasswordHash: await hash(dto.password) };
+    }
+    // Not a 401: the web app reads that as the current session having ended.
+    if (!(await verify(account.passwordHash, dto.password))) {
+      throw new BadRequestException(
+        'That is not the password for this account. Enter the one you already sign in with.',
+      );
+    }
+    if (account.twoFactorEnabled) {
+      if (!dto.code && !dto.backupCode) {
+        throw new BadRequestException({
+          message: 'Enter the code from your authenticator app.',
+          code: 'invite_two_factor_required',
+        });
+      }
+      await this.twoFactor.verifySignIn(account.id, {
+        code: dto.code,
+        backupCode: dto.backupCode,
+      });
+    }
+    return { newPasswordHash: null };
   }
 
   /** Changes the signed-in user's name. The email stays fixed, because it is how they sign in. */

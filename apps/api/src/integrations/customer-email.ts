@@ -36,7 +36,7 @@ export function composeCustomerEmail(
         greeting,
         '',
         `${context.brandName} has invited you to the customer portal.`,
-        `Open this link to set your password and view your vehicle:`,
+        `Open this link to accept and view your vehicle:`,
         url,
         '',
         'This link expires. If it no longer works, ask your importer for a new invite.',
@@ -49,7 +49,7 @@ export function composeCustomerEmail(
         `
           <p>${escapeHtml(greeting)}</p>
           <p>${escapeHtml(context.brandName)} has invited you to the customer portal.</p>
-          <p><a href="${escapeHtml(url)}">Set your password and open the portal</a></p>
+          <p><a href="${escapeHtml(url)}">Accept and open the portal</a></p>
           <p style="color:#666;font-size:14px">This link expires. If it no longer works, ask your importer for a new invite.</p>
           <p>${escapeHtml(signOff)}</p>
         `,

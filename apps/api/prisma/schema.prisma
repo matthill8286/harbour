@@ -203,6 +203,9 @@ model OrganisationMembership {
   status         MembershipStatus @default(ACTIVE)
   customerId     String?
   customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  /// When the person themselves accepted this membership. Only an accepted
+  /// membership can be made ACTIVE by someone else.
+  acceptedAt     DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
