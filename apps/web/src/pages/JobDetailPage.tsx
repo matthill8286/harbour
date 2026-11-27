@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Heading, Tabs, Text } from '@atomic-ui/ui-react';
-import { getStatusLabel } from '@vip/shared';
+import { TERMINAL_LABELS, type TerminalStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { toLocationPoint } from '../lib/tracking';
@@ -94,9 +94,11 @@ export function JobDetailPage() {
       </PhoneHeader>
 
       {closed ? (
-        <Alert tone={job.status === 'CANCELLED' ? 'danger' : 'success'} toneLabel="Job closed" heading={getStatusLabel(job.status)}>
+        <Alert tone={job.status === 'CANCELLED' ? 'danger' : 'success'} toneLabel="Job closed" heading={TERMINAL_LABELS[job.status as TerminalStatus]}>
           {[
-            ending ? `${getStatusLabel(job.status)} on ${formatDate(ending.createdAt)}${ending.changedBy?.name ? ` by ${ending.changedBy.name}` : ''}.` : null,
+            ending
+              ? `${TERMINAL_LABELS[job.status as TerminalStatus]} on ${formatDate(ending.createdAt)}${ending.changedBy?.name ? ` by ${ending.changedBy.name}` : ''}.`
+              : null,
             job.status === 'CANCELLED' && ending?.note ? `Reason: ${ending.note}.` : null,
             'The job is closed and nothing can change; the customer portal shows it as ' + (job.status === 'CANCELLED' ? 'cancelled.' : 'delivered.'),
           ]
@@ -121,7 +123,7 @@ export function JobDetailPage() {
       {activeTab === 'tracking' ? <TrackingTab job={job} lastKnown={job.locationEvents?.[0] ? toLocationPoint(job.locationEvents[0]) : null} /> : null}
       {activeTab === 'files' ? <FilesTab job={job} /> : null}
       {activeTab === 'money' ? <MoneyTab job={job} /> : null}
-      {activeTab === 'activity' ? <ActivityTab jobId={job.id} /> : null}
+      {activeTab === 'activity' ? <ActivityTab job={job} /> : null}
       {activeTab === 'notes' ? <NotesTab job={job} /> : null}
     </div>
   );

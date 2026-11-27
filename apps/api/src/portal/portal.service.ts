@@ -4,11 +4,17 @@ import {
   NotFoundException,
   StreamableFile,
 } from '@nestjs/common';
-import type { JobStatus } from '@vip/shared';
+import {
+  customerProgress,
+  customerStatusLabel,
+  type JobStatus,
+  type RouteWorkflow,
+} from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../integrations/storage.service';
 import { TrackingService } from '../tracking/tracking.service';
 import type { AuthUser } from '../auth/auth.types';
+import { WorkflowRoutesService } from '../workflow/workflow-routes.service';
 import { toPortalJob } from './portal.view';
 
 @Injectable()
@@ -17,7 +23,28 @@ export class PortalService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly tracking: TrackingService,
+    private readonly workflows: WorkflowRoutesService,
   ) {}
+
+  /** What the customer sees of a job's route: its visible steps, where the job is, and the label. */
+  private view(route: RouteWorkflow, status: string) {
+    return {
+      statusLabel: customerStatusLabel(route, status),
+      progress: customerProgress(route, status),
+    };
+  }
+
+  /** Each route a set of jobs follows, loaded once. */
+  private async routesFor(
+    organisationId: string,
+    routeIds: Array<string | null>,
+  ) {
+    const routes = new Map<string | null, RouteWorkflow>();
+    for (const id of new Set(routeIds)) {
+      routes.set(id, await this.workflows.workflowFor(organisationId, id));
+    }
+    return routes;
+  }
 
   async list(user: AuthUser) {
     const customerId = this.requireCustomer(user);
@@ -43,10 +70,15 @@ export class PortalService {
       },
       orderBy: { createdAt: 'desc' },
     });
+    const routes = await this.routesFor(
+      user.organisationId,
+      jobs.map((job) => job.routeId),
+    );
     return jobs.map((job) => ({
       id: job.id,
       reference: job.reference,
       status: job.status,
+      ...this.view(routes.get(job.routeId)!, job.status),
       expectedDeliveryDate: job.expectedDeliveryDate,
       vehicle: job.vehicle,
       photoCount: job._count.photos,
@@ -61,7 +93,20 @@ export class PortalService {
       user.organisationId,
       job.status as JobStatus,
     );
-    return toPortalJob(await this.loadCustomerJob(user, id));
+    const fresh = await this.loadCustomerJob(user, id);
+    const route = await this.workflows.workflowFor(
+      user.organisationId,
+      fresh.routeId,
+    );
+    const portalJob = toPortalJob(fresh);
+    return {
+      ...portalJob,
+      ...this.view(route, fresh.status),
+      statusHistory: portalJob.statusHistory.map((entry) => ({
+        ...entry,
+        label: customerStatusLabel(route, entry.toStatus),
+      })),
+    };
   }
 
   async readVisibleFile(

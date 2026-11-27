@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Alert, Badge, Button, Card, Heading, Row, Text, TextInput, Textarea } from '@atomic-ui/ui-react';
-import { getStatusLabel, type JobStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
+import { useWorkflows } from '../lib/workflows';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { PORTAL_LABEL, PORTAL_TONE, type PortalStatus } from './customers/portal';
@@ -23,7 +23,8 @@ type CustomerDetail = {
   importJobs: {
     id: string;
     reference: string;
-    status: JobStatus;
+    status: string;
+    routeId: string | null;
     expectedDeliveryDate: string | null;
     vehicle: { make: string | null; model: string | null; ukRegistration: string | null };
   }[];
@@ -49,6 +50,7 @@ const PORTAL: Record<PortalStatus, { body: string; action: string }> = {
 
 export function CustomerDetailPage() {
   const { canWrite } = useSession();
+  const workflows = useWorkflows();
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -262,7 +264,7 @@ export function CustomerDetailPage() {
                     meta={[[job.vehicle.make, job.vehicle.model].filter(Boolean).join(' '), job.vehicle.ukRegistration].filter(Boolean).join(' · ')}
                     href={`/jobs/${job.id}`}
                   >
-                    <Badge slot="end">{getStatusLabel(job.status)}</Badge>
+                    <Badge slot="end">{workflows.label(job.routeId, job.status)}</Badge>
                   </Row>
                 ))}
               </div>

@@ -1,18 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { getStatusLabel, isDestinationReached, type JobStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatCategory, formatDate, formatDateTime } from '../lib/format';
 import { PortalTrackingPanel } from '../components/PortalTrackingPanel';
 import { PortalFiles } from '../components/PortalFiles';
-import { JourneyStepper } from '../components/JourneyStepper';
+import { JourneyStepper, type CustomerProgress } from '../components/JourneyStepper';
 import { StatusBadge } from '../components/StatusBadge';
 import { Card, ErrorBanner, LoadingScreen } from '../components/ui';
 
 type PortalJob = {
   id: string;
   reference: string;
-  status: JobStatus;
+  status: string;
+  /** The status as the customer sees it, from the job's route. */
+  statusLabel: string;
+  progress: CustomerProgress;
   originCountry: string;
   destinationCountry: string;
   expectedDeliveryDate: string | null;
@@ -35,8 +37,11 @@ type PortalJob = {
   }[];
   photos: { id: string; filename: string; category: string; mimeType: string; createdAt: string }[];
   journeys: { id: string; type: string; origin: string; destination: string; status: string }[];
-  statusHistory: { id: string; toStatus: string; note: string | null; createdAt: string }[];
+  statusHistory: { id: string; toStatus: string; label: string; note: string | null; createdAt: string }[];
 };
+
+/** On the last step the customer sees, or completed: no delivery date to wait for. */
+const arrived = (job: { status: string; progress: CustomerProgress }) => job.status === 'COMPLETED' || job.progress.current >= job.progress.steps.length - 1;
 
 export function PortalJobPage() {
   const { id = '' } = useParams();
@@ -73,13 +78,13 @@ export function PortalJobPage() {
         </p>
         <p className="mt-1 text-sm text-mist">
           {job.originCountry} → {job.destinationCountry}
-          {job.expectedDeliveryDate && !isDestinationReached(job.status) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : null}
+          {job.expectedDeliveryDate && !arrived(job) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : null}
         </p>
         <div className="mt-3">
-          <StatusBadge status={job.status} inverted />
+          <StatusBadge status={job.status} label={job.statusLabel} inverted />
         </div>
       </div>
-      <JourneyStepper status={job.status} variant="customer" />
+      <JourneyStepper progress={job.progress} />
       <PortalFiles jobId={job.id} photos={job.photos} documents={job.documents} />
       {job.journeys.length > 0 ? (
         <Card>
@@ -96,7 +101,7 @@ export function PortalJobPage() {
           </ol>
         </Card>
       ) : null}
-      <PortalTrackingPanel jobId={job.id} destination={job.destinationCountry} />
+      <PortalTrackingPanel jobId={job.id} destination={job.destinationCountry} statusLabel={job.statusLabel} arrived={arrived(job)} />
       <Card>
         <h2 className="display text-2xl">Updates</h2>
         {job.notes.length === 0 && job.statusHistory.length === 0 ? (
@@ -112,7 +117,7 @@ export function PortalJobPage() {
             {job.statusHistory.map((item) => (
               <li key={item.id} className="flex flex-wrap items-baseline justify-between gap-2 text-ink/70">
                 <span>
-                  {getStatusLabel(item.toStatus as JobStatus)}
+                  {item.label}
                   {item.note ? ` — ${item.note}` : ''}
                 </span>
                 <span className="text-xs text-ink/40">{formatDateTime(item.createdAt)}</span>

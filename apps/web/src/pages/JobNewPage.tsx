@@ -2,10 +2,11 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, FileUpload, Heading, Progress, Select, Text, TextInput } from '@atomic-ui/ui-react';
-import type { VehicleLookupResult } from '@vip/shared';
+import { UK_CYPRUS_ROUTE_KEY, type VehicleLookupResult } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
+import { useWorkflows } from '../lib/workflows';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { COUNTRY_CODES, countryName } from './job/countries';
 import './JobNewPage.css';
@@ -46,6 +47,21 @@ export function JobNewPage() {
   const [destinationCountry, setDestinationCountry] = useState(country);
   const [registrationCountry, setRegistrationCountry] = useState('BG');
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState('');
+  // Routes New job can use: switched on. The default is preselected; the API uses it when none is sent.
+  const workflows = useWorkflows();
+  const activeRoutes = workflows.routes.filter((route) => route.active);
+  const [routeId, setRouteId] = useState('');
+  const route = activeRoutes.find((r) => r.id === routeId) ?? activeRoutes.find((r) => r.isDefault);
+  const chooseRoute = (id: string) => {
+    setRouteId(id);
+    const picked = activeRoutes.find((r) => r.id === id);
+    if (picked) {
+      setOriginCountry(picked.originCountry);
+      setDestinationCountry(picked.destinationCountry);
+      // UK → Cyprus registers vehicles in Bulgaria on the way; other routes register on arrival.
+      setRegistrationCountry(picked.systemKey === UK_CYPRUS_ROUTE_KEY ? 'BG' : picked.destinationCountry);
+    }
+  };
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
 
@@ -79,6 +95,7 @@ export function JobNewPage() {
         method: 'POST',
         body: JSON.stringify({
           customerId,
+          ...(route ? { routeId: route.id } : {}),
           ukRegistration: lookup?.registration ?? registration,
           vin: lookup?.vin,
           make: lookup?.make,
@@ -320,6 +337,16 @@ export function JobNewPage() {
                 </span>
               </div>
               <div className="new-job-fields">
+                {activeRoutes.length > 1 ? (
+                  <Select
+                    label="Route"
+                    description="The job follows this route's stages and statuses."
+                    options={activeRoutes.map((r) => ({ value: r.id, label: r.name }))}
+                    value={route?.id ?? ''}
+                    onChange={(e) => chooseRoute(e.detail.value)}
+                    className="new-job-route"
+                  />
+                ) : null}
                 <Select label="Origin" options={countryOptions} value={originCountry} onChange={(e) => setOriginCountry(e.detail.value)} />
                 <Select label="Destination" options={countryOptions} value={destinationCountry} onChange={(e) => setDestinationCountry(e.detail.value)} />
                 <Select
@@ -358,6 +385,9 @@ export function JobNewPage() {
               value={lookup ? `${vehicleTitle(lookup)} · ${lookup.registration}` : lookingUp ? `Looking up ${registration}` : null}
               pending="Added in step 2"
             />
+            {activeRoutes.length > 1 ? (
+              <SummaryItem label="Route" value={step === 'confirm' ? (route?.name ?? null) : null} pending="Confirmed in step 3" />
+            ) : null}
             <SummaryItem
               label="Corridor"
               value={

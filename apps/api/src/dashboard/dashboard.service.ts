@@ -1,12 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  getJobStage,
-  JOB_STAGE_LABELS,
-  type JobStage,
-  type JobStatus,
-} from '@vip/shared';
+import { isTerminalStatus } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
+import { WorkflowRoutesService } from '../workflow/workflow-routes.service';
 import type { AuthUser } from '../auth/auth.types';
 import { AiTransport } from '../integrations/ai-transport';
 import {
@@ -33,9 +29,14 @@ export class DashboardService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly ai: AiTransport,
+    private readonly workflows: WorkflowRoutesService,
   ) {}
 
-  async get(user: AuthUser) {
+  /** The Board, for every route or, with `routeId`, for one. */
+  async get(user: AuthUser, routeId?: string) {
+    // Checks the route belongs to this workspace before filtering by it.
+    if (routeId) await this.workflows.workflowFor(user.organisationId, routeId);
+    const onRoute = routeId ? { routeId } : {};
     const staleThresholdMs = parsePositiveNumber(
       this.config.get<string>('GPS_STALE_TRACKER_MS'),
       DEFAULT_STALE_TRACKER_MS,
@@ -49,11 +50,12 @@ export class DashboardService {
     const [jobs, overdueTasks, upcomingDeliveries, trackedJobs] =
       await Promise.all([
         this.prisma.importJob.findMany({
-          where: { organisationId: user.organisationId },
+          where: { organisationId: user.organisationId, ...onRoute },
           select: {
             id: true,
             reference: true,
             status: true,
+            routeId: true,
             expectedDeliveryDate: true,
             customer: { select: { firstName: true, lastName: true } },
             vehicle: {
@@ -66,6 +68,7 @@ export class DashboardService {
             organisationId: user.organisationId,
             status: { notIn: ['COMPLETED', 'CANCELLED'] },
             dueDate: { lt: new Date() },
+            ...(routeId ? { importJob: { routeId } } : {}),
           },
           include: {
             importJob: { select: { id: true, reference: true } },
@@ -77,6 +80,7 @@ export class DashboardService {
           where: {
             organisationId: user.organisationId,
             status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            ...onRoute,
             expectedDeliveryDate: {
               gte: new Date(),
               lte: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
@@ -93,6 +97,7 @@ export class DashboardService {
           where: {
             organisationId: user.organisationId,
             status: { notIn: ['COMPLETED', 'CANCELLED'] },
+            ...onRoute,
             trackerAssignments: { some: { removedAt: null } },
           },
           select: {
@@ -193,31 +198,57 @@ export class DashboardService {
       }
     }
 
-    const byStage = jobs.reduce(
-      (acc, job) => {
-        const stage = getJobStage(job.status as JobStatus);
-        acc[stage] = (acc[stage] ?? 0) + 1;
-        return acc;
-      },
-      {} as Record<JobStage, number>,
-    );
-
     const enrichedAlerts = await this.enrichOpsAlerts(opsAlerts);
 
     return {
       activeJobs: jobs.filter(
         (job) => !['COMPLETED', 'CANCELLED'].includes(job.status),
       ).length,
-      byStage: Object.entries(JOB_STAGE_LABELS).map(([stage, label]) => ({
-        stage,
-        label,
-        count: byStage[stage as JobStage] ?? 0,
-      })),
+      byRoute: await this.byRoute(user, jobs, routeId),
       overdueTasks,
       upcomingDeliveries,
       offlineTrackers,
       opsAlerts: enrichedAlerts,
     };
+  }
+
+  /**
+   * Open jobs in each stage of each route, plus completed ones. Draft routes
+   * appear only once they have jobs.
+   */
+  private async byRoute(
+    user: AuthUser,
+    jobs: Array<{ status: string; routeId: string | null }>,
+    routeId?: string,
+  ) {
+    const routes = await this.workflows.list(user);
+    const fallback = routes.find((route) => route.isDefault)?.id ?? null;
+    const routeOf = (job: { routeId: string | null }) =>
+      job.routeId ?? fallback;
+    return routes
+      .filter((route) =>
+        routeId ? route.id === routeId : route.active || route.activeJobs > 0,
+      )
+      .map((route) => {
+        const mine = jobs.filter((job) => routeOf(job) === route.id);
+        const open = mine.filter((job) => !isTerminalStatus(job.status));
+        return {
+          id: route.id,
+          name: route.name,
+          shortLabel: route.shortLabel,
+          isDefault: route.isDefault,
+          activeJobs: open.length,
+          completed: mine.filter((job) => job.status === 'COMPLETED').length,
+          stages: route.stages.map((stage) => {
+            const codes = new Set(stage.statuses.map((status) => status.code));
+            return {
+              id: stage.id,
+              name: stage.name,
+              count: open.filter((job) => codes.has(job.status)).length,
+            };
+          }),
+        };
+      });
   }
 
   /** Heuristic triage always; optional OpenAI polish when keyed. Staff-only. */

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Alert, Avatar, Badge, Button, Card, Heading, Progress, Row, Text } from '@atomic-ui/ui-react';
-import { JOB_STAGE_LABELS, JOB_STAGES, getJobStage, getStatusLabel, type JobStage } from '@vip/shared';
 import { api } from '../../lib/api';
 import { formatCategory, formatDate, relativeTime } from '../../lib/format';
 import type { JobTracking } from '../../lib/tracking';
@@ -13,9 +12,6 @@ import { closedAt } from './history';
 import { useJobStatus } from './useJobStatus';
 import type { JobDetail } from './types';
 import './OverviewTab.css';
-
-const JOURNEY: JobStage[] = JOB_STAGES.filter((stage) => stage !== 'completed' && stage !== 'cancelled');
-const JOURNEY_STEPS = JOURNEY.map((stage) => ({ id: stage, label: JOB_STAGE_LABELS[stage] }));
 
 type Task = JobDetail['tasks'][number];
 
@@ -31,8 +27,7 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   // The time the tab opened, so a tracker's freshness does not change between renders.
   const [now] = useState(() => Date.now());
 
-  const { closed, editable, next, canCancel, move } = useJobStatus(job);
-  const stage = getJobStage(job.status);
+  const { closed, editable, next, canCancel, move, label, progress } = useJobStatus(job);
   const ending = closedAt(job);
 
   const tracking = useQuery({
@@ -73,11 +68,11 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   return (
     <div className="job-overview">
       <div className="job-overview-main">
-        <section className="job-hero" aria-label={`${vehicle}, ${getStatusLabel(job.status)}`}>
+        <section className="job-hero" aria-label={`${vehicle}, ${label(job.status)}`}>
           {photo ? <AuthenticatedImage path={`/import-jobs/${job.id}/photos/${photo.id}`} alt="" className="job-hero-photo" /> : null}
           <div className="job-hero-top">
             <div className="job-hero-badges">
-              <Badge tone="inverse">{getStatusLabel(job.status)}</Badge>
+              <Badge tone="inverse">{label(job.status)}</Badge>
               {job.vehicle.ukRegistration ? <Badge>{job.vehicle.ukRegistration}</Badge> : null}
               <Badge>{`${countryName(job.originCountry)} → ${countryName(job.destinationCountry)}`}</Badge>
             </div>
@@ -90,7 +85,7 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
             </Link>
           </div>
           <div className="job-hero-bar">
-            <Progress look="bars" label="Journey" steps={JOURNEY_STEPS} current={stage === 'completed' ? 'cyprus' : stage} />
+            <Progress look="bars" label="Journey" steps={progress.steps} current={progress.current} />
             {editable ? (
               <div className="job-hero-actions">
                 {canCancel ? (
@@ -100,7 +95,7 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
                 ) : null}
                 {next ? (
                   <Button iconAfter="arrow-right" busy={move.isPending} busyLabel="Moving the job" onClick={() => move.mutate(next)}>
-                    {`Move to ${getStatusLabel(next)}`}
+                    {`Move to ${label(next)}`}
                   </Button>
                 ) : null}
               </div>

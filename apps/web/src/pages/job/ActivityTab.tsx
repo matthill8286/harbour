@@ -5,6 +5,8 @@ import { formatDate } from '../../lib/format';
 import { useSession } from '../../lib/session';
 import { LoadingScreen } from '../../components/ui';
 import { describeActivity, type ActivityItem } from './activityText';
+import { useJobStatus } from './useJobStatus';
+import type { JobDetail } from './types';
 import './ActivityTab.css';
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
@@ -14,8 +16,11 @@ const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour: 
  * done on the job, newest first, each entry read as who did what. It is the
  * staff's audit trail and customers never see it.
  */
-export function ActivityTab({ jobId }: { jobId: string }) {
+export function ActivityTab({ job }: { job: JobDetail }) {
+  const jobId = job.id;
   const { currency } = useSession();
+  // Status changes read with the job's own route's names.
+  const { label } = useJobStatus(job);
   const query = useQuery({
     queryKey: ['job', jobId, 'activity'],
     queryFn: () => api<ActivityItem[]>(`/import-jobs/${jobId}/activity`),
@@ -51,7 +56,7 @@ export function ActivityTab({ jobId }: { jobId: string }) {
       ) : (
         <ol className="job-activity-list">
           {items.map((item) => {
-            const { verb, detail } = describeActivity(item, currency);
+            const { verb, detail } = describeActivity(item, currency, label);
             const who = item.actor?.name ?? 'Harbour';
             return (
               <li key={item.id}>

@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { isDestinationReached, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { StatusBadge } from '../components/StatusBadge';
-import { JourneyStepper } from '../components/JourneyStepper';
+import { JourneyStepper, type CustomerProgress } from '../components/JourneyStepper';
 import { EmptyState, LoadingScreen, PageHeader } from '../components/ui';
 import { useSession } from '../lib/session';
 
 type PortalJob = {
   id: string;
   reference: string;
-  status: JobStatus;
+  status: string;
+  /** The status as the customer sees it, from the job's route. */
+  statusLabel: string;
+  progress: CustomerProgress;
   expectedDeliveryDate: string | null;
   photoCount: number;
   documentCount: number;
@@ -24,6 +26,9 @@ type PortalJob = {
     year: number | null;
   };
 };
+
+/** On the last step the customer sees, or completed: no delivery date to wait for. */
+const arrived = (job: { status: string; progress: CustomerProgress }) => job.status === 'COMPLETED' || job.progress.current >= job.progress.steps.length - 1;
 
 export function PortalPage() {
   const { workspace } = useSession();
@@ -57,16 +62,16 @@ export function PortalPage() {
                 </p>
                 <p className="text-sm text-ink/60">
                   {job.vehicle.ukRegistration}
-                  {job.expectedDeliveryDate && !isDestinationReached(job.status) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : ''}
+                  {job.expectedDeliveryDate && !arrived(job) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : ''}
                 </p>
                 <p className="mt-1 text-xs text-ink/45">
                   {job.photoCount} {job.photoCount === 1 ? 'photo' : 'photos'} · {job.documentCount} {job.documentCount === 1 ? 'document' : 'documents'}
                 </p>
               </div>
-              <StatusBadge status={job.status} />
+              <StatusBadge status={job.status} label={job.statusLabel} />
             </div>
             <div className="mt-4">
-              <JourneyStepper status={job.status} variant="customer" embedded />
+              <JourneyStepper progress={job.progress} embedded />
             </div>
           </Link>
         ))
