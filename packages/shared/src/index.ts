@@ -455,6 +455,12 @@ export type PublicUser = {
   twoFactorEnabled: boolean;
 };
 
+/** What vehicle lookup and plate scanning can offer a workspace. */
+export type VehicleCapabilities = {
+  lookup: boolean;
+  scan: boolean;
+};
+
 export type VehicleLookupResult = {
   registration: string;
   vin: string | null;
