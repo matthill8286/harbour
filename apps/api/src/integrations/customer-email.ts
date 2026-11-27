@@ -130,7 +130,7 @@ export function composeCustomerEmail(
   }
 }
 
-function wrapHtml(brandName: string, title: string, body: string) {
+export function wrapHtml(brandName: string, title: string, body: string) {
   return `<!doctype html>
 <html>
   <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1a1a1a;line-height:1.5;max-width:560px;margin:0 auto;padding:24px">
@@ -141,7 +141,7 @@ function wrapHtml(brandName: string, title: string, body: string) {
 </html>`;
 }
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

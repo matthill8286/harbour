@@ -14,6 +14,13 @@ export class SignupDto {
 
   @TrimmedEmail()
   email!: string;
+}
+
+export class ConfirmSignupDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  token!: string;
 
   /** Same minimum as accepting an invite. */
   @IsString()

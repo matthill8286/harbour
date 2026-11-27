@@ -1,3 +1,4 @@
+import { RateLimiter } from '../../rate-limit/rate-limiter';
 import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { verify } from 'argon2';
@@ -129,11 +130,13 @@ describe('PasswordResetService', () => {
 
   function setup() {
     const fake = fakePrisma();
-    const email = { send: jest.fn().mockResolvedValue({ provider: 'log' }) };
+    const send = jest.fn().mockResolvedValue({ provider: 'log' });
+    const email = { send, deliver: send };
     const service = new PasswordResetService(
       fake.prisma as unknown as PrismaService,
       email as unknown as EmailTransport,
       config,
+      new RateLimiter(),
     );
     return { ...fake, email, service };
   }
@@ -229,6 +232,22 @@ describe('PasswordResetService', () => {
     await expect(service.check('made-up')).rejects.toBeInstanceOf(
       BadRequestException,
     );
+  });
+
+  it('limits reset emails by address, whether or not it has an account', () => {
+    for (const address of ['staff@demo.local', 'nobody@demo.local']) {
+      const { service } = setup();
+      for (let i = 0; i < 5; i += 1) service.requestInBackground(address);
+      expect(() =>
+        service.requestInBackground(` ${address.toUpperCase()}`),
+      ).toThrow('Too many attempts');
+    }
+  });
+
+  it('answers before the account has been looked up', () => {
+    const { service, prisma } = setup();
+    prisma.user.findUnique.mockReturnValueOnce(new Promise<never>(() => {}));
+    expect(service.requestInBackground('staff@demo.local')).toBeUndefined();
   });
 
   it('still answers the same when the email provider fails', async () => {

@@ -25,6 +25,7 @@ import { SecurityPage } from './pages/SecurityPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
+import { SignupConfirmPage } from './pages/SignupConfirmPage';
 import { LoadingScreen } from './components/ui';
 
 function Guard({ children, allow }: { children: ReactNode; allow: (user: PublicUser) => boolean }) {
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
       <Route path="/security/setup" element={<SecuritySetupPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/signup/confirm/:token" element={<SignupConfirmPage />} />
       <Route
         element={
           <Guard allow={() => true}>

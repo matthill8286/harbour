@@ -340,6 +340,22 @@ model PasswordReset {
   @@index([userId, createdAt])
 }
 
+/// A sign-up waiting for its email to be proven. No account or workspace exists
+/// until the link sent to that address is used. Only a hash of the token is kept.
+model SignupRequest {
+  id               String    @id @default(cuid())
+  email            String
+  organisationName String
+  name             String
+  tokenHash        String    @unique
+  expiresAt        DateTime
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
 model Customer {
   id             String       @id @default(cuid())
   organisationId String

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { RateLimit } from '../../rate-limit/rate-limit.guard';
 import { ForgotPasswordDto, ResetPasswordDto } from './password-reset.dto';
 import { PasswordResetService } from './password-reset.service';
 
@@ -8,17 +9,20 @@ export class PasswordResetController {
 
   @Post('forgot')
   @HttpCode(204)
-  async forgot(@Body() dto: ForgotPasswordDto) {
-    await this.resets.request(dto.email);
+  @RateLimit({ policy: 'forgotPasswordIp', by: 'ip' })
+  forgot(@Body() dto: ForgotPasswordDto) {
+    this.resets.requestInBackground(dto.email);
   }
 
   @Get('reset/:token')
+  @RateLimit({ policy: 'resetPasswordIp', by: 'ip' })
   check(@Param('token') token: string) {
     return this.resets.check(token);
   }
 
   @Post('reset')
   @HttpCode(204)
+  @RateLimit({ policy: 'resetPasswordIp', by: 'ip' })
   async reset(@Body() dto: ResetPasswordDto) {
     await this.resets.reset(dto.token, dto.password);
   }
