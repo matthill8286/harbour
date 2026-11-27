@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@atomic-ui/ui": "^0.7.0",
+    "@atomic-ui/ui-react": "^0.7.0",
     "@tanstack/react-query": "^5.85.5",
     "@vip/shared": "workspace:*",
     "html5-qrcode": "^2.3.8",
@@ -24,6 +26,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@atomic-ui/design-tokens": "^0.7.0",
     "@tailwindcss/vite": "^4.1.12",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
