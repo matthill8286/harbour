@@ -311,6 +311,7 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
   /**
    * Renames, reorders, adds and removes a stage's statuses. A status that jobs
    * are at cannot be removed here; removing the whole stage asks where they go.
+   * The check and the changes are one transaction.
    */
   async saveStage(
     user: AuthUser,
@@ -318,70 +319,79 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
     stageId: string,
     dto: SaveStageDto,
   ) {
-    const route = await this.find(user.organisationId, routeId);
-    const stage = route.stages.find((item) => item.id === stageId);
-    if (!stage) throw new NotFoundException('Stage not found');
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Locked as in removeStage, so no job reaches a status after the check below.
+        await this.lockRoute(tx, user.organisationId, routeId);
+        const route = await this.find(user.organisationId, routeId, tx);
+        const stage = route.stages.find((item) => item.id === stageId);
+        if (!stage) throw new NotFoundException('Stage not found');
 
-    const mine = new Set(stage.statuses.map((s) => s.code));
-    const stray = dto.statuses.find((s) => s.code && !mine.has(s.code));
-    if (stray) {
-      throw new BadRequestException(
-        `${stray.label} belongs to another stage. Remove it there and add it here instead.`,
-      );
-    }
-    const kept = new Set(dto.statuses.flatMap((s) => (s.code ? [s.code] : [])));
-    const removed = stage.statuses.filter((s) => !kept.has(s.code));
-    if (removed.length) {
-      const inUse = await this.prisma.importJob.findMany({
-        where: {
-          organisationId: user.organisationId,
-          routeId,
-          status: { in: removed.map((s) => s.code) },
-        },
-        select: { status: true },
-      });
-      if (inUse.length) {
-        const label = removed.find((s) => s.code === inUse[0].status)?.label;
-        throw new ConflictException(
-          `${plural(inUse.length, 'job is', 'jobs are')} at ${label}. Move them on first, or remove the whole stage and choose where they go.`,
+        const mine = new Set(stage.statuses.map((s) => s.code));
+        const stray = dto.statuses.find((s) => s.code && !mine.has(s.code));
+        if (stray) {
+          throw new BadRequestException(
+            `${stray.label} belongs to another stage. Remove it there and add it here instead.`,
+          );
+        }
+        const kept = new Set(
+          dto.statuses.flatMap((s) => (s.code ? [s.code] : [])),
         );
-      }
-    }
-
-    const taken = routeStatusCodes(toWorkflow(route));
-    await this.prisma.$transaction(async (tx) => {
-      await tx.routeStage.update({
-        where: { id: stageId },
-        data: {
-          name: dto.name.trim(),
-          customerName: (dto.customerName ?? dto.name).trim(),
-          customerVisible: dto.customerVisible,
-        },
-      });
-      if (removed.length) {
-        await tx.routeStatus.deleteMany({
-          where: { stageId, code: { in: removed.map((s) => s.code) } },
-        });
-      }
-      for (const [index, status] of dto.statuses.entries()) {
-        if (status.code) {
-          await tx.routeStatus.update({
-            where: { routeId_code: { routeId, code: status.code } },
-            data: { label: status.label.trim(), sortOrder: index },
-          });
-        } else {
-          await tx.routeStatus.create({
-            data: {
+        const removed = stage.statuses.filter((s) => !kept.has(s.code));
+        if (removed.length) {
+          const inUse = await tx.importJob.findMany({
+            where: {
+              organisationId: user.organisationId,
               routeId,
-              stageId,
-              code: this.claim(status.label, taken),
-              label: status.label.trim(),
-              sortOrder: index,
+              status: { in: removed.map((s) => s.code) },
             },
+            select: { status: true },
+          });
+          if (inUse.length) {
+            const label = removed.find(
+              (s) => s.code === inUse[0].status,
+            )?.label;
+            throw new ConflictException(
+              `${plural(inUse.length, 'job is', 'jobs are')} at ${label}. Move them on first, or remove the whole stage and choose where they go.`,
+            );
+          }
+        }
+
+        const taken = routeStatusCodes(toWorkflow(route));
+        await tx.routeStage.update({
+          where: { id: stageId },
+          data: {
+            name: dto.name.trim(),
+            customerName: (dto.customerName ?? dto.name).trim(),
+            customerVisible: dto.customerVisible,
+          },
+        });
+        if (removed.length) {
+          await tx.routeStatus.deleteMany({
+            where: { stageId, code: { in: removed.map((s) => s.code) } },
           });
         }
-      }
-    });
+        for (const [index, status] of dto.statuses.entries()) {
+          if (status.code) {
+            await tx.routeStatus.update({
+              where: { routeId_code: { routeId, code: status.code } },
+              data: { label: status.label.trim(), sortOrder: index },
+            });
+          } else {
+            await tx.routeStatus.create({
+              data: {
+                routeId,
+                stageId,
+                code: this.claim(status.label, taken),
+                label: status.label.trim(),
+                sortOrder: index,
+              },
+            });
+          }
+        }
+      },
+      { maxWait: 10_000, timeout: 30_000 },
+    );
     await this.audit.record(user, {
       action: 'ROUTE_STAGE_UPDATED',
       entityType: 'Route',
@@ -432,7 +442,7 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
   ) {
     const removed = await this.prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "Route" WHERE "id" = ${routeId} AND "organisationId" = ${user.organisationId} FOR UPDATE`;
+        await this.lockRoute(tx, user.organisationId, routeId);
         const route = await this.find(user.organisationId, routeId, tx);
         const stage = route.stages.find((item) => item.id === stageId);
         if (!stage) throw new NotFoundException('Stage not found');
@@ -512,6 +522,11 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
       metadata: { ...removed, moveTo },
     });
     return this.one(user.organisationId, routeId);
+  }
+
+  /** Waits for jobs being created or moved on the route, and holds off new ones. */
+  private lockRoute(tx: Tx, organisationId: string, routeId: string) {
+    return tx.$queryRaw`SELECT "id" FROM "Route" WHERE "id" = ${routeId} AND "organisationId" = ${organisationId} FOR UPDATE`;
   }
 
   private async one(organisationId: string, id: string) {

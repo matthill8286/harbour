@@ -110,8 +110,14 @@ function fakePrisma() {
         },
       ),
     },
-    $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation(
+    (work: Promise<unknown>[] | ((tx: unknown) => unknown)) =>
+      typeof work === 'function'
+        ? Promise.resolve(work(prisma))
+        : Promise.all(work),
+  );
   return { prisma, users, resets };
 }
 

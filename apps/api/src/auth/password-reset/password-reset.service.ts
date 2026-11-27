@@ -95,21 +95,22 @@ export class PasswordResetService {
     const reset = await this.findUsable(token);
     const passwordHash = await hash(password);
     const now = new Date();
-    const claimed = await this.prisma.passwordReset.updateMany({
-      where: { id: reset.id, usedAt: null },
-      data: { usedAt: now },
-    });
-    if (claimed.count !== 1) throw new BadRequestException(INVALID_LINK);
-    await this.prisma.$transaction([
-      this.prisma.user.update({
+    // The link is used up only if the new password is saved with it.
+    await this.prisma.$transaction(async (tx) => {
+      const claimed = await tx.passwordReset.updateMany({
+        where: { id: reset.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (claimed.count !== 1) throw new BadRequestException(INVALID_LINK);
+      await tx.user.update({
         where: { id: reset.userId },
         data: { passwordHash, passwordChangedAt: now },
-      }),
-      this.prisma.passwordReset.updateMany({
+      });
+      await tx.passwordReset.updateMany({
         where: { userId: reset.userId, usedAt: null },
         data: { expiresAt: now },
-      }),
-    ]);
+      });
+    });
   }
 
   private async findUsable(token: string) {
