@@ -125,7 +125,10 @@ export function NotesTab({ job }: { job: JobDetail }) {
           <Text size="sm" tone="muted">{`${notes.length} ${notes.length === 1 ? 'note' : 'notes'} · ${visibleCount} visible to customer`}</Text>
         </div>
         {notes.length === 0 ? (
-          <EmptyState heading="No notes yet" lead="Internal notes stay with the team. Notes visible to the customer are emailed to them and shown in their portal." />
+          <EmptyState
+            heading="No notes yet"
+            lead="Internal notes stay with the team. Notes visible to the customer are emailed to them and shown in their portal."
+          />
         ) : (
           <ol className="job-notes-list">
             {notes.map((note) => (

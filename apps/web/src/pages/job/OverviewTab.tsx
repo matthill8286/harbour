@@ -2,13 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Alert, Avatar, Badge, Button, Card, Heading, Progress, Row, Text } from '@atomic-ui/ui-react';
-import {
-  JOB_STAGE_LABELS,
-  JOB_STAGES,
-  getJobStage,
-  getStatusLabel,
-  type JobStage,
-} from '@vip/shared';
+import { JOB_STAGE_LABELS, JOB_STAGES, getJobStage, getStatusLabel, type JobStage } from '@vip/shared';
 import { api } from '../../lib/api';
 import { formatCategory, formatDate, relativeTime } from '../../lib/format';
 import type { JobTracking } from '../../lib/tracking';
@@ -67,10 +61,7 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   });
 
   // The checklist keeps the order the tasks were added in, so ticking one never moves it.
-  const tasks = useMemo(
-    () => [...job.tasks].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '') || a.id.localeCompare(b.id)),
-    [job.tasks],
-  );
+  const tasks = useMemo(() => [...job.tasks].sort((a, b) => (a.createdAt ?? '').localeCompare(b.createdAt ?? '') || a.id.localeCompare(b.id)), [job.tasks]);
   const overdue = tasks.filter(isOverdue).length;
   const latestNote = job.notes.length ? [...job.notes].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] : null;
   const photo = job.photos[0];
@@ -83,9 +74,7 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
     <div className="job-overview">
       <div className="job-overview-main">
         <section className="job-hero" aria-label={`${vehicle}, ${getStatusLabel(job.status)}`}>
-          {photo ? (
-            <AuthenticatedImage path={`/import-jobs/${job.id}/photos/${photo.id}`} alt="" className="job-hero-photo" />
-          ) : null}
+          {photo ? <AuthenticatedImage path={`/import-jobs/${job.id}/photos/${photo.id}`} alt="" className="job-hero-photo" /> : null}
           <div className="job-hero-top">
             <div className="job-hero-badges">
               <Badge tone="inverse">{getStatusLabel(job.status)}</Badge>
@@ -174,7 +163,9 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
                     <span className="job-leg-number" aria-hidden="true">
                       {String(i + 1).padStart(2, '0')}
                     </span>
-                    <Badge tone={leg.status === 'COMPLETED' ? 'inverse' : leg.status === 'IN_PROGRESS' ? 'solid' : 'neutral'}>{formatCategory(leg.status)}</Badge>
+                    <Badge tone={leg.status === 'COMPLETED' ? 'inverse' : leg.status === 'IN_PROGRESS' ? 'solid' : 'neutral'}>
+                      {formatCategory(leg.status)}
+                    </Badge>
                   </div>
                   <strong>{`${leg.origin} → ${leg.destination}`}</strong>
                   <Text size="sm" tone="muted">

@@ -101,10 +101,7 @@ export function JobNewPage() {
   });
 
   const selectedCustomer = useMemo(() => customers.data?.find((item) => item.id === customerId), [customers.data, customerId]);
-  const customerOptions = useMemo(
-    () => (customers.data ?? []).map((customer) => ({ value: customer.id, label: fullName(customer) })),
-    [customers.data],
-  );
+  const customerOptions = useMemo(() => (customers.data ?? []).map((customer) => ({ value: customer.id, label: fullName(customer) })), [customers.data]);
 
   async function lookupPlate(event?: FormEvent) {
     event?.preventDefault();
@@ -194,10 +191,46 @@ export function JobNewPage() {
                 <span>Or create a new customer</span>
               </p>
               <div className="new-job-fields">
-                <TextInput label="First name" autocomplete="off" value={newCustomer.firstName} onChange={(e) => { const value = e.detail.value; setNewCustomer((c) => ({ ...c, firstName: value })); }} />
-                <TextInput label="Last name" autocomplete="off" value={newCustomer.lastName} onChange={(e) => { const value = e.detail.value; setNewCustomer((c) => ({ ...c, lastName: value })); }} />
-                <TextInput label="Email" type="email" autocomplete="off" placeholder="name@example.com" value={newCustomer.email} onChange={(e) => { const value = e.detail.value; setNewCustomer((c) => ({ ...c, email: value })); }} />
-                <TextInput label="Phone" type="tel" autocomplete="off" placeholder="+357 …" value={newCustomer.phone} onChange={(e) => { const value = e.detail.value; setNewCustomer((c) => ({ ...c, phone: value })); }} />
+                <TextInput
+                  label="First name"
+                  autocomplete="off"
+                  value={newCustomer.firstName}
+                  onChange={(e) => {
+                    const value = e.detail.value;
+                    setNewCustomer((c) => ({ ...c, firstName: value }));
+                  }}
+                />
+                <TextInput
+                  label="Last name"
+                  autocomplete="off"
+                  value={newCustomer.lastName}
+                  onChange={(e) => {
+                    const value = e.detail.value;
+                    setNewCustomer((c) => ({ ...c, lastName: value }));
+                  }}
+                />
+                <TextInput
+                  label="Email"
+                  type="email"
+                  autocomplete="off"
+                  placeholder="name@example.com"
+                  value={newCustomer.email}
+                  onChange={(e) => {
+                    const value = e.detail.value;
+                    setNewCustomer((c) => ({ ...c, email: value }));
+                  }}
+                />
+                <TextInput
+                  label="Phone"
+                  type="tel"
+                  autocomplete="off"
+                  placeholder="+357 …"
+                  value={newCustomer.phone}
+                  onChange={(e) => {
+                    const value = e.detail.value;
+                    setNewCustomer((c) => ({ ...c, phone: value }));
+                  }}
+                />
               </div>
               {createCustomer.isError ? (
                 <Alert tone="danger" heading="The customer was not saved">
@@ -205,7 +238,13 @@ export function JobNewPage() {
                 </Alert>
               ) : null}
               <div>
-                <Button variant="subtle" disabled={!canSaveCustomer} busy={createCustomer.isPending} busyLabel="Saving the customer" onClick={() => createCustomer.mutate()}>
+                <Button
+                  variant="subtle"
+                  disabled={!canSaveCustomer}
+                  busy={createCustomer.isPending}
+                  busyLabel="Saving the customer"
+                  onClick={() => createCustomer.mutate()}
+                >
                   Save customer
                 </Button>
               </div>
@@ -272,7 +311,9 @@ export function JobNewPage() {
                 <span className="new-job-plate">{lookup.registration}</span>
                 <span>
                   <strong>{vehicleTitle(lookup)}</strong>
-                  <Text size="sm" tone="muted">{[lookup.colour, lookup.year].filter(Boolean).join(' · ') || 'No colour or year from the provider'}</Text>
+                  <Text size="sm" tone="muted">
+                    {[lookup.colour, lookup.year].filter(Boolean).join(' · ') || 'No colour or year from the provider'}
+                  </Text>
                   <Text size="sm" tone="muted">
                     {`Source: ${lookup.source}${scanMeta ? ` · plate read at ${Math.round(scanMeta.confidence * 100)}% (${scanMeta.source})` : ''}`}
                   </Text>
@@ -281,7 +322,12 @@ export function JobNewPage() {
               <div className="new-job-fields">
                 <Select label="Origin" options={countryOptions} value={originCountry} onChange={(e) => setOriginCountry(e.detail.value)} />
                 <Select label="Destination" options={countryOptions} value={destinationCountry} onChange={(e) => setDestinationCountry(e.detail.value)} />
-                <Select label="Registration country" options={countryOptions} value={registrationCountry} onChange={(e) => setRegistrationCountry(e.detail.value)} />
+                <Select
+                  label="Registration country"
+                  options={countryOptions}
+                  value={registrationCountry}
+                  onChange={(e) => setRegistrationCountry(e.detail.value)}
+                />
                 <TextInput label="Expected delivery" type="date" value={expectedDeliveryDate} onChange={(e) => setExpectedDeliveryDate(e.detail.value)} />
               </div>
               {createJob.isError ? (
@@ -314,7 +360,14 @@ export function JobNewPage() {
             />
             <SummaryItem
               label="Corridor"
-              value={step === 'confirm' ? [originCountry, registrationCountry, destinationCountry].filter((c, i, all) => c !== all[i - 1]).map(countryName).join(' → ') : null}
+              value={
+                step === 'confirm'
+                  ? [originCountry, registrationCountry, destinationCountry]
+                      .filter((c, i, all) => c !== all[i - 1])
+                      .map(countryName)
+                      .join(' → ')
+                  : null
+              }
               pending="Confirmed in step 3"
             />
             <SummaryItem label="Expected delivery" value={expectedDeliveryDate ? formatDate(expectedDeliveryDate) : null} pending="Confirmed in step 3" />

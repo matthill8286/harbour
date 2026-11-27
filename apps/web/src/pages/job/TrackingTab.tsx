@@ -38,10 +38,7 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
     queryFn: () => api<RouteTemplateOption[]>('/route-templates'),
   });
   const refresh = () =>
-    Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['tracking', job.id] }),
-      queryClient.invalidateQueries({ queryKey: ['job', job.id] }),
-    ]);
+    Promise.all([queryClient.invalidateQueries({ queryKey: ['tracking', job.id] }), queryClient.invalidateQueries({ queryKey: ['job', job.id] })]);
 
   const advance = useMutation({ mutationFn: () => api(`/import-jobs/${job.id}/tracking/advance`, { method: 'POST' }), onSuccess: refresh });
   const pull = useMutation({ mutationFn: () => api(`/trackers/${trackingQuery.data!.tracker!.id}/sync`, { method: 'POST' }), onSuccess: refresh });
@@ -81,7 +78,9 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
   const nextWaypoint = current && planned.length ? planned[Math.min(nearestRouteIndex(planned, current) + 1, planned.length - 1)]?.label : null;
   const vehicle = [job.vehicle.make, job.vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
   const legs = job.journeys.reduce<Record<string, number>>((count, leg) => ({ ...count, [leg.type]: (count[leg.type] ?? 0) + 1 }), {});
-  const legSummary = Object.entries(legs).map(([type, n]) => `${n} ${type.toLowerCase()}`).join(' · ');
+  const legSummary = Object.entries(legs)
+    .map(([type, n]) => `${n} ${type.toLowerCase()}`)
+    .join(' · ');
   const templates = (templatesQuery.data ?? []).map((t) => ({ value: t.id, label: t.name }));
 
   const corridor = (
@@ -124,7 +123,12 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
           <strong>{suggestion.name}</strong>
           <Text size="sm" tone="muted">{`${Math.round(suggestion.confidence * 100)}% sure · ${suggestion.rationale}`}</Text>
           {suggestion.recommendedTemplateId !== tracking.routeTemplate?.id && editable ? (
-            <Button size="sm" busy={assignRoute.isPending} busyLabel="Applying the corridor" onClick={() => assignRoute.mutate(suggestion.recommendedTemplateId)}>
+            <Button
+              size="sm"
+              busy={assignRoute.isPending}
+              busyLabel="Applying the corridor"
+              onClick={() => assignRoute.mutate(suggestion.recommendedTemplateId)}
+            >
               {`Use ${suggestion.name}`}
             </Button>
           ) : (
@@ -212,7 +216,11 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
           <div>
             <dt>Last position</dt>
             <dd>{current ? `${Number(current.latitude).toFixed(3)}, ${Number(current.longitude).toFixed(3)}` : 'None yet'}</dd>
-            {current ? <Text size="sm" tone="muted">{formatDateTime(current.recordedAt)}</Text> : null}
+            {current ? (
+              <Text size="sm" tone="muted">
+                {formatDateTime(current.recordedAt)}
+              </Text>
+            ) : null}
           </div>
           <div>
             <dt>Speed</dt>
@@ -224,7 +232,7 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
           </div>
           <div>
             <dt>Next waypoint</dt>
-            <dd>{arrived ? 'Arrived' : nextWaypoint ?? 'Not planned'}</dd>
+            <dd>{arrived ? 'Arrived' : (nextWaypoint ?? 'Not planned')}</dd>
           </div>
         </dl>
       </Card>

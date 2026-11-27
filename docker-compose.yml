@@ -8,11 +8,11 @@ services:
       POSTGRES_PASSWORD: vip
       POSTGRES_DB: vehicle_import
     ports:
-      - "5432:5432"
+      - '5432:5432'
     volumes:
       - vip_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vip -d vehicle_import"]
+      test: ['CMD-SHELL', 'pg_isready -U vip -d vehicle_import']
       interval: 5s
       timeout: 5s
       retries: 10

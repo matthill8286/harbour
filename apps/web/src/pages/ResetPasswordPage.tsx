@@ -50,10 +50,7 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <AuthFrame
-      eyebrow="Password reset"
-      lead="Choose a new password. Any device still signed in with the old one will be signed out."
-    >
+    <AuthFrame eyebrow="Password reset" lead="Choose a new password. Any device still signed in with the old one will be signed out.">
       {preview.isLoading ? <LoadingScreen label="Checking your link…" /> : null}
       {preview.error ? (
         <div className="space-y-4">

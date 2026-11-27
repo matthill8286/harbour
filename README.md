@@ -45,12 +45,12 @@ pnpm dev:web
 
 Founding tenant: **Demo Imports Ltd**
 
-| Role | Email | Password |
-| --- | --- | --- |
-| Owner | admin@demo-imports.local | ChangeMe!Admin1 |
-| Staff | staff@demo-imports.local | ChangeMe!Staff1 |
-| Viewer | viewer@demo-imports.local | ChangeMe!Viewer1 |
-| Customer | customer@example.com | ChangeMe!Customer1 |
+| Role     | Email                     | Password           |
+| -------- | ------------------------- | ------------------ |
+| Owner    | admin@demo-imports.local  | ChangeMe!Admin1    |
+| Staff    | staff@demo-imports.local  | ChangeMe!Staff1    |
+| Viewer   | viewer@demo-imports.local | ChangeMe!Viewer1   |
+| Customer | customer@example.com      | ChangeMe!Customer1 |
 
 A second tenant (`cyprus-auto-logistics`) is seeded with `owner@cyprus-auto.local` / `ChangeMe!Admin1` so organisation isolation can be exercised.
 

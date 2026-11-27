@@ -28,17 +28,11 @@ export function ForgotPasswordPage() {
   }
 
   return (
-    <AuthFrame
-      eyebrow="Password reset"
-      lead="Enter the email you sign in with and we will send you a link to choose a new password."
-    >
+    <AuthFrame eyebrow="Password reset" lead="Enter the email you sign in with and we will send you a link to choose a new password.">
       {sent ? (
         <div className="space-y-4">
           <h2 className="display text-3xl">Check your email</h2>
-          <p className="text-sm text-ink/60">
-            If {email.trim()} has a Harbour account, a reset link is on its way. The link works for
-            one hour.
-          </p>
+          <p className="text-sm text-ink/60">If {email.trim()} has a Harbour account, a reset link is on its way. The link works for one hour.</p>
           <Link to="/login" className={`${primaryBtn} w-full py-3`}>
             Back to sign in
           </Link>
