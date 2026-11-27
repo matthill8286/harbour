@@ -36,19 +36,23 @@ describe('AnprService', () => {
   });
 
   it('reads a plate from the filename in mock mode', async () => {
-    const result = await make({}).recognise({
-      originalName: 'lf21trk.jpg',
-    });
+    const result = await make({}).recognise(
+      { originalName: 'lf21trk.jpg' },
+      true,
+    );
     expect(result).toMatchObject({
       registration: 'LF21 TRK',
       source: 'mock',
       confidence: 0.92,
     });
-    expect(vehicleData.lookup).toHaveBeenCalledWith('LF21 TRK');
+    expect(vehicleData.lookup).toHaveBeenCalledWith('LF21 TRK', true);
   });
 
   it('falls back to the seeded BMW plate when the filename is not a plate', async () => {
-    const result = await make({}).recognise({ originalName: 'photo.jpg' });
+    const result = await make({}).recognise(
+      { originalName: 'photo.jpg' },
+      true,
+    );
     expect(result.registration).toBe('KN19 XPL');
     expect(result.confidence).toBe(0.55);
   });
@@ -61,5 +65,14 @@ describe('AnprService', () => {
         PLATE_RECOGNIZER_API_KEY: 'tok',
       }).provider(),
     ).toBe('platerecognizer');
+  });
+
+  it('refuses to guess a plate where sample data is not allowed', async () => {
+    const service = make({});
+    expect(service.available(false)).toBe(false);
+    await expect(
+      service.recognise({ originalName: 'lf21trk.jpg' }, false),
+    ).rejects.toThrow('Plate scanning is not available');
+    expect(vehicleData.lookup).not.toHaveBeenCalled();
   });
 });

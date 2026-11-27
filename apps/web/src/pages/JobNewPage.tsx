@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, FileUpload, Heading, Progress, Select, Text, TextInput } from '@atomic-ui/ui-react';
-import { UK_CYPRUS_ROUTE_KEY, type VehicleLookupResult } from '@vip/shared';
+import { UK_CYPRUS_ROUTE_KEY, type VehicleCapabilities, type VehicleLookupResult } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
@@ -64,6 +64,14 @@ export function JobNewPage() {
   };
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+
+  // Without a real provider, a live workspace has no lookup or scan. The screen says so.
+  const capabilities = useQuery({
+    queryKey: ['vehicle-capabilities'],
+    queryFn: () => api<VehicleCapabilities>('/vehicles/capabilities'),
+  });
+  const canLookUp = capabilities.data?.lookup !== false;
+  const canScan = capabilities.data?.scan !== false;
 
   const countryOptions = useMemo(() => {
     const codes = new Set([...COUNTRY_CODES, country, originCountry, destinationCountry, registrationCountry]);
@@ -282,8 +290,15 @@ export function JobNewPage() {
                 Vehicle
               </Heading>
               <Text tone="muted">
-                {`For ${selectedCustomer ? fullName(selectedCustomer) : 'the customer'}. Type the UK registration and Harbour looks the vehicle up with the configured data provider.`}
+                {`For ${selectedCustomer ? fullName(selectedCustomer) : 'the customer'}. ${
+                  canLookUp ? 'Type the UK registration and Harbour looks the vehicle up with the configured data provider.' : 'Type the UK registration.'
+                }`}
               </Text>
+              {!canLookUp ? (
+                <Alert tone="warning" heading="Vehicle lookup is not available">
+                  {`No vehicle data provider is set up, so the job is created with the registration only.${canScan ? '' : ' Plate scanning is not available either.'}`}
+                </Alert>
+              ) : null}
               <TextInput
                 label="UK registration"
                 placeholder="KN19 XPL"
@@ -294,15 +309,21 @@ export function JobNewPage() {
                   if (e.key === 'Enter') void lookupPlate();
                 }}
               />
-              <FileUpload
-                label="Or scan the number plate"
-                description="A photo of the plate. Harbour reads the registration from it."
-                accept="image/*"
-                onFiles={(e) => {
-                  const file = e.detail.files[0];
-                  if (file) void scanPlate(file);
-                }}
-              />
+              {canScan ? (
+                <FileUpload
+                  label="Or scan the number plate"
+                  description="A photo of the plate. Harbour reads the registration from it."
+                  accept="image/*"
+                  onFiles={(e) => {
+                    const file = e.detail.files[0];
+                    if (file) void scanPlate(file);
+                  }}
+                />
+              ) : canLookUp ? (
+                <Text size="sm" tone="muted">
+                  Plate scanning is not available. Type the registration instead.
+                </Text>
+              ) : null}
               {lookupError ? (
                 <Alert tone="danger" heading="The vehicle could not be looked up">
                   {lookupError}
@@ -313,7 +334,7 @@ export function JobNewPage() {
                   Back
                 </Button>
                 <Button type="submit" iconAfter="arrow-right" disabled={!registration.trim()} busy={lookingUp} busyLabel="Looking up the vehicle">
-                  Look up vehicle
+                  {canLookUp ? 'Look up vehicle' : 'Continue'}
                 </Button>
               </div>
             </form>
@@ -332,7 +353,9 @@ export function JobNewPage() {
                     {[lookup.colour, lookup.year].filter(Boolean).join(' · ') || 'No colour or year from the provider'}
                   </Text>
                   <Text size="sm" tone="muted">
-                    {`Source: ${lookup.source}${scanMeta ? ` · plate read at ${Math.round(scanMeta.confidence * 100)}% (${scanMeta.source})` : ''}`}
+                    {`${lookup.source === 'unavailable' ? 'Vehicle lookup is not available. Only the registration is filled in.' : `Source: ${lookup.source}`}${
+                      scanMeta ? ` · plate read at ${Math.round(scanMeta.confidence * 100)}% (${scanMeta.source})` : ''
+                    }`}
                   </Text>
                 </span>
               </div>

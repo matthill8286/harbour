@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VehicleDataService } from './vehicle-data.service';
 import {
@@ -40,14 +44,27 @@ export class AnprService {
     return 'mock';
   }
 
-  async recognise(input: {
-    originalName: string;
-    buffer?: Buffer;
-    mimeType?: string;
-  }): Promise<AnprRecognition> {
-    const provider = this.provider();
-    if (provider === 'platerecognizer') {
-      return this.recognisePlateRecognizer(input);
+  /** False when the only reader is the mock and this workspace may not see it. */
+  available(sampleAllowed: boolean): boolean {
+    return this.provider() !== 'mock' || sampleAllowed;
+  }
+
+  async recognise(
+    input: {
+      originalName: string;
+      buffer?: Buffer;
+      mimeType?: string;
+    },
+    sampleAllowed: boolean,
+  ): Promise<AnprRecognition> {
+    if (!this.available(sampleAllowed)) {
+      // The mock guesses a plate, which could put the wrong car on a real job.
+      throw new ServiceUnavailableException(
+        'Plate scanning is not available. Type the registration instead.',
+      );
+    }
+    if (this.provider() === 'platerecognizer') {
+      return this.recognisePlateRecognizer(input, sampleAllowed);
     }
     return this.recogniseMock(input.originalName);
   }
@@ -58,16 +75,19 @@ export class AnprService {
     return {
       registration,
       confidence: plateFromFilename(originalName) ? 0.92 : 0.55,
-      lookup: await this.vehicleData.lookup(registration),
+      lookup: await this.vehicleData.lookup(registration, true),
       source: 'mock',
     };
   }
 
-  private async recognisePlateRecognizer(input: {
-    originalName: string;
-    buffer?: Buffer;
-    mimeType?: string;
-  }): Promise<AnprRecognition> {
+  private async recognisePlateRecognizer(
+    input: {
+      originalName: string;
+      buffer?: Buffer;
+      mimeType?: string;
+    },
+    sampleAllowed: boolean,
+  ): Promise<AnprRecognition> {
     if (!input.buffer?.length) {
       throw new Error('Plate image is required for ANPR');
     }
@@ -104,7 +124,7 @@ export class AnprService {
     return {
       registration,
       confidence: typeof best.score === 'number' ? best.score : 0,
-      lookup: await this.vehicleData.lookup(registration),
+      lookup: await this.vehicleData.lookup(registration, sampleAllowed),
       source: 'platerecognizer',
     };
   }

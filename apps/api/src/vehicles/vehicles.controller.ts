@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { STAFF_ROLES } from '@vip/shared';
+import { photoUpload, requireUpload } from '../common/upload';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -36,17 +37,27 @@ export class VehiclesController {
     return this.vehicles.list(user, search);
   }
 
+  /** Declared before `:id`, so the word is not read as a vehicle id. */
+  @Get('capabilities')
+  @Roles(...STAFF_ROLES)
+  capabilities(@CurrentUser() user: AuthUser) {
+    return this.vehicles.capabilities(user);
+  }
+
   @Post('lookup')
   @Roles(...STAFF_ROLES)
-  lookup(@Body() dto: LookupVehicleDto) {
-    return this.vehicles.lookup(dto.registration);
+  lookup(@CurrentUser() user: AuthUser, @Body() dto: LookupVehicleDto) {
+    return this.vehicles.lookup(user, dto.registration);
   }
 
   @Post('scan-plate')
   @Roles(...STAFF_ROLES)
-  @UseInterceptors(FileInterceptor('image'))
-  scanPlate(@UploadedFile() file?: Express.Multer.File) {
-    return this.vehicles.scanPlate(file);
+  @UseInterceptors(FileInterceptor('image', photoUpload))
+  scanPlate(
+    @CurrentUser() user: AuthUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.vehicles.scanPlate(user, requireUpload(file));
   }
 
   @Get(':id')
