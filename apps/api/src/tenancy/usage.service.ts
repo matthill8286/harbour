@@ -1,14 +1,35 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { monthStartUtc } from './tenant-keys';
 
 @Injectable()
-export class UsageService {
+export class UsageService implements OnApplicationBootstrap {
+  private readonly logger = new Logger(UsageService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
-  incrementImportJobs(organisationId: string, at = new Date()) {
+  /**
+   * Counts uncounted jobs at every start. A failure stops the start, so it
+   * cannot go unnoticed while usage stays wrong.
+   */
+  async onApplicationBootstrap() {
+    try {
+      await this.backfillImportJobs();
+    } catch (error) {
+      this.logger.error('Could not backfill import job usage', error as Error);
+      throw error;
+    }
+  }
+
+  /** Pass the transaction that creates the job, so both are saved or neither is. */
+  async incrementImportJobs(
+    organisationId: string,
+    at = new Date(),
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
     const periodStart = monthStartUtc(at);
-    return this.prisma.usageRecord.upsert({
+    return db.usageRecord.upsert({
       where: {
         organisationId_metric_periodStart: {
           organisationId,
@@ -24,5 +45,37 @@ export class UsageService {
         quantity: 1,
       },
     });
+  }
+
+  /**
+   * Raises each workspace's monthly count to the number of jobs created in that
+   * UTC month. It never lowers a count, so usage stays recorded if a job is
+   * later deleted, and running it again changes nothing.
+   */
+  async backfillImportJobs() {
+    const changed = await this.prisma.$transaction(
+      async (tx) => {
+        // Holds off new increments until the jobs have been counted, so a job
+        // created during the backfill is not lost from the total.
+        await tx.$executeRaw`LOCK TABLE "UsageRecord" IN SHARE ROW EXCLUSIVE MODE`;
+        return tx.$executeRaw`
+          INSERT INTO "UsageRecord" ("id", "organisationId", "metric", "periodStart", "quantity")
+          SELECT
+            'usage_' || md5("organisationId" || date_trunc('month', "createdAt")::text),
+            "organisationId",
+            'IMPORT_JOBS'::"UsageMetric",
+            date_trunc('month', "createdAt"),
+            count(*)::int
+          FROM "ImportJob"
+          GROUP BY "organisationId", date_trunc('month', "createdAt")
+          ON CONFLICT ("organisationId", "metric", "periodStart")
+          DO UPDATE SET "quantity" = EXCLUDED."quantity"
+          WHERE "UsageRecord"."quantity" < EXCLUDED."quantity"
+        `;
+      },
+      { maxWait: 10_000, timeout: 60_000 },
+    );
+    if (changed) this.logger.log(`Backfilled ${changed} monthly usage records`);
+    return changed;
   }
 }
