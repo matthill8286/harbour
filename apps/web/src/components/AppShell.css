@@ -1,0 +1,79 @@
+/* The pieces of Harbour's shell that are Harbour's own: the brand, the chips in
+   the top bar and the phone header's default. The frame, the navigation and the
+   phone layout come from impakt-app-shell. */
+.harbour-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--impakt-color-text-default);
+  text-decoration: none;
+  font-size: 26px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.harbour-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 6px 6px;
+  border-radius: 999px;
+  background: var(--impakt-color-surface-card);
+  color: var(--impakt-color-text-default);
+  text-decoration: none;
+}
+
+.harbour-chip span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.harbour-chip strong {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.harbour-chip small {
+  font-size: 12px;
+  color: var(--impakt-color-text-muted);
+}
+
+.harbour-account:hover {
+  background: var(--impakt-color-surface-inset);
+}
+
+.harbour-search {
+  inline-size: min(100%, 420px);
+}
+
+.harbour-search impakt-text-input {
+  margin: 0;
+}
+
+.harbour-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.harbour-view-only {
+  display: block;
+  margin-block-end: 16px;
+}
+
+.harbour-phone-default {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.harbour-phone-default span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.harbour-phone-default small {
+  color: var(--impakt-color-text-muted);
+}
