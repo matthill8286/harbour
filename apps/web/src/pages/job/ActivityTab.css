@@ -1,0 +1,53 @@
+/* The Activity tab, after the Figma frame "Business · Job workspace · Activity". */
+.job-activity {
+  display: block;
+}
+
+.job-activity-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-activity-list li {
+  display: grid;
+  grid-template-columns: 9rem minmax(10rem, 14rem) minmax(8rem, 12rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding-block: 12px;
+  border-block-end: 1px solid var(--impakt-color-border-default, #dfe6e5);
+  font-size: 14px;
+}
+
+.job-activity-when {
+  display: flex;
+  gap: 16px;
+  color: var(--impakt-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.job-activity-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.job-activity-who strong {
+  font-weight: 500;
+}
+
+.job-activity-verb {
+  color: var(--impakt-color-text-muted);
+}
+
+.job-activity-detail {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 64rem) {
+  .job-activity-list li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}
