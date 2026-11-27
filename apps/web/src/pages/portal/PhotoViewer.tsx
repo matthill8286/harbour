@@ -62,7 +62,7 @@ export function PhotoViewer({ jobId, photos, start, onClose }: { jobId: string; 
                 aria-current={index === at ? 'true' : undefined}
                 onClick={() => setAt(index)}
               >
-                <AuthenticatedImage path={path(item.id)} alt="" className="portal-viewer-thumb" />
+                <AuthenticatedImage path={`${path(item.id)}?size=thumb`} alt="" className="portal-viewer-thumb" />
               </button>
             </li>
           ))}

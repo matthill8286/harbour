@@ -15,6 +15,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { CustomersService } from './customers.service';
+import { CustomerListQuery } from './dto/customer-list.query';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { LimitInviteSending } from '../rate-limit/rate-limit.guard';
 
@@ -26,8 +27,8 @@ export class CustomersController {
 
   @Get()
   @Roles(...STAFF_ROLES)
-  list(@CurrentUser() user: AuthUser, @Query('search') search?: string) {
-    return this.customers.list(user, search);
+  list(@CurrentUser() user: AuthUser, @Query() query: CustomerListQuery) {
+    return this.customers.list(user, query);
   }
 
   @Get(':id')
