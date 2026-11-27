@@ -252,3 +252,31 @@
   text-decoration: underline;
   text-underline-offset: 0.2em;
 }
+
+/* A customer's details: three fields, then email and address side by side. */
+.account-profile.is-customer {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.account-profile.is-customer > impakt-text-input {
+  grid-column: span 2;
+}
+
+.account-profile.is-customer > .account-half {
+  grid-column: span 3;
+}
+
+.account-actions.is-start {
+  justify-content: flex-start;
+  margin-block-start: 16px;
+}
+
+@media (max-width: 48rem) {
+  .account-profile.is-customer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .account-profile.is-customer > impakt-text-input,
+  .account-profile.is-customer > .account-half {
+    grid-column: 1 / -1;
+  }
+}
