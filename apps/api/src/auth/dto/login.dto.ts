@@ -1,4 +1,4 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MinLength, MaxLength } from 'class-validator';
 import { TrimmedEmail } from '../../common/trimmed-email';
 
 export class LoginDto {
@@ -7,5 +7,6 @@ export class LoginDto {
 
   @IsString()
   @MinLength(8)
+  @MaxLength(1024)
   password!: string;
 }

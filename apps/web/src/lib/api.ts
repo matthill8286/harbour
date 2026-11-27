@@ -1,4 +1,5 @@
 import type { PublicUser } from '@vip/shared';
+import { failureMessage, SERVER_FAULT, UNREACHABLE } from './errors';
 
 const TOKEN_KEY = 'harbour.token';
 
@@ -22,6 +23,16 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+/** `fetch`, with a lost connection reported in words people can act on. */
+async function send(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`/api${path}`, init);
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    throw new ApiError(0, UNREACHABLE);
+  }
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = getToken();
@@ -29,13 +40,13 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!(init.body instanceof FormData) && !headers.has('Content-Type') && init.body) {
     headers.set('Content-Type', 'application/json');
   }
-  const response = await fetch(`/api${path}`, { ...init, headers });
+  const response = await send(path, { ...init, headers });
   if (!response.ok) {
-    let message = response.statusText;
+    let message = failureMessage(response.status);
     let code: string | undefined;
     try {
       const body = (await response.json()) as { message?: string | string[]; code?: string };
-      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
+      message = failureMessage(response.status, body.message);
       code = body.code;
     } catch {
       /* ignore */
@@ -52,20 +63,24 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(response.status, message, code);
   }
   if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(response.status, SERVER_FAULT);
+  }
 }
 
 export async function apiBlob(path: string): Promise<Blob> {
   const headers = new Headers();
   const token = getToken();
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  const response = await fetch(`/api${path}`, { headers });
+  const response = await send(path, { headers });
   if (!response.ok) {
     if (response.status === 401) {
       setToken(null);
       window.dispatchEvent(new Event('harbour:unauthorized'));
     }
-    throw new ApiError(response.status, response.statusText);
+    throw new ApiError(response.status, failureMessage(response.status));
   }
   return response.blob();
 }

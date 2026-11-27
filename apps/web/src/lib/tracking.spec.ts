@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { spreadOverlappingMarkers, trackerKindLabel } from './tracking';
+import { plannedRouteOf, spreadOverlappingMarkers, trackerKindLabel } from './tracking';
 
 describe('trackerKindLabel', () => {
   it('labels flespi as Teltonika / Flespi', () => {
@@ -30,5 +30,18 @@ describe('spreadOverlappingMarkers', () => {
     expect(spread[1].latitude).toBeLessThan(markers[1].latitude);
     expect(spread[1].longitude).toBeGreaterThan(markers[1].longitude);
     expect(spread[1].id).toBe('b');
+  });
+});
+
+describe('plannedRouteOf', () => {
+  const stop = (label: string) => ({ label, latitude: 0, longitude: 0 });
+  const corridors = { a: [stop('London'), stop('Sofia'), stop('Limassol')] };
+
+  it('gives the waypoints still ahead', () => {
+    expect(plannedRouteOf({ corridor: { id: 'a', from: 1 } }, corridors).map((p) => p.label)).toEqual(['Sofia', 'Limassol']);
+  });
+
+  it('is empty without a corridor', () => {
+    expect(plannedRouteOf({ corridor: null }, corridors)).toEqual([]);
   });
 });

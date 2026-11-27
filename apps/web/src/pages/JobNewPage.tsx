@@ -7,6 +7,7 @@ import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
 import { useWorkflows } from '../lib/workflows';
+import { useCustomerPicker } from './customers/useCustomerPicker';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { COUNTRY_CODES, countryName } from './job/countries';
 import './JobNewPage.css';
@@ -78,10 +79,7 @@ export function JobNewPage() {
     return [...codes].map((code) => ({ value: code, label: countryName(code) }));
   }, [country, originCountry, destinationCountry, registrationCountry]);
 
-  const customers = useQuery({
-    queryKey: ['customers'],
-    queryFn: () => api<Customer[]>('/customers'),
-  });
+  const customers = useCustomerPicker(customerId);
 
   const createCustomer = useMutation({
     mutationFn: () =>
@@ -91,6 +89,7 @@ export function JobNewPage() {
         body: JSON.stringify({ ...newCustomer, email: newCustomer.email.trim() || undefined, phone: newCustomer.phone.trim() || undefined }),
       }),
     onSuccess: (customer) => {
+      customers.remember(customer);
       void customers.refetch();
       setCustomerId(customer.id);
       setNewCustomer({ firstName: '', lastName: '', email: '', phone: '' });
@@ -126,8 +125,13 @@ export function JobNewPage() {
     onSuccess: (job) => navigate(`/jobs/${job.id}`),
   });
 
-  const selectedCustomer = useMemo(() => customers.data?.find((item) => item.id === customerId), [customers.data, customerId]);
-  const customerOptions = useMemo(() => (customers.data ?? []).map((customer) => ({ value: customer.id, label: fullName(customer) })), [customers.data]);
+  const selectedCustomer = customers.selected;
+  const customerOptions = customers.options.map((customer) => ({ value: customer.id, label: fullName(customer) }));
+  const chooseCustomer = (id: string) => {
+    const picked = customers.options.find((item) => item.id === id);
+    if (picked) customers.remember(picked);
+    setCustomerId(id);
+  };
 
   async function lookupPlate(event?: FormEvent) {
     event?.preventDefault();
@@ -205,13 +209,23 @@ export function JobNewPage() {
               <Heading level={2} size="xl" id="new-job-customer">
                 Who owns the vehicle?
               </Heading>
+              {customers.searchable ? (
+                <TextInput
+                  type="search"
+                  label="Search customers"
+                  description={`Showing ${customers.shown} of ${customers.total} ${customers.search ? 'matches' : 'customers'}. Search by name, email or phone.`}
+                  autocomplete="off"
+                  value={customers.search}
+                  onChange={(event) => customers.setSearch(event.detail.value)}
+                />
+              ) : null}
               <Select
                 label="Existing customer"
                 placeholder={customers.isLoading ? 'Loading customers…' : 'Choose a customer'}
                 options={customerOptions}
                 value={customerId}
                 disabled={customers.isLoading}
-                onChange={(event) => setCustomerId(event.detail.value)}
+                onChange={(event) => chooseCustomer(event.detail.value)}
               />
               <p className="new-job-or" role="separator">
                 <span>Or create a new customer</span>

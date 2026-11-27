@@ -10,10 +10,12 @@ export class UpdateProfileDto {
 export class ChangePasswordDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(1024)
   currentPassword!: string;
 
   /** Same minimum as accepting an invite or resetting a password. */
   @IsString()
   @MinLength(10)
+  @MaxLength(1024)
   newPassword!: string;
 }

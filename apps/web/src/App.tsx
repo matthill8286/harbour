@@ -1,32 +1,36 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { Suspense, useEffect, type ReactNode } from 'react';
 import { canManageOrganisation, canWriteStaff, isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
 import { homePath, useAuth } from './lib/auth';
 import { AppShell } from './components/AppShell';
-import { LoginPage } from './pages/LoginPage';
-import { DashboardPage } from './pages/DashboardPage';
-import { JobsPage } from './pages/JobsPage';
-import { JobNewPage } from './pages/JobNewPage';
-import { JobDetailPage } from './pages/JobDetailPage';
-import { CustomersPage } from './pages/CustomersPage';
-import { CustomerDetailPage } from './pages/CustomerDetailPage';
-import { InvitePage } from './pages/InvitePage';
-import { PortalPage } from './pages/PortalPage';
-import { PortalJobPage } from './pages/PortalJobPage';
-import { TrackingPage } from './pages/TrackingPage';
-import { TrackersPage } from './pages/TrackersPage';
-import { RoutesPage } from './pages/routes/RoutesPage';
-import { OrganisationPage } from './pages/OrganisationPage';
-import { NotFoundPage } from './pages/NotFoundPage';
-import { MorePage } from './pages/MorePage';
-import { TwoFactorPage } from './pages/TwoFactorPage';
-import { SecuritySetupPage } from './pages/SecuritySetupPage';
-import { SecurityPage } from './pages/SecurityPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { SignupPage } from './pages/SignupPage';
-import { SignupConfirmPage } from './pages/SignupConfirmPage';
 import { LoadingScreen } from './components/ui';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { lazyPage } from './components/lazyPage';
+import { pageTitle } from './lib/page-title';
+
+const LoginPage = lazyPage(() => import('./pages/LoginPage'), 'LoginPage');
+const DashboardPage = lazyPage(() => import('./pages/DashboardPage'), 'DashboardPage');
+const JobsPage = lazyPage(() => import('./pages/JobsPage'), 'JobsPage');
+const JobNewPage = lazyPage(() => import('./pages/JobNewPage'), 'JobNewPage');
+const JobDetailPage = lazyPage(() => import('./pages/JobDetailPage'), 'JobDetailPage');
+const CustomersPage = lazyPage(() => import('./pages/CustomersPage'), 'CustomersPage');
+const CustomerDetailPage = lazyPage(() => import('./pages/CustomerDetailPage'), 'CustomerDetailPage');
+const InvitePage = lazyPage(() => import('./pages/InvitePage'), 'InvitePage');
+const PortalPage = lazyPage(() => import('./pages/PortalPage'), 'PortalPage');
+const PortalJobPage = lazyPage(() => import('./pages/PortalJobPage'), 'PortalJobPage');
+const TrackingPage = lazyPage(() => import('./pages/TrackingPage'), 'TrackingPage');
+const TrackersPage = lazyPage(() => import('./pages/TrackersPage'), 'TrackersPage');
+const RoutesPage = lazyPage(() => import('./pages/routes/RoutesPage'), 'RoutesPage');
+const OrganisationPage = lazyPage(() => import('./pages/OrganisationPage'), 'OrganisationPage');
+const NotFoundPage = lazyPage(() => import('./pages/NotFoundPage'), 'NotFoundPage');
+const MorePage = lazyPage(() => import('./pages/MorePage'), 'MorePage');
+const TwoFactorPage = lazyPage(() => import('./pages/TwoFactorPage'), 'TwoFactorPage');
+const SecuritySetupPage = lazyPage(() => import('./pages/SecuritySetupPage'), 'SecuritySetupPage');
+const SecurityPage = lazyPage(() => import('./pages/SecurityPage'), 'SecurityPage');
+const ForgotPasswordPage = lazyPage(() => import('./pages/ForgotPasswordPage'), 'ForgotPasswordPage');
+const ResetPasswordPage = lazyPage(() => import('./pages/ResetPasswordPage'), 'ResetPasswordPage');
+const SignupPage = lazyPage(() => import('./pages/SignupPage'), 'SignupPage');
+const SignupConfirmPage = lazyPage(() => import('./pages/SignupConfirmPage'), 'SignupConfirmPage');
 
 function Guard({ children, allow }: { children: ReactNode; allow: (user: PublicUser) => boolean }) {
   const { user, ready } = useAuth();
@@ -48,16 +52,51 @@ const manager = (user: PublicUser) => canManageOrganisation(user.role);
 const customer = (user: PublicUser) => isPortalRole(user.role);
 
 export default function App() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.title = pageTitle(pathname);
+  }, [pathname]);
+
+  // Signed-in pages have their own boundary inside the shell, which keeps the navigation up.
+  return (
+    <ErrorBoundary fullPage resetKey={pathname}>
+      <Suspense fallback={<PublicLoading />}>
+        <AppRoutes />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function PublicLoading() {
+  return (
+    <div className="flex min-h-svh justify-center">
+      <LoadingScreen />
+    </div>
+  );
+}
+
+/** The signed-out pages share one main landmark. The app shell brings its own. */
+function PublicFrame() {
+  return (
+    <main>
+      <Outlet />
+    </main>
+  );
+}
+
+function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/invite/:token" element={<InvitePage />} />
-      <Route path="/two-factor" element={<TwoFactorPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-      <Route path="/security/setup" element={<SecuritySetupPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/signup/confirm/:token" element={<SignupConfirmPage />} />
+      <Route element={<PublicFrame />}>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/two-factor" element={<TwoFactorPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/security/setup" element={<SecuritySetupPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/signup/confirm/:token" element={<SignupConfirmPage />} />
+      </Route>
       <Route
         element={
           <Guard allow={() => true}>
