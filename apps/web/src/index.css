@@ -61,11 +61,6 @@ button {
   }
 }
 
-.harbour-map-fleet {
-  height: 28rem;
-  width: 100%;
-}
-
 .staff-page {
   width: 100%;
   max-width: 56rem;
@@ -77,99 +72,6 @@ button {
 
 .staff-page.is-wide {
   max-width: 72rem;
-}
-
-.fleet-map-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  min-height: 28rem;
-}
-
-@media (min-width: 1024px) {
-  .fleet-map-layout {
-    display: grid;
-    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-    gap: 0.75rem;
-    flex: 1;
-    min-height: 0;
-    height: 100%;
-  }
-
-  .fleet-sidebar {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .fleet-sidebar-list {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 0.25rem;
-  }
-
-  .fleet-map-panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-  }
-
-  .harbour-map-fleet {
-    flex: 1;
-    height: auto;
-    min-height: 0;
-  }
-}
-
-.fleet-ops-page {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  height: 100%;
-  min-height: 28rem;
-}
-
-.fleet-ping-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: rgb(11 31 51 / 0.25);
-  flex-shrink: 0;
-}
-
-.fleet-ping-dot.is-live {
-  background: var(--color-harbour);
-  box-shadow: 0 0 0 2px rgb(28 107 106 / 0.25);
-}
-
-.fleet-ping-dot.is-estimated {
-  background: var(--color-signal);
-  box-shadow: 0 0 0 2px rgb(224 161 0 / 0.25);
-}
-
-.fleet-filter-chip {
-  border: 1px solid rgb(11 31 51 / 0.12);
-  border-radius: 999px;
-  background: var(--color-paper);
-  color: rgb(11 31 51 / 0.72);
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.35rem 0.7rem;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.fleet-filter-chip.is-active {
-  border-color: var(--color-harbour);
-  background: rgb(28 107 106 / 0.12);
-  color: var(--color-harbour);
-}
-
-.fleet-sidebar-item.is-selected {
-  border-color: var(--color-harbour);
-  background: rgb(28 107 106 / 0.08);
-  box-shadow: inset 0 0 0 1px rgb(28 107 106 / 0.12);
 }
 
 .leaflet-container {

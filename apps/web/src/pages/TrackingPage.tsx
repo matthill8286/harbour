@@ -1,261 +1,336 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Link, useSearchParams } from 'react-router-dom';
-import { api } from '../lib/api';
-import { relativeTime } from '../lib/format';
-import { spreadOverlappingMarkers, type LiveTracking } from '../lib/tracking';
-import { JourneyMap } from '../components/JourneyMap';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, LoadingScreen, OpsToolbar, fieldClass, secondaryBtn } from '../components/ui';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  FilterChip,
+  Heading,
+  Text,
+  TextInput,
+} from "@atomic-ui/ui-react";
+import { getStatusLabel } from "@vip/shared";
+import { api } from "../lib/api";
+import { relativeTime } from "../lib/format";
+import { hasSignal, nearWaypoint } from "../lib/fleet";
+import {
+  spreadOverlappingMarkers,
+  type LiveTracking,
+  type TrackingVehicle,
+} from "../lib/tracking";
+import { JourneyMap } from "../components/JourneyMap";
+import { PhoneHeader } from "../components/PhoneHeader";
+import { LoadingScreen } from "../components/ui";
+import "./fleet/Fleet.css";
 
-type FleetFilter = 'all' | 'live' | 'no-gps';
+type Filter = "all" | "live" | "silent";
 
+const vehicleName = (v: TrackingVehicle) =>
+  [v.vehicle.make, v.vehicle.model].filter(Boolean).join(" ") || "Vehicle";
+const customerName = (v: TrackingVehicle) =>
+  `${v.customer.firstName} ${v.customer.lastName}`.trim();
+const vehiclesWord = (n: number) => `${n} ${n === 1 ? "vehicle" : "vehicles"}`;
+
+/** One line on where a vehicle is: its stage, the waypoint it is near, how fresh the ping is and its speed. */
+function whereabouts(v: TrackingVehicle, live: boolean) {
+  if (!v.current) return `${getStatusLabel(v.status)} · no ping yet`;
+  const near = nearWaypoint(v.current, v.plannedRoute);
+  const ago = relativeTime(v.current.recordedAt);
+  if (!live) return `${getStatusLabel(v.status)} · no signal since ${ago}`;
+  const speed =
+    v.current.speed != null && v.current.speed >= 1
+      ? `${Math.round(v.current.speed)} km/h`
+      : null;
+  return [near ? `Near ${near}` : getStatusLabel(v.status), ago, speed]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+/**
+ * Live fleet, after the Figma frames "Business · Live map": every vehicle with a
+ * tracker on the planned corridor, a list to search and filter, and the chosen
+ * vehicle's details under the map.
+ */
 export function TrackingPage() {
   const [params] = useSearchParams();
-  const initialJob = params.get('job');
+  const initialJob = params.get("job");
   const [selectedId, setSelectedId] = useState<string | null>(initialJob);
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<FleetFilter>('all');
-  const listRef = useRef<HTMLUListElement>(null);
-  const { data, isLoading } = useQuery({
-    queryKey: ['tracking-live'],
-    queryFn: () => api<LiveTracking>('/tracking/live'),
+  // A new ?job= link while the page is open selects that vehicle.
+  const [linkedJob, setLinkedJob] = useState(initialJob);
+  if (initialJob !== linkedJob) {
+    setLinkedJob(initialJob);
+    if (initialJob) setSelectedId(initialJob);
+  }
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const listRef = useRef<HTMLDivElement>(null);
+  const query = useQuery({
+    queryKey: ["tracking-live"],
+    queryFn: () => api<LiveTracking>("/tracking/live"),
     refetchInterval: 5000,
   });
-  const vehicles = data?.vehicles ?? [];
-  const pinging = vehicles.filter((item) => item.current).length;
-  const awaiting = vehicles.length - pinging;
+  const data = query.data;
+  // Judge freshness against when the data arrived, so a render alone never changes it.
+  const now = query.dataUpdatedAt;
+
+  const vehicles = useMemo(
+    () => (data?.vehicles ?? []).map((v) => ({ v, live: hasSignal(v, now) })),
+    [data, now],
+  );
+  const liveCount = vehicles.filter((x) => x.live).length;
+  const silentCount = vehicles.length - liveCount;
+
   const markers = useMemo(
     () =>
       spreadOverlappingMarkers(
-        vehicles.flatMap((item) => {
-          if (!item.current) return [];
-          return [
-            {
-              id: item.importJobId,
-              latitude: item.current.latitude,
-              longitude: item.current.longitude,
-              heading: item.current.heading ?? null,
-              label: `${item.vehicle.make ?? 'Vehicle'} ${item.vehicle.model ?? ''}`.trim(),
-              sublabel: `${item.reference} · ${item.customer.firstName} ${item.customer.lastName}`,
-              href: `/jobs/${item.importJobId}`,
-            },
-          ];
-        }),
+        vehicles.flatMap(({ v }) =>
+          v.current
+            ? [
+                {
+                  id: v.importJobId,
+                  latitude: v.current.latitude,
+                  longitude: v.current.longitude,
+                  heading: v.current.heading ?? null,
+                  label: `${v.reference} · ${vehicleName(v)}`,
+                  sublabel: customerName(v),
+                  href: `/jobs/${v.importJobId}`,
+                },
+              ]
+            : [],
+        ),
       ),
     [vehicles],
   );
-  const markerById = useMemo(
-    () => new Map(markers.map((marker) => [marker.id, marker])),
-    [markers],
-  );
-  const filteredVehicles = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return vehicles.filter((item) => {
-      if (filter === 'live' && !item.current) return false;
-      if (filter === 'no-gps' && item.current) return false;
-      if (!query) return true;
-      const haystack = [
-        item.reference,
-        item.vehicle.make,
-        item.vehicle.model,
-        item.customer.firstName,
-        item.customer.lastName,
-        item.tracker?.serialNumber,
-        item.routeTemplate?.name,
+
+  const shown = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return vehicles.filter(({ v, live }) => {
+      if (filter === "live" && !live) return false;
+      if (filter === "silent" && live) return false;
+      if (!q) return true;
+      return [
+        v.reference,
+        v.vehicle.make,
+        v.vehicle.model,
+        v.vehicle.ukRegistration,
+        v.customer.firstName,
+        v.customer.lastName,
+        v.tracker?.serialNumber,
       ]
         .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(query);
+        .join(" ")
+        .toLowerCase()
+        .includes(q);
     });
   }, [filter, search, vehicles]);
-  const selectedVehicle = vehicles.find((item) => item.importJobId === selectedId) ?? null;
-  const selectedMarker = selectedId ? markerById.get(selectedId) : null;
+
+  const selected =
+    vehicles.find(({ v }) => v.importJobId === selectedId) ?? null;
+  const selectedMarker = markers.find((m) => m.id === selectedId) ?? null;
   const focusTarget = selectedMarker
     ? { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude }
-    : selectedVehicle?.plannedRoute?.[0]
+    : selected?.v.plannedRoute[0]
       ? {
-          latitude: selectedVehicle.plannedRoute[0].latitude,
-          longitude: selectedVehicle.plannedRoute[0].longitude,
+          latitude: selected.v.plannedRoute[0].latitude,
+          longitude: selected.v.plannedRoute[0].longitude,
         }
       : null;
   const plannedRoutes = useMemo(() => {
-    if (selectedId) {
-      const selected = vehicles.find((item) => item.importJobId === selectedId);
-      return selected?.plannedRoute?.length ? [selected.plannedRoute] : [];
-    }
-    return vehicles.map((item) => item.plannedRoute).filter((line) => line.length > 1);
-  }, [selectedId, vehicles]);
+    if (selected)
+      return selected.v.plannedRoute.length > 1
+        ? [selected.v.plannedRoute]
+        : [];
+    return vehicles
+      .map(({ v }) => v.plannedRoute)
+      .filter((line) => line.length > 1);
+  }, [selected, vehicles]);
 
   useEffect(() => {
-    if (initialJob) setSelectedId(initialJob);
-  }, [initialJob]);
-
-  useEffect(() => {
-    if (!selectedId || !listRef.current) return;
-    const row = listRef.current.querySelector(`[data-job-id="${selectedId}"]`);
-    row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (!selectedId) return;
+    listRef.current
+      ?.querySelector(`[data-job-id="${selectedId}"]`)
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [selectedId]);
 
-  function selectVehicle(id: string) {
+  const select = (id: string) =>
     setSelectedId((current) => (current === id ? null : id));
-  }
+  const chips: Array<[Filter, string, number]> = [
+    ["all", "All", vehicles.length],
+    ["live", "Live", liveCount],
+    ["silent", "No signal", silentCount],
+  ];
 
   return (
-    <div className="fleet-ops-page">
-      <OpsToolbar
-        title="Live fleet"
-        meta={
-          vehicles.length === 0
-            ? 'No active vehicles yet'
-            : `${vehicles.length} active · ${pinging} live · ${awaiting} awaiting GPS`
-        }
-        actions={
-          selectedId ? (
-            <button type="button" className={secondaryBtn} onClick={() => setSelectedId(null)}>
-              Show all
-            </button>
-          ) : null
-        }
-      />
-      {isLoading || !data ? (
-        <LoadingScreen label="Loading fleet map…" />
+    <div className="fleet fleet-live">
+      <PhoneHeader>
+        <Heading level={1} size="3xl">
+          Live fleet
+        </Heading>
+        <Text size="sm">
+          {data ? `${vehiclesWord(vehicles.length)} with a tracker` : " "}
+        </Text>
+      </PhoneHeader>
+
+      <div className="fleet-heading">
+        <Heading level={1} size="4xl">
+          Live fleet
+        </Heading>
+        <Text tone="muted">
+          Every vehicle with an assigned tracker, on the planned corridor.
+        </Text>
+      </div>
+
+      {query.isLoading ? (
+        <LoadingScreen label="Loading the fleet…" />
+      ) : query.isError || !data ? (
+        <Alert tone="danger" heading="The fleet could not load">
+          Check your connection, then try again.
+          <div className="job-retry">
+            <Button variant="secondary" onClick={() => void query.refetch()}>
+              Try again
+            </Button>
+          </div>
+        </Alert>
       ) : vehicles.length === 0 ? (
         <EmptyState
-          title="No active vehicles to track"
-          description="Assign a tracker on a job to see it here."
+          heading="No active vehicles to track"
+          lead="Assign a tracker on a job to see it here."
+          framed
         />
       ) : (
-        <div className="fleet-map-layout">
-          <aside className="fleet-sidebar rounded-2xl bg-paper p-3">
-            <div className="space-y-2">
-              <label className="block">
-                <span className="sr-only">Search fleet</span>
-                <input
-                  className={fieldClass}
-                  placeholder="Search reference, vehicle, customer…"
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                />
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {(
-                  [
-                    ['all', `All (${vehicles.length})`],
-                    ['live', `Live (${pinging})`],
-                    ['no-gps', `No GPS (${awaiting})`],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    className={`fleet-filter-chip${filter === value ? ' is-active' : ''}`}
-                    onClick={() => setFilter(value)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+        <div className="fleet-layout">
+          <Card className="fleet-card fleet-side">
+            <div role="search">
+              <TextInput
+                type="search"
+                label="Search the fleet"
+                hideLabel
+                placeholder="Search reference, vehicle, customer…"
+                value={search}
+                onChange={(event) => {
+                  const value = event.detail.value;
+                  setSearch(value);
+                }}
+              />
             </div>
-            <ul ref={listRef} className="fleet-sidebar-list mt-3 space-y-1.5">
-              {filteredVehicles.length === 0 ? (
-                <li className="rounded-xl border border-dashed border-ink/15 px-3 py-6 text-center text-sm text-ink/55">
-                  No vehicles match.
-                </li>
+            <div
+              className="fleet-chips"
+              role="group"
+              aria-label="Filter vehicles"
+            >
+              {chips.map(([key, label, count]) => (
+                <FilterChip
+                  key={key}
+                  label={label}
+                  count={count}
+                  countLabel={vehiclesWord(count)}
+                  pressed={filter === key}
+                  onChange={(event) => {
+                    (
+                      event.currentTarget as HTMLElement & { pressed: boolean }
+                    ).pressed = true;
+                    setFilter(key);
+                  }}
+                />
+              ))}
+            </div>
+            <div className="fleet-list" ref={listRef}>
+              {shown.length === 0 ? (
+                <Text tone="muted">No vehicles match.</Text>
               ) : (
-                filteredVehicles.map((item) => {
-                  const isSelected = selectedId === item.importJobId;
-                  const isLive = Boolean(item.current);
-                  return (
-                    <li key={item.importJobId}>
-                      <button
-                        type="button"
-                        data-job-id={item.importJobId}
-                        className={`fleet-sidebar-item w-full rounded-xl border px-3 py-2.5 text-left transition${
-                          isSelected
-                            ? ' is-selected'
-                            : ' border-ink/10 hover:border-harbour/35 hover:bg-sand/40'
-                        }`}
-                        onClick={() => selectVehicle(item.importJobId)}
+                shown.map(({ v, live }) => (
+                  <button
+                    key={v.importJobId}
+                    type="button"
+                    data-job-id={v.importJobId}
+                    className={`fleet-vehicle${selectedId === v.importJobId ? " is-selected" : ""}${live ? "" : " is-silent"}`}
+                    aria-pressed={selectedId === v.importJobId}
+                    onClick={() => select(v.importJobId)}
+                  >
+                    <span className="fleet-vehicle-head">
+                      <strong>{v.reference}</strong>
+                      <Badge
+                        tone={
+                          live
+                            ? selectedId === v.importJobId
+                              ? "solid"
+                              : "neutral"
+                            : "danger"
+                        }
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p className="flex items-center gap-2 truncate text-sm font-semibold">
-                              <span
-                                className={`fleet-ping-dot${isLive ? ' is-live' : ' is-estimated'}`}
-                                aria-hidden
-                              />
-                              {item.reference}
-                            </p>
-                            <p className="truncate text-xs text-ink/70">
-                              {item.vehicle.make} {item.vehicle.model}
-                            </p>
-                            <p className="truncate text-[11px] text-ink/50">
-                              {item.customer.firstName} {item.customer.lastName}
-                            </p>
-                          </div>
-                          <StatusBadge status={item.status} />
-                        </div>
-                        <p className="mt-1.5 text-[11px] text-ink/50">
-                          {isLive
-                            ? `${item.current!.latitude.toFixed(4)}, ${item.current!.longitude.toFixed(4)} · ${relativeTime(item.current!.recordedAt)}`
-                            : item.routeTemplate
-                              ? `Awaiting GPS · ${item.routeTemplate.name}`
-                              : 'Awaiting GPS · no route assigned'}
-                        </p>
-                        {isSelected ? (
-                          <Link
-                            to={`/jobs/${item.importJobId}?tab=tracking`}
-                            className="mt-1.5 inline-block text-xs font-semibold text-harbour"
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            Open job
-                          </Link>
-                        ) : null}
-                      </button>
-                    </li>
-                  );
-                })
+                        {live ? "Live" : "No signal"}
+                      </Badge>
+                    </span>
+                    <span className="fleet-vehicle-name">{`${vehicleName(v)} · ${customerName(v)}`}</span>
+                    <span className="fleet-vehicle-where">
+                      {whereabouts(v, live)}
+                    </span>
+                  </button>
+                ))
               )}
-            </ul>
-          </aside>
-          <div className="fleet-map-panel rounded-2xl bg-paper p-2">
-            {selectedVehicle ? (
-              <div className="fleet-map-focus-bar mb-2 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-sand/70 px-3 py-2 text-sm">
-                <div>
-                  <p className="font-semibold">{selectedVehicle.reference}</p>
-                  <p className="text-xs text-ink/55">
-                    {selectedVehicle.vehicle.make} {selectedVehicle.vehicle.model} ·{' '}
-                    {selectedVehicle.customer.firstName} {selectedVehicle.customer.lastName}
-                    {selectedVehicle.routeTemplate
-                      ? ` · ${selectedVehicle.routeTemplate.name}`
-                      : ''}
-                  </p>
+            </div>
+          </Card>
+
+          <Card className="fleet-card fleet-map-card">
+            <div className="fleet-map">
+              <JourneyMap
+                map={data.map}
+                trailLines={vehicles.map(({ v }) => ({
+                  id: v.importJobId,
+                  points: v.trail,
+                }))}
+                markers={markers}
+                plannedRoutes={plannedRoutes}
+                heightClassName="fleet-map-canvas"
+                fitMode="frame"
+                labelled
+                selectedId={selectedId}
+                focusTarget={focusTarget}
+                onMarkerSelect={select}
+              />
+            </div>
+            {selected ? (
+              <div className="fleet-focus">
+                <div className="fleet-focus-text">
+                  <Heading level={2} size="sm">
+                    {`${selected.v.reference} · ${vehicleName(selected.v)}`}
+                  </Heading>
+                  <Text size="sm" tone="muted">
+                    {[
+                      whereabouts(selected.v, selected.live),
+                      selected.v.tracker?.batteryLevel != null
+                        ? `battery ${selected.v.tracker.batteryLevel}%`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </Text>
                 </div>
-                <StatusBadge status={selectedVehicle.status} />
+                <div className="fleet-focus-actions">
+                  <Button
+                    variant="secondary"
+                    href={`/jobs/${selected.v.importJobId}?tab=tracking`}
+                  >
+                    Tracking tab
+                  </Button>
+                  <Button
+                    iconAfter="arrow-right"
+                    href={`/jobs/${selected.v.importJobId}`}
+                  >
+                    Open job
+                  </Button>
+                </div>
               </div>
             ) : (
-              <p className="fleet-map-hint mb-2 rounded-xl border border-dashed border-ink/15 px-3 py-2 text-xs text-ink/55">
-                Select a vehicle in the list, or tap a marker, to focus its planned route.
-              </p>
+              <Text size="sm" tone="muted" className="fleet-hint">
+                Choose a vehicle in the list, or a marker on the map, to follow
+                its corridor.
+              </Text>
             )}
-            <JourneyMap
-              map={data.map}
-              trailLines={vehicles.map((item) => ({
-                id: item.importJobId,
-                points: item.trail,
-              }))}
-              markers={markers}
-              plannedRoutes={plannedRoutes}
-              heightClassName="harbour-map-fleet"
-              fitMode="frame"
-              labelled
-              selectedId={selectedId}
-              focusTarget={focusTarget}
-              onMarkerSelect={selectVehicle}
-            />
-          </div>
+          </Card>
         </div>
       )}
     </div>
