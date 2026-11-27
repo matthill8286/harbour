@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { isPortalRole, isStaffRole, type PublicUser } from '@vip/shared';
-import { api, ApiError, getToken, isChallenge, setToken, type LoginResponse, type SessionResponse } from './api';
+import { api, ApiError, getToken, isChallenge, setToken, TOKEN_KEY, type LoginResponse, type SessionResponse } from './api';
+import { movedWorkspace } from './session-token';
 
 /** What a password sign-in produced: a session, or a two-factor step still to do. */
 export type SignInResult = { kind: 'session'; user: PublicUser } | { kind: 'two-factor' };
@@ -113,6 +114,11 @@ export const useAuth = create<AuthState>((set, get) => {
 });
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === TOKEN_KEY && movedWorkspace(event.oldValue, event.newValue)) {
+      window.location.assign('/');
+    }
+  });
   window.addEventListener('harbour:unauthorized', () => {
     setToken(null);
     useAuth.setState({ user: null, ready: true });

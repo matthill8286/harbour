@@ -73,6 +73,20 @@ export class FlespiIngestService {
    */
   private async deliver(pings: FlespiPing[], onlyTrackerId?: string) {
     const devices = await this.owners(pings, onlyTrackerId);
+    const suspensions = devices.size
+      ? await this.prisma.workspaceSuspension.findMany({
+          where: {
+            organisationId: {
+              in: [...devices.values()].map((item) => item.organisationId),
+            },
+          },
+          select: {
+            organisationId: true,
+            suspendedAt: true,
+            restoredAt: true,
+          },
+        })
+      : [];
     const latest = Date.now() + MAX_CLOCK_AHEAD_MS;
     const deliveries = new Map<
       string,
@@ -90,7 +104,15 @@ export class FlespiIngestService {
       // holder's journey.
       if (
         ping.recordedAt < device.ownershipConfirmedAt ||
-        ping.recordedAt.getTime() > latest
+        ping.recordedAt.getTime() > latest ||
+        // A gateway can hand over old positions later. One recorded while
+        // the workspace was suspended is never taken in.
+        suspensions.some(
+          (item) =>
+            item.organisationId === device.organisationId &&
+            item.suspendedAt <= ping.recordedAt &&
+            (!item.restoredAt || ping.recordedAt <= item.restoredAt),
+        )
       ) {
         refused += 1;
         continue;
@@ -126,6 +148,9 @@ export class FlespiIngestService {
       WHERE ${realProviderSql}
         AND "imeiConflictAt" IS NULL
         AND "ownershipConfirmedAt" IS NOT NULL
+        AND "organisationId" IN (
+          SELECT "id" FROM "Organisation" WHERE "status" = 'ACTIVE'
+        )
         AND ${imeiKeySql} IN (${Prisma.join(keys)})`;
     const owners = new Map<string, Device>();
     for (const row of rows) {

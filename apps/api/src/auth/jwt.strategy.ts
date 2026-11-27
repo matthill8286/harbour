@@ -3,13 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { pickActiveMembership } from '../tenancy/membership';
+import { planIsReadOnly } from '../tenancy/plan-policy';
 import { buildAuthUser } from './auth-user';
 import { jwtSecret } from './secrets';
 import type { AuthUser } from './auth.types';
 
 export type JwtPayload = {
   sub: string;
+  /** The one membership, and so the one workspace, this session belongs to. */
   membershipId?: string;
   /** Set on short-lived tokens that are not sessions, such as the two-factor challenge. */
   purpose?: string;
@@ -38,7 +39,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       where: { id: payload.sub },
       include: {
         memberships: {
-          include: { organisation: { include: { settings: true } } },
+          include: {
+            organisation: { include: { settings: true, subscription: true } },
+          },
         },
       },
     });
@@ -50,9 +53,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     ) {
       throw new UnauthorizedException();
     }
-    const membership = payload.membershipId
-      ? user.memberships.find((item) => item.id === payload.membershipId)
-      : pickActiveMembership(user.memberships);
+    // A session that names no workspace is refused rather than given one.
+    const membership = user.memberships.find(
+      (item) => item.id === payload.membershipId,
+    );
     if (
       !membership ||
       membership.status !== 'ACTIVE' ||
@@ -60,13 +64,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     ) {
       throw new UnauthorizedException();
     }
-    return buildAuthUser({
+    const authUser = buildAuthUser({
       id: user.id,
       email: user.email,
       name: user.name,
       twoFactorEnabled: user.twoFactorEnabled,
       membership,
     });
+    return planIsReadOnly(membership.organisation.subscription)
+      ? { ...authUser, workspaceReadOnly: true }
+      : authUser;
   }
 }
 

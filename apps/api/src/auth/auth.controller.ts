@@ -5,6 +5,7 @@ import {
   Param,
   Patch,
   Post,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -16,6 +17,9 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthUser } from './auth.types';
 import { AllowWithoutTwoFactor } from './two-factor/allow-without-two-factor.decorator';
 import { RateLimit } from '../rate-limit/rate-limit.guard';
+import type { Request } from 'express';
+import { AllowWhenReadOnly } from './allow-when-read-only.decorator';
+import { SwitchOrganisationDto } from './dto/switch-organisation.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -35,8 +39,29 @@ export class AuthController {
     return user;
   }
 
+  @Get('organisations')
+  @UseGuards(JwtAuthGuard)
+  organisations(@CurrentUser() user: AuthUser) {
+    return this.auth.listOrganisations(user);
+  }
+
+  /** Returns a new session for the other workspace. */
+  @Post('organisations/switch')
+  @UseGuards(JwtAuthGuard)
+  @RateLimit({ policy: 'twoFactorIp', by: 'ip' })
+  @AllowWhenReadOnly()
+  switchOrganisation(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: SwitchOrganisationDto,
+    @Req() request: Request,
+  ) {
+    const token = request.headers.authorization?.split(' ')[1] ?? '';
+    return this.auth.switchOrganisation(user, dto, token);
+  }
+
   @Patch('me')
   @UseGuards(JwtAuthGuard)
+  @AllowWhenReadOnly()
   updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.auth.updateProfile(user, dto.name);
   }
@@ -44,6 +69,7 @@ export class AuthController {
   /** Returns a new session, because the change signs out every existing one. */
   @Post('password/change')
   @UseGuards(JwtAuthGuard)
+  @AllowWhenReadOnly()
   changePassword(
     @CurrentUser() user: AuthUser,
     @Body() dto: ChangePasswordDto,

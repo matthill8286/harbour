@@ -228,3 +228,24 @@ describe('the retry queue', () => {
     expect(retry).not.toHaveBeenCalled();
   });
 });
+
+describe('mail for a workspace', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it('is not tried again once the workspace may no longer send', async () => {
+    const fetchMock = jest
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(answer(429));
+    let active = true;
+    const stillAllowed = () => Promise.resolve(active);
+    const refused = await failure(brevo().send({ ...email, stillAllowed }));
+    const calls = fetchMock.mock.calls.length;
+
+    active = false;
+    await expect(refused.retry!()).rejects.toThrow('cannot send email');
+    await expect(brevo().send({ ...email, stillAllowed })).rejects.toThrow(
+      'cannot send email',
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(calls);
+  });
+});

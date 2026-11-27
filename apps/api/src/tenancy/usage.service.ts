@@ -2,10 +2,16 @@ import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { monthStartUtc } from './tenant-keys';
+import {
+  assertWithinPlan,
+  PLAN_LIMITS,
+  type PlanLimitTable,
+} from './plan-policy';
 
 @Injectable()
 export class UsageService implements OnApplicationBootstrap {
   private readonly logger = new Logger(UsageService.name);
+  planLimits: PlanLimitTable = PLAN_LIMITS;
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -29,7 +35,7 @@ export class UsageService implements OnApplicationBootstrap {
     db: Prisma.TransactionClient = this.prisma,
   ) {
     const periodStart = monthStartUtc(at);
-    return db.usageRecord.upsert({
+    const record = await db.usageRecord.upsert({
       where: {
         organisationId_metric_periodStart: {
           organisationId,
@@ -45,6 +51,15 @@ export class UsageService implements OnApplicationBootstrap {
         quantity: 1,
       },
     });
+    // Inside the caller's transaction, so a refused job leaves no count behind.
+    await assertWithinPlan(
+      db,
+      organisationId,
+      'importJobsPerMonth',
+      () => record.quantity,
+      this.planLimits,
+    );
+    return record;
   }
 
   /**

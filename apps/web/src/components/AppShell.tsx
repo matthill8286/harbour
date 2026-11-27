@@ -7,6 +7,8 @@ import { useAppLinks } from '../lib/links';
 import { useSession } from '../lib/session';
 import { ErrorBoundary } from './ErrorBoundary';
 import { SignOutDialog } from '../pages/account/SignOutDialog';
+import { SwitchWorkspaceDialog } from '../pages/account/SwitchWorkspaceDialog';
+import { useOrganisations } from '../lib/organisations';
 import { PhoneHeaderSlot } from '../lib/phone-header';
 import { LoadingScreen } from './ui';
 import './AppShell.css';
@@ -57,6 +59,8 @@ export function AppShell() {
   const [phoneHeader, setPhoneHeader] = useState<HTMLElement | null>(null);
   const [claims, setClaims] = useState(0);
   const [signingOut, setSigningOut] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const canSwitch = (useOrganisations().data?.length ?? 0) > 1;
   useAppLinks();
 
   const sideItems = useMemo(() => (isPortal ? PORTAL_ITEMS : staffItems(canManage)), [canManage, isPortal]);
@@ -87,6 +91,7 @@ export function AppShell() {
           },
         ]
       : []),
+    ...(canSwitch ? [{ text: 'Switch workspace', value: 'switch-workspace', icon: 'grid' }] : []),
     {
       text: 'Sign out',
       value: 'sign-out',
@@ -151,6 +156,7 @@ export function AppShell() {
           items={accountItems}
           onSelect={(event) => {
             if (event.detail.value === 'sign-out') signOut();
+            if (event.detail.value === 'switch-workspace') setSwitching(true);
           }}
         >
           <span slot="trigger" className="harbour-account-trigger">
@@ -190,6 +196,7 @@ export function AppShell() {
       </PhoneHeaderSlot.Provider>
 
       {signingOut ? <SignOutDialog onClose={() => setSigningOut(false)} /> : null}
+      {switching ? <SwitchWorkspaceDialog onClose={() => setSwitching(false)} /> : null}
 
       <TabBar slot="tab-bar" label="Main" items={tabItems} current={tabCurrent} onNavigate={route} />
     </Shell>

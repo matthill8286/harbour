@@ -1,7 +1,7 @@
 import type { PublicUser } from '@vip/shared';
 import { failureMessage, SERVER_FAULT, UNREACHABLE } from './errors';
 
-const TOKEN_KEY = 'harbour.token';
+export const TOKEN_KEY = 'harbour.token';
 
 export class ApiError extends Error {
   status: number;

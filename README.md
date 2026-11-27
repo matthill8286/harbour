@@ -92,6 +92,43 @@ Real units:
 
 The customer portal never receives the IMEI. Unassigned pings only update last-seen/battery; job trails start after assign.
 
+## Platform operator, suspending a workspace and plans
+
+The platform operator is not a role anyone can get through the app. No HTTP
+route grants it, suspends a workspace or restores one. All of it is done with a
+command run in the api container, by someone who can already run commands on the
+server:
+
+```sh
+node dist/src/platform/operator.js grant <email>
+node dist/src/platform/operator.js revoke <email>
+node dist/src/platform/operator.js list
+node dist/src/platform/operator.js suspend <workspace-slug> --by <operator email> --reason "<why>"
+node dist/src/platform/operator.js restore <workspace-slug> --by <operator email> --reason "<why>"
+```
+
+- `grant` works only for an account that already exists, has a password and has
+  two-factor sign-in on. It creates no account and sets no password. Use an
+  account kept for this, not one used for daily work in a workspace.
+- `--by` records who acted. It is not a sign-in.
+- Suspension blocks sign-in, the API, email sent for the workspace and GPS
+  intake. It deletes nothing. GPS positions recorded while a workspace was
+  suspended are not saved, even if the gateway sends them later. The usual GPS
+  retention period still applies to positions saved earlier. A person's own
+  password reset email is still sent, because the account is theirs.
+- Every grant, revocation, suspension and restore is kept in
+  `PlatformAuditLog`, and each suspension in `WorkspaceSuspension`.
+
+A person who belongs to more than one workspace can switch from the account
+menu. A session belongs to one workspace. Switching asks for a fresh two-factor
+code, and the new session ends when the old one would have.
+
+Plan rules are in `apps/api/src/tenancy/plan-policy.ts`. **No limit is set.** A
+lapsed plan (`PAST_DUE`, `SUSPENDED` or `CANCELLED`) restricts nothing unless
+`Subscription.readOnlyFrom`, the end of its notice period, is set and has
+passed. The workspace can then be read and exported, but not changed. Nothing
+sets that date yet. Feature flags are stored and shown, but not enforced.
+
 ## Customer email
 
 Status changes, customer-visible notes/files, and portal invites go through `NotificationsService`.

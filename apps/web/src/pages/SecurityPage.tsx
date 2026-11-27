@@ -12,6 +12,8 @@ import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { SignOutDialog } from './account/SignOutDialog';
 import { CustomerProfile } from './account/CustomerProfile';
+import { SwitchWorkspaceDialog } from './account/SwitchWorkspaceDialog';
+import { useOrganisations } from '../lib/organisations';
 import './account/Account.css';
 
 const STATUS_KEY = ['two-factor-status'];
@@ -305,6 +307,25 @@ function BackupCodes({ remaining, onDone }: { remaining: number; onDone: () => v
   );
 }
 
+/** Shown to someone who belongs to more than one workspace. On a phone, the portal reaches the switcher here. */
+function Workspaces() {
+  const { workspace } = useSession();
+  const [switching, setSwitching] = useState(false);
+  const count = useOrganisations().data?.length ?? 0;
+  if (count < 2) return null;
+  return (
+    <Card className="account-card">
+      <CardHead title="Your workspaces" lead={`You are in ${workspace}. You belong to ${count} workspaces.`} />
+      <div className="account-actions is-start">
+        <Button variant="secondary" onClick={() => setSwitching(true)}>
+          Switch workspace
+        </Button>
+      </div>
+      {switching ? <SwitchWorkspaceDialog onClose={() => setSwitching(false)} /> : null}
+    </Card>
+  );
+}
+
 /**
  * Account and security, after the Figma frame "Business · Account and security":
  * profile, password, two-factor sign-in, backup codes and signing out.
@@ -416,6 +437,7 @@ export function SecurityPage() {
         </div>
 
         <div className="account-column">
+          <Workspaces />
           <Password email={user.email} />
           {isPortal ? null : (
             <Card className="account-card">
