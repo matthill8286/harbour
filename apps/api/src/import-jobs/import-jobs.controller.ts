@@ -20,6 +20,7 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { ImportJobsService } from './import-jobs.service';
+import { JobListQuery } from './dto/job-list.query';
 import { documentUpload, photoUpload, requireUpload } from '../common/upload';
 import {
   ChangeStatusDto,
@@ -45,12 +46,8 @@ export class ImportJobsController {
 
   @Get()
   @Roles(...STAFF_ROLES)
-  list(
-    @CurrentUser() user: AuthUser,
-    @Query('status') status?: string,
-    @Query('search') search?: string,
-  ) {
-    return this.jobs.list(user, { status, search });
+  list(@CurrentUser() user: AuthUser, @Query() query: JobListQuery) {
+    return this.jobs.list(user, query);
   }
 
   @Post()

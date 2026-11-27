@@ -27,6 +27,9 @@ type Dashboard = {
     dueDate: string | null;
     importJob: { id: string; reference: string };
   }[];
+  overdueTaskCount: number;
+  upcomingDeliveryCount: number;
+  opsAlertCount: number;
   upcomingDeliveries: {
     id: string;
     reference: string;
@@ -97,7 +100,7 @@ export function DashboardPage() {
   const next = arriving[0];
   const jobsLink = (route: string, stage: string) => `/jobs?${new URLSearchParams({ ...(many ? { route } : {}), stage })}`;
   const single = data.byRoute.length === 1 ? data.byRoute[0] : null;
-  const arrivingCaption = `${arriving.length} arriving in the next two weeks`;
+  const arrivingCaption = `${data.upcomingDeliveryCount} arriving in the next two weeks`;
 
   return (
     <div className="board">
@@ -190,7 +193,7 @@ export function DashboardPage() {
                 <Heading level={2} size="md">
                   Needs attention
                 </Heading>
-                {data.overdueTasks.length > 0 ? <Badge tone="danger">{`${data.overdueTasks.length} overdue`}</Badge> : null}
+                {data.overdueTaskCount > 0 ? <Badge tone="danger">{`${data.overdueTaskCount} overdue`}</Badge> : null}
               </div>
               {data.overdueTasks.length === 0 ? (
                 <Text tone="muted">No overdue tasks.</Text>
@@ -297,6 +300,9 @@ export function DashboardPage() {
                   </li>
                 ))}
               </ul>
+              {data.opsAlertCount > data.opsAlerts.length ? (
+                <Text size="sm" tone="muted">{`Showing ${data.opsAlerts.length} of ${data.opsAlertCount} alerts. The live map lists every vehicle.`}</Text>
+              ) : null}
             </Card>
           ) : null}
         </>

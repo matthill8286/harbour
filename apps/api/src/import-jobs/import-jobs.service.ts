@@ -29,6 +29,9 @@ import {
 } from '../workflow/workflow-routes.service';
 import { AiTransport } from '../integrations/ai-transport';
 import { jobReferencePrefix } from './job-reference';
+import { afterNewest, newestCursor, toPage } from '../common/pagination';
+import { jobSearch, onRoute } from './job-list';
+import type { JobListQuery } from './dto/job-list.query';
 import {
   buildCustomerNoteDraft,
   vehicleSummaryFromParts,
@@ -54,6 +57,8 @@ import {
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
+
+const JOB_PAGE_SIZE = 25;
 
 /** Creations in one workspace queue for the next reference, so allow longer than Prisma's defaults. */
 const jobWriteTransaction = { maxWait: 10_000, timeout: 15_000 };
@@ -125,50 +130,80 @@ export class ImportJobsService {
     private readonly ai: AiTransport,
   ) {}
 
-  list(user: AuthUser, query?: { status?: string; search?: string }) {
-    return this.prisma.importJob.findMany({
-      where: {
-        organisationId: user.organisationId,
-        ...(query?.status ? { status: query.status } : {}),
-        ...(query?.search
-          ? {
-              OR: [
-                { reference: { contains: query.search, mode: 'insensitive' } },
-                {
-                  customer: {
-                    firstName: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  customer: {
-                    lastName: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    make: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    model: { contains: query.search, mode: 'insensitive' },
-                  },
-                },
-                {
-                  vehicle: {
-                    ukRegistration: {
-                      contains: query.search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
+  /**
+   * One page of jobs, newest first. `total` counts every job matching all the
+   * filters. `counts` ignores the route and stage, so the screen can say how
+   * many jobs each route and stage chip would show.
+   */
+  async list(user: AuthUser, query: JobListQuery = {}) {
+    const limit = query.limit ?? JOB_PAGE_SIZE;
+    const searched: Prisma.ImportJobWhereInput[] = [
+      { organisationId: user.organisationId },
+      ...(query.search ? [jobSearch(query.search)] : []),
+      ...(query.status ? [{ status: query.status }] : []),
+    ];
+    const filtered = [...searched, ...(await this.listPlace(user, query))];
+    const [rows, total, counts] = await Promise.all([
+      this.prisma.importJob.findMany({
+        where: {
+          AND: [
+            ...filtered,
+            ...(query.cursor ? [afterNewest(query.cursor)] : []),
+          ],
+        },
+        include: jobListInclude,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: limit + 1,
+      }),
+      this.prisma.importJob.count({ where: { AND: filtered } }),
+      this.prisma.importJob.groupBy({
+        by: ['routeId', 'status'],
+        where: { AND: searched },
+        _count: { _all: true },
+      }),
+    ]);
+    return {
+      ...toPage(rows, limit, newestCursor),
+      total,
+      counts: counts.map((row) => ({
+        routeId: row.routeId,
+        status: row.status,
+        count: row._count._all,
+      })),
+    };
+  }
+
+  /** The list's route and stage filters. */
+  private async listPlace(
+    user: AuthUser,
+    { route, stage, status }: JobListQuery,
+  ): Promise<Prisma.ImportJobWhereInput[]> {
+    const organisationId = user.organisationId;
+    const places: Prisma.ImportJobWhereInput[] = [];
+    if (route) {
+      const found = await this.prisma.route.findFirst({
+        where: { id: route, organisationId },
+        select: { isDefault: true },
+      });
+      places.push(onRoute(route, Boolean(found?.isDefault)));
+    }
+    // A stage and a status narrow the same thing, so the status wins.
+    if (!stage || status) return places;
+    if (stage === 'completed') return [...places, { status: 'COMPLETED' }];
+    const found = await this.prisma.routeStage.findFirst({
+      where: { id: stage, route: { organisationId } },
+      select: {
+        routeId: true,
+        route: { select: { isDefault: true } },
+        statuses: { select: { code: true } },
       },
-      include: jobListInclude,
-      orderBy: { createdAt: 'desc' },
     });
+    if (!found) return [...places, { id: { in: [] } }];
+    return [
+      ...places,
+      onRoute(found.routeId, found.route.isDefault),
+      { status: { in: found.statuses.map((item) => item.code) } },
+    ];
   }
 
   async get(user: AuthUser, id: string) {
