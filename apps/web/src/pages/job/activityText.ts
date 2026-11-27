@@ -54,6 +54,10 @@ export function describeActivity(item: ActivityItem, currency: string, label: St
       return { verb: 'uploaded a document', detail: [m.name, shared(m.customerVisible)].filter(Boolean).join(' · ') };
     case 'PHOTO_UPLOADED':
       return { verb: 'uploaded a photo', detail: [m.filename, shared(m.customerVisible)].filter(Boolean).join(' · ') };
+    case 'DOCUMENT_DELETED':
+      return { verb: 'deleted a document', detail: m.name ?? '' };
+    case 'PHOTO_DELETED':
+      return { verb: 'deleted a photo', detail: m.name ?? '' };
     case 'FILE_VISIBILITY_CHANGED':
       return { verb: m.customerVisible ? 'shared a file with the customer' : 'made a file internal', detail: m.name ?? '' };
     case 'TRACKER_ASSIGNED':

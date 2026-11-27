@@ -62,6 +62,25 @@ done
 [ -n "$healthy" ] || { docker logs "$run-api" >&2; fail "The api did not become healthy."; }
 docker exec "$run-api" sh -c 'set -e; f="$(find /data/uploads -type f | head -1)"; test -r "$f"; mkdir /data/uploads/smoke; echo ok > /data/uploads/smoke/file'
 
+# sharp and the HEIC decoder are native and WebAssembly code, so they are run in the image itself,
+# as its own user: a HEIC photo with a location in it must become a JPEG without one.
+echo "api: photo copies"
+docker exec -i "$run-api" sh -c 'cat > /tmp/photo.heic' < apps/api/test/fixtures/gps-photo.heic
+docker exec "$run-api" node -e '
+const { readFileSync } = require("node:fs");
+const { render } = require("/app/dist/src/integrations/image-renditions");
+(async () => {
+  const photo = readFileSync("/tmp/photo.heic");
+  if (!photo.includes("FixtureCam")) throw new Error("The fixture has no metadata.");
+  for (const copy of await render(photo, "image/heic", ["thumb", "display", "clean"])) {
+    if (copy.readUInt16BE(0) !== 0xffd8) throw new Error("A copy is not a JPEG.");
+    if (copy.includes("FixtureCam") || copy.includes("Exif")) throw new Error("A copy has metadata.");
+    const [again] = await render(copy, "image/jpeg", ["thumb"]);
+    if (!again.length) throw new Error("A JPEG could not be resized.");
+  }
+})().catch((error) => { console.error(error); process.exit(1); });
+' || fail "The api image could not make photo copies."
+
 echo "web: serves the app"
 docker run -d --name "$run-web" --network "$run" "impkt-harbour-web:$tag" >/dev/null
 for _ in $(seq 1 30); do

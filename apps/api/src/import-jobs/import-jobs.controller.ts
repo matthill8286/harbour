@@ -7,12 +7,8 @@ import {
   Patch,
   Post,
   Query,
-  StreamableFile,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
 import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -20,7 +16,6 @@ import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { ImportJobsService } from './import-jobs.service';
-import { documentUpload, photoUpload, requireUpload } from '../common/upload';
 import {
   ChangeStatusDto,
   CreateChargeDto,
@@ -30,7 +25,6 @@ import {
   CreateNoteDto,
   CreateTaskDto,
   DraftCustomerNoteDto,
-  UpdateFileVisibilityDto,
   UpdateChargeDto,
   UpdateCostDto,
   UpdateImportJobDto,
@@ -194,101 +188,5 @@ export class ImportJobsController {
     @Body() dto: CreateJourneyDto,
   ) {
     return this.jobs.addJourney(user, id, dto);
-  }
-
-  @Post(':id/documents')
-  @UseInterceptors(FileInterceptor('file', documentUpload))
-  addDocument(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body('type') type?: string,
-    @Body('customerVisible') customerVisible?: string,
-  ) {
-    return this.jobs.addDocument(
-      user,
-      id,
-      requireUpload(file),
-      customerVisible === 'true',
-      type,
-    );
-  }
-
-  @Post(':id/photos')
-  @UseInterceptors(FileInterceptor('file', photoUpload))
-  addPhoto(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-    @Body('category') category?: string,
-    @Body('customerVisible') customerVisible?: string,
-  ) {
-    return this.jobs.addPhoto(
-      user,
-      id,
-      requireUpload(file),
-      customerVisible === 'true',
-      category,
-    );
-  }
-
-  @Get(':id/documents/:fileId')
-  @Roles(...STAFF_ROLES)
-  async downloadDocument(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('fileId') fileId: string,
-  ) {
-    const file = await this.jobs.readStoredFile(user, id, 'document', fileId);
-    return new StreamableFile(file.buffer, {
-      type: file.mimeType,
-      disposition: `attachment; filename="${file.name}"`,
-    });
-  }
-
-  @Get(':id/photos/:fileId')
-  @Roles(...STAFF_ROLES)
-  async downloadPhoto(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('fileId') fileId: string,
-  ) {
-    const file = await this.jobs.readStoredFile(user, id, 'photo', fileId);
-    return new StreamableFile(file.buffer, {
-      type: file.mimeType,
-      disposition: `inline; filename="${file.name}"`,
-    });
-  }
-
-  @Patch(':id/documents/:fileId')
-  setDocumentVisibility(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('fileId') fileId: string,
-    @Body() dto: UpdateFileVisibilityDto,
-  ) {
-    return this.jobs.setFileVisibility(
-      user,
-      id,
-      'document',
-      fileId,
-      dto.customerVisible,
-    );
-  }
-
-  @Patch(':id/photos/:fileId')
-  setPhotoVisibility(
-    @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Param('fileId') fileId: string,
-    @Body() dto: UpdateFileVisibilityDto,
-  ) {
-    return this.jobs.setFileVisibility(
-      user,
-      id,
-      'photo',
-      fileId,
-      dto.customerVisible,
-    );
   }
 }

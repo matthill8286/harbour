@@ -74,7 +74,6 @@ function setup() {
     prisma as never,
     none,
     none,
-    none,
     tracking as never,
     none,
     none,
