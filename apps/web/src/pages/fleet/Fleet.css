@@ -1,0 +1,266 @@
+/* Trackers and Live fleet, after the Figma section "10 · Trackers and Live map". */
+.fleet {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fleet-card {
+  display: block;
+}
+
+.fleet-phone,
+.fleet-phone-head {
+  display: none;
+}
+
+/* Register a unit */
+.fleet-register {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(12rem, 16rem) auto;
+  align-items: end;
+  gap: 12px;
+  margin-block-start: 16px;
+}
+
+.fleet-register > impakt-text-input,
+.fleet-register > impakt-select {
+  margin: 0;
+}
+
+.fleet-register-error {
+  grid-column: 1 / -1;
+}
+
+/* Trackers table */
+.fleet-table::part(caption) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.fleet-link {
+  color: var(--impakt-color-text-default);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.fleet-link:hover,
+.fleet-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.fleet-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.fleet-battery-bar {
+  display: inline-block;
+  inline-size: 36px;
+  block-size: 4px;
+  border-radius: 999px;
+  background: var(--impakt-color-surface-inset);
+  overflow: hidden;
+}
+
+.fleet-battery-bar > span {
+  display: block;
+  block-size: 100%;
+  border-radius: inherit;
+  background: var(--impakt-color-brand-default);
+}
+
+.fleet-battery.is-low {
+  color: var(--impakt-color-status-danger-text);
+}
+
+.fleet-battery.is-low .fleet-battery-bar > span {
+  background: var(--impakt-color-status-danger-default);
+}
+
+.fleet-silent {
+  color: var(--impakt-color-status-danger-text);
+}
+
+/* Live fleet */
+.fleet-live {
+  min-block-size: 100%;
+}
+
+.fleet-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 26rem) minmax(0, 1fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.fleet-side,
+.fleet-map-card {
+  min-inline-size: 0;
+}
+
+.fleet-chips {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  margin-block: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.fleet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-block-size: 34rem;
+  overflow-y: auto;
+}
+
+.fleet-vehicle {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  inline-size: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+  color: var(--impakt-color-text-default);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.fleet-vehicle:hover {
+  background: color-mix(
+    in srgb,
+    var(--impakt-color-surface-inset),
+    var(--impakt-color-text-default) 4%
+  );
+}
+
+.fleet-vehicle:focus-visible {
+  outline: none;
+  box-shadow: var(--impakt-focus-ring-shadow);
+}
+
+.fleet-vehicle.is-selected {
+  background: var(--impakt-color-brand-subtle);
+}
+
+.fleet-vehicle-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fleet-vehicle-name {
+  font-size: 13px;
+}
+
+.fleet-vehicle-where {
+  font-size: 12px;
+  color: var(--impakt-color-text-muted);
+}
+
+.fleet-vehicle.is-silent .fleet-vehicle-where {
+  color: var(--impakt-color-status-danger-text);
+}
+
+.fleet-map {
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.fleet-map-canvas {
+  block-size: 30rem;
+  inline-size: 100%;
+}
+
+.fleet-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-start: 12px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.fleet-focus-text {
+  min-inline-size: 0;
+}
+
+.fleet-focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fleet-hint {
+  display: block;
+  margin-block-start: 12px;
+}
+
+@media (max-width: 75rem) {
+  .fleet-register {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .fleet-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fleet-map-card {
+    order: -1;
+  }
+  .fleet-list {
+    max-block-size: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .fleet-heading,
+  .fleet-desktop,
+  .fleet-register-card {
+    display: none;
+  }
+  .fleet-phone {
+    display: block;
+  }
+  .fleet-phone-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .fleet-register {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fleet-map-canvas {
+    block-size: 22rem;
+  }
+  .fleet-focus-actions {
+    inline-size: 100%;
+  }
+  .fleet-focus-actions > impakt-button {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 48rem) {
+  .fleet-chips.fleet-phone {
+    display: flex;
+    margin-block: 0;
+  }
+}
