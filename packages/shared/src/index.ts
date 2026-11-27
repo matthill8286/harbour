@@ -273,6 +273,22 @@ export const CHARGE_CATEGORIES = [
 ] as const;
 export type ChargeCategory = (typeof CHARGE_CATEGORIES)[number];
 
+/** A cost the business pays, or a charge the customer is invoiced. */
+export type MoneyLineKind = 'cost' | 'charge';
+
+/**
+ * What is wrong with a money line, in words for the person entering it, or null
+ * when it can be saved. The amount must be a number of zero or more, and a line
+ * in the Other category must say what it is, because "Other" alone tells the
+ * next reader nothing. The API and the Money tab both use this, so the rule is
+ * the same in both places.
+ */
+export function moneyLineProblem(line: { category: string; description?: string | null; amount: number }): string | null {
+  if (!Number.isFinite(line.amount) || line.amount < 0) return 'Enter an amount of 0 or more.';
+  if (line.category === 'OTHER' && !(line.description ?? '').trim()) return 'Say what this is. A description is needed when the category is Other.';
+  return null;
+}
+
 export const PHOTO_CATEGORIES = [
   'BEFORE_COLLECTION',
   'COLLECTION',
