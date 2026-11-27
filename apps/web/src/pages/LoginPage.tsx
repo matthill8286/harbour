@@ -73,18 +73,21 @@ export function LoginPage() {
                 Create a workspace
               </Link>
             </p>
-            <details className="text-xs text-ink/60">
-              <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
-              <p className="mt-2">
-                Demo Imports admin: admin@demo-imports.local / ChangeMe!Admin1
-                <br />
-                Staff: staff@demo-imports.local / ChangeMe!Staff1
-                <br />
-                Customer portal: customer@example.com / ChangeMe!Customer1
-                <br />
-                Second tenant admin: owner@cyprus-auto.local / ChangeMe!Admin1
-              </p>
-            </details>
+            {/* Development only. The production build drops this block, so no demo login is shipped. */}
+            {import.meta.env.DEV ? (
+              <details className="text-xs text-ink/60">
+                <summary className="cursor-pointer font-semibold text-ink/70">Local demo accounts</summary>
+                <p className="mt-2">
+                  Demo Imports admin: admin@demo-imports.local / ChangeMe!Admin1
+                  <br />
+                  Staff: staff@demo-imports.local / ChangeMe!Staff1
+                  <br />
+                  Customer portal: customer@example.com / ChangeMe!Customer1
+                  <br />
+                  Second tenant admin: owner@cyprus-auto.local / ChangeMe!Admin1
+                </p>
+              </details>
+            ) : null}
           </form>
         </section>
       </div>

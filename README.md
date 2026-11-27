@@ -43,20 +43,33 @@ pnpm dev:web
 
 ## Demo logins
 
+These logins are for local development only. The sign-in page lists them in `pnpm dev`, and a production build leaves them out.
+
 Founding tenant: **Demo Imports Ltd**
 
-| Role     | Email                     | Password           |
-| -------- | ------------------------- | ------------------ |
-| Owner    | admin@demo-imports.local  | ChangeMe!Admin1    |
-| Staff    | staff@demo-imports.local  | ChangeMe!Staff1    |
-| Viewer   | viewer@demo-imports.local | ChangeMe!Viewer1   |
-| Customer | customer@example.com      | ChangeMe!Customer1 |
+| Role     | Email                    | Local password     |
+| -------- | ------------------------ | ------------------ |
+| Admin    | admin@demo-imports.local | ChangeMe!Admin1    |
+| Staff    | staff@demo-imports.local | ChangeMe!Staff1    |
+| Customer | customer@example.com     | ChangeMe!Customer1 |
 
 A second tenant (`cyprus-auto-logistics`) is seeded with `owner@cyprus-auto.local` / `ChangeMe!Admin1` so organisation isolation can be exercised.
 
-Owners and admins see **Workspace** in the nav: brand name, timezone, currency, and the internal team. Viewers can read jobs and GPS but cannot create or move them. The customer portal shows the importer’s brand, not Harbour’s.
+Admins see **Workspace** in the nav: brand name, timezone, currency, and the internal team. The customer portal shows the importer’s brand, not Harbour’s.
 
 Seeded job `CY-2026-00421` is a BMW M5 Competition travelling UK → Bulgaria → Greece → Cyprus.
+
+### Seeding anywhere else
+
+The passwords above are public. The seed sets them only when `NODE_ENV` is not `production` and `DATABASE_URL` points at `localhost`, `127.0.0.1` or `[::1]`. Anywhere else, including the migrate image on a server, set all three of these variables to private passwords of at least 12 characters:
+
+| Variable                 | Accounts                                              |
+| ------------------------ | ----------------------------------------------------- |
+| `SEED_ADMIN_PASSWORD`    | `admin@demo-imports.local`, `owner@cyprus-auto.local` |
+| `SEED_STAFF_PASSWORD`    | `staff@demo-imports.local`                            |
+| `SEED_CUSTOMER_PASSWORD` | `customer@example.com`                                |
+
+If a variable is missing, short or one of the public passwords, the seed stops before it writes anything. When it changes a password, it also ends that account’s open sessions. It does not remove an authenticator that was already set up on an account. It also sets the demo memberships and workspaces back to active.
 
 ## Live GPS (Teltonika TAT140 + Flespi)
 

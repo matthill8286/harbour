@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PrismaClient, UserRole } from '@prisma/client';
-import { hash } from 'argon2';
+import { hash, verify } from 'argon2';
 import {
   DEFAULT_WORKFLOW_STATUSES,
   ROUTE_TEMPLATE_DEFINITIONS,
@@ -10,6 +10,10 @@ import {
   bearingDegrees,
   densifyRoute,
 } from '@vip/shared';
+import {
+  publicSeedPasswordsAllowed,
+  resolveSeedPasswords,
+} from '../src/seed/seed-passwords';
 
 const prisma = new PrismaClient();
 
@@ -44,17 +48,30 @@ async function seedRouteTemplates() {
 async function upsertMember(input: {
   organisationId: string;
   email: string;
-  passwordHash: string;
+  password: string;
   name: string;
   role: UserRole;
   customerId?: string;
 }) {
+  const passwordHash = await hash(input.password);
+  const existing = await prisma.user.findUnique({
+    where: { email: input.email },
+    select: { passwordHash: true },
+  });
+  // A new password also ends the sessions that were started with the old one.
+  const passwordChanged =
+    !!existing?.passwordHash &&
+    !(await verify(existing.passwordHash, input.password));
   const user = await prisma.user.upsert({
     where: { email: input.email },
-    update: { passwordHash: input.passwordHash, name: input.name },
+    update: {
+      passwordHash,
+      name: input.name,
+      ...(passwordChanged ? { passwordChangedAt: new Date() } : {}),
+    },
     create: {
       email: input.email,
-      passwordHash: input.passwordHash,
+      passwordHash,
       name: input.name,
     },
   });
@@ -116,9 +133,8 @@ async function seedOrganisationPlatform(
 }
 
 async function main() {
-  const passwordHash = await hash('ChangeMe!Admin1');
-  const staffHash = await hash('ChangeMe!Staff1');
-  const customerHash = await hash('ChangeMe!Customer1');
+  // Checked first, so a refusal writes nothing.
+  const passwords = resolveSeedPasswords(process.env);
   const centralRoute = await seedRouteTemplates();
 
   const organisation = await prisma.organisation.upsert({
@@ -167,7 +183,7 @@ async function main() {
   await upsertMember({
     organisationId: secondOrg.id,
     email: 'owner@cyprus-auto.local',
-    passwordHash,
+    password: passwords.admin,
     name: 'Chris Owner',
     role: UserRole.ADMIN,
   });
@@ -189,7 +205,7 @@ async function main() {
   const admin = await upsertMember({
     organisationId: organisation.id,
     email: 'admin@demo-imports.local',
-    passwordHash,
+    password: passwords.admin,
     name: 'Alex Admin',
     role: UserRole.ADMIN,
   });
@@ -197,7 +213,7 @@ async function main() {
   await upsertMember({
     organisationId: organisation.id,
     email: 'staff@demo-imports.local',
-    passwordHash: staffHash,
+    password: passwords.staff,
     name: 'Sam Staff',
     role: UserRole.STAFF,
   });
@@ -220,7 +236,7 @@ async function main() {
   await upsertMember({
     organisationId: organisation.id,
     email: 'customer@example.com',
-    passwordHash: customerHash,
+    password: passwords.customer,
     name: 'John Smith',
     role: UserRole.CUSTOMER,
     customerId: john.id,
@@ -607,11 +623,14 @@ async function main() {
 
   console.log('Seed complete.');
   console.log('  Founding tenant: Demo Imports Ltd');
-  console.log('  Admin:    admin@demo-imports.local / ChangeMe!Admin1');
-  console.log('  Staff:    staff@demo-imports.local / ChangeMe!Staff1');
-  console.log('  Customer: customer@example.com / ChangeMe!Customer1');
+  console.log('  Admin:    admin@demo-imports.local');
+  console.log('  Staff:    staff@demo-imports.local');
+  console.log('  Customer: customer@example.com');
+  console.log('  Second tenant admin: owner@cyprus-auto.local');
   console.log(
-    '  Second tenant admin: owner@cyprus-auto.local / ChangeMe!Admin1',
+    publicSeedPasswordsAllowed(process.env)
+      ? '  Local demo passwords are listed in the README, unless the SEED_*_PASSWORD variables replaced them.'
+      : '  Passwords came from the SEED_*_PASSWORD variables.',
   );
 }
 
