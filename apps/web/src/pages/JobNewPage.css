@@ -1,0 +1,159 @@
+/* New job, after the Figma frames "Business · New job · Step 1 to 3". The form
+   fields, buttons and progress bars are design-system elements; this places them. */
+.new-job {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.new-job-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.new-job-title {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.new-job-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 20px;
+  align-items: start;
+}
+
+.new-job-card,
+.new-job-summary {
+  display: block;
+}
+
+.new-job-step {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-block-start: 24px;
+}
+
+.new-job-step impakt-text-input,
+.new-job-step impakt-select,
+.new-job-step impakt-file-upload {
+  margin: 0;
+}
+
+.new-job-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.new-job-or {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--impakt-color-text-muted);
+}
+
+.new-job-or::before,
+.new-job-or::after {
+  content: '';
+  flex: 1;
+  border-block-start: 1px solid var(--impakt-color-border-default, #dfe6e5);
+}
+
+.new-job-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-start: 8px;
+}
+
+.new-job-vehicle {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.new-job-vehicle > span:last-child {
+  display: flex;
+  flex-direction: column;
+}
+
+.new-job-vehicle strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.new-job-plate {
+  flex: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--impakt-color-border-default, #c3cecc);
+  background: var(--impakt-color-surface-card);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.new-job-summary dl {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 16px 0 20px;
+}
+
+.new-job-summary-item dt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--impakt-color-text-muted);
+}
+
+.new-job-summary-item dd {
+  margin: 2px 0 0;
+  color: var(--impakt-color-text-muted);
+}
+
+.new-job-summary-item dd.is-set {
+  color: var(--impakt-color-text-default);
+  font-weight: 500;
+}
+
+.new-job-next {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-brand-subtle);
+  font-size: 13px;
+}
+
+@media (max-width: 64rem) {
+  .new-job-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 48rem) {
+  .new-job-heading {
+    display: none;
+  }
+  .new-job-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .new-job-actions {
+    flex-wrap: wrap;
+  }
+}
