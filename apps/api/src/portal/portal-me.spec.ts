@@ -25,7 +25,6 @@ function service() {
     prisma as never,
     {} as never,
     {} as never,
-    {} as never,
     audit as never,
   );
   return { portal, prisma, audit };
