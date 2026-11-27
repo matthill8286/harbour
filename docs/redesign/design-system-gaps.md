@@ -9,28 +9,28 @@ Harbour's web app does not use the design system today. Every screen is hand-bui
 
 The Figma "Harbour" variable collection, mode "Signal orange", becomes a set of brand inputs passed to `deriveTokens` from `@atomic-ui/design-tokens`.
 
-| Figma variable | Value | Brand input or token |
-| --- | --- | --- |
-| accent/primary | #B24424 | `color.brand` |
-| text/primary, bg/inverse | #0B1F33 | `color.text`, and the new inverse surface |
-| bg/canvas | #DCE3E2 | the app frame behind the shell |
-| bg/surface | #F2F5F4 | `color.surfacePage` |
-| bg/card | #FFFFFF | `color.surfaceCard` |
-| status/alert | #C2185B | `color.danger` |
-| Urbanist Light to SemiBold | 300 to 600 | `font.body`, `font.heading`, web font weights `300 600` |
-| Radius: tiles 18, cards 28, shell 36, pills full | | `shape.radiusBase` plus the new large radii |
+| Figma variable                                   | Value      | Brand input or token                                    |
+| ------------------------------------------------ | ---------- | ------------------------------------------------------- |
+| accent/primary                                   | #B24424    | `color.brand`                                           |
+| text/primary, bg/inverse                         | #0B1F33    | `color.text`, and the new inverse surface               |
+| bg/canvas                                        | #DCE3E2    | the app frame behind the shell                          |
+| bg/surface                                       | #F2F5F4    | `color.surfacePage`                                     |
+| bg/card                                          | #FFFFFF    | `color.surfaceCard`                                     |
+| status/alert                                     | #C2185B    | `color.danger`                                          |
+| Urbanist Light to SemiBold                       | 300 to 600 | `font.body`, `font.heading`, web font weights `300 600` |
+| Radius: tiles 18, cards 28, shell 36, pills full |            | `shape.radiusBase` plus the new large radii             |
 
 ### Contrast fixes made on 27 Nov 2026
 
 The design system holds WCAG 2.2 AA, and four colour pairs in the Signal orange mode failed it. The variables were changed in Figma, in that mode only, and an annotation on the read-me's "Latest changes" frame explains the change for Yasya.
 
-| Variable | Was | Now | Result |
-| --- | --- | --- | --- |
+| Variable       | Was     | Now     | Result                                                                                    |
+| -------------- | ------- | ------- | ----------------------------------------------------------------------------------------- |
 | accent/primary | #E4572E | #B24424 | White text on it goes from 3.68 to 5.61. As text on accent/soft it goes from 3.0 to 4.57. |
-| accent/hover | #CD4E29 | #9A3A1E | Still a step darker than primary, 7.0 with white. |
-| accent/pressed | #B24424 | #86321A | Still a step darker than hover, 8.45 with white. |
-| text/tertiary | #94A0A6 | #606D74 | Goes from 2.68 to 5.33 on white, and gives 4.54 on bg/sunken. |
-| text/secondary | #5E6B73 | #4E5B62 | Stays a step darker than the new tertiary. |
+| accent/hover   | #CD4E29 | #9A3A1E | Still a step darker than primary, 7.0 with white.                                         |
+| accent/pressed | #B24424 | #86321A | Still a step darker than hover, 8.45 with white.                                          |
+| text/tertiary  | #94A0A6 | #606D74 | Goes from 2.68 to 5.33 on white, and gives 4.54 on bg/sunken.                             |
+| text/secondary | #5E6B73 | #4E5B62 | Stays a step darker than the new tertiary.                                                |
 
 Every screen reads these variables, so none was redrawn. Twenty hard-coded grey section labels on the Business, Customer portal and Auth pages were bound to text/secondary so they follow the variable.
 
@@ -38,26 +38,26 @@ Every screen reads these variables, so none was redrawn. Twenty hard-coded grey 
 
 These map straight onto existing elements and only need the Harbour theme.
 
-| Figma component | Element | Notes |
-| --- | --- | --- |
-| Input (default, hover, focus, filled, error, disabled) | `impakt-text-input` | Label, helper and error text are built in. |
-| Input/Textarea | `impakt-textarea` | |
-| Select (route picker, filters, category) | `impakt-select` | |
-| Checkbox | `impakt-checkbox` | The round task checkbox is part of the task row below. |
-| Amount, € | `impakt-money-input` | Set `currency="EUR"`. |
-| Dialog (cancel job, add leg, add task, sign out, edit and delete money line, edit stage, new route) | `impakt-dialog` | `phone-full-screen` is available, but the mobile designs use a bottom sheet instead, see section 3. |
-| Avatar (small, medium, large) | `impakt-avatar` | Initials from `full-name`. |
-| Banner (info, alert) | `impakt-alert` | GPS and tracker warnings. |
-| Account menu | `impakt-menu` | Opens from the name chip. |
-| Empty states (Board, Jobs, Files, Money, Notes, Activity, Customers, Trackers, Live map) | `impakt-empty-state` | |
-| Could not load | `impakt-alert tone="danger"` or `impakt-empty-state` | |
-| Files tab upload | `impakt-file-upload` | |
-| Tracker unit, last seen, battery; contact; registered in | `impakt-summary-list` | |
-| Card containers | `impakt-card` | Needs the larger card radius from the theme. |
-| Logo | `impakt-logo` | The Harbour mark as an image. |
-| Toasts after saves | `impakt-toast` | |
-| Jobs list on desktop | `impakt-table` with `stack` | The Figma "Job row" is a table row: reference, vehicle, plate, customer, route, status, chevron. |
-| New job steps | `impakt-progress` | Already announces "Step 2 of 3". |
+| Figma component                                                                                     | Element                                              | Notes                                                                                               |
+| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Input (default, hover, focus, filled, error, disabled)                                              | `impakt-text-input`                                  | Label, helper and error text are built in.                                                          |
+| Input/Textarea                                                                                      | `impakt-textarea`                                    |                                                                                                     |
+| Select (route picker, filters, category)                                                            | `impakt-select`                                      |                                                                                                     |
+| Checkbox                                                                                            | `impakt-checkbox`                                    | The round task checkbox is part of the task row below.                                              |
+| Amount, €                                                                                           | `impakt-money-input`                                 | Set `currency="EUR"`.                                                                               |
+| Dialog (cancel job, add leg, add task, sign out, edit and delete money line, edit stage, new route) | `impakt-dialog`                                      | `phone-full-screen` is available, but the mobile designs use a bottom sheet instead, see section 3. |
+| Avatar (small, medium, large)                                                                       | `impakt-avatar`                                      | Initials from `full-name`.                                                                          |
+| Banner (info, alert)                                                                                | `impakt-alert`                                       | GPS and tracker warnings.                                                                           |
+| Account menu                                                                                        | `impakt-menu`                                        | Opens from the name chip.                                                                           |
+| Empty states (Board, Jobs, Files, Money, Notes, Activity, Customers, Trackers, Live map)            | `impakt-empty-state`                                 |                                                                                                     |
+| Could not load                                                                                      | `impakt-alert tone="danger"` or `impakt-empty-state` |                                                                                                     |
+| Files tab upload                                                                                    | `impakt-file-upload`                                 |                                                                                                     |
+| Tracker unit, last seen, battery; contact; registered in                                            | `impakt-summary-list`                                |                                                                                                     |
+| Card containers                                                                                     | `impakt-card`                                        | Needs the larger card radius from the theme.                                                        |
+| Logo                                                                                                | `impakt-logo`                                        | The Harbour mark as an image.                                                                       |
+| Toasts after saves                                                                                  | `impakt-toast`                                       |                                                                                                     |
+| Jobs list on desktop                                                                                | `impakt-table` with `stack`                          | The Figma "Job row" is a table row: reference, vehicle, plate, customer, route, status, chevron.    |
+| New job steps                                                                                       | `impakt-progress`                                    | Already announces "Step 2 of 3".                                                                    |
 
 ## 3. What has to be added to the design system
 

@@ -1,15 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiBlob } from '../lib/api';
 
-export function AuthenticatedImage({
-  path,
-  alt,
-  className,
-}: {
-  path: string;
-  alt: string;
-  className?: string;
-}) {
+export function AuthenticatedImage({ path, alt, className }: { path: string; alt: string; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -34,11 +26,7 @@ export function AuthenticatedImage({
   }, [path]);
 
   if (failed) {
-    return (
-      <div className={`flex items-center justify-center bg-sand text-xs text-ink/45 ${className ?? ''}`}>
-        Photo unavailable
-      </div>
-    );
+    return <div className={`flex items-center justify-center bg-sand text-xs text-ink/45 ${className ?? ''}`}>Photo unavailable</div>;
   }
   if (!src) {
     return <div className={`animate-pulse bg-mist ${className ?? ''}`} aria-hidden />;

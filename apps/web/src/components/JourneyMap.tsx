@@ -53,13 +53,7 @@ function MapFocus({ target }: { target: { latitude: number; longitude: number } 
   return null;
 }
 
-function FitBounds({
-  points,
-  mode,
-}: {
-  points: Array<[number, number]>;
-  mode: 'follow' | 'frame' | 'none';
-}) {
+function FitBounds({ points, mode }: { points: Array<[number, number]>; mode: 'follow' | 'frame' | 'none' }) {
   const map = useMap();
   const fitted = useRef(false);
   const prevCount = useRef(0);
@@ -134,9 +128,7 @@ export function JourneyMap({
     if (trailLines) {
       return trailLines.map((line) => ({
         id: line.id,
-        points: line.points.map(
-          (point) => [point.latitude, point.longitude] as [number, number],
-        ),
+        points: line.points.map((point) => [point.latitude, point.longitude] as [number, number]),
       }));
     }
     const lines = trails.length > 0 ? trails : trail.length > 0 ? [trail] : [];
@@ -146,9 +138,7 @@ export function JourneyMap({
     }));
   }, [markers, trail, trailLines, trails]);
   const hasTrailPoints = trailLatLngs.some((line) => line.points.length > 0);
-  const visibleTrails = selectedId
-    ? trailLatLngs.filter((line) => line.id === selectedId)
-    : trailLatLngs;
+  const visibleTrails = selectedId ? trailLatLngs.filter((line) => line.id === selectedId) : trailLatLngs;
   const plannedLatLngs = plannedRoutes
     .filter((line) => line.length > 1)
     .map((line) => line.map((point) => [point.latitude, point.longitude] as [number, number]));
@@ -165,9 +155,7 @@ export function JourneyMap({
 
   if (markers.length === 0 && !hasTrailPoints && plannedLatLngs.length === 0) {
     return (
-      <div className={`flex items-center justify-center bg-mist/50 text-sm text-ink/50 ${shellClass}`}>
-        No GPS yet. Assign a tracker to start the trail.
-      </div>
+      <div className={`flex items-center justify-center bg-mist/50 text-sm text-ink/50 ${shellClass}`}>No GPS yet. Assign a tracker to start the trail.</div>
     );
   }
 
@@ -184,11 +172,7 @@ export function JourneyMap({
         >
           <TileLayer url={map.tileUrl} attribution={map.attribution} maxZoom={map.maxZoom} />
           {plannedLatLngs.map((line, index) => (
-            <Polyline
-              key={`planned-${index}`}
-              positions={line}
-              pathOptions={{ color: '#1c6b6a', weight: 3, opacity: 0.45, dashArray: '8 10' }}
-            />
+            <Polyline key={`planned-${index}`} positions={line} pathOptions={{ color: '#1c6b6a', weight: 3, opacity: 0.45, dashArray: '8 10' }} />
           ))}
           {visibleTrails.map((line, index) =>
             line.points.length > 1 ? (
@@ -208,9 +192,7 @@ export function JourneyMap({
               key={marker.id}
               position={[marker.latitude, marker.longitude]}
               icon={vehicleIcon(marker.heading, marker.id === selectedId)}
-              eventHandlers={
-                onMarkerSelect ? { click: () => onMarkerSelect(marker.id) } : undefined
-              }
+              eventHandlers={onMarkerSelect ? { click: () => onMarkerSelect(marker.id) } : undefined}
             >
               {labelled ? (
                 <Tooltip permanent direction="top" offset={[0, -12]} className="harbour-map-label">

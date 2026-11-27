@@ -27,13 +27,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SignupPage } from './pages/SignupPage';
 import { LoadingScreen } from './components/ui';
 
-function Guard({
-  children,
-  allow,
-}: {
-  children: ReactNode;
-  allow: (user: PublicUser) => boolean;
-}) {
+function Guard({ children, allow }: { children: ReactNode; allow: (user: PublicUser) => boolean }) {
   const { user, ready } = useAuth();
   if (!ready) return <LoadingScreen label="Opening workspace…" />;
   if (!user) return <Navigate to="/login" replace />;
@@ -181,10 +175,7 @@ export default function App() {
             </Guard>
           }
         />
-        <Route
-          path="*"
-          element={<NotFoundPage />}
-        />
+        <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>
   );

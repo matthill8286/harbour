@@ -21,9 +21,7 @@ export function TwoFactorPage() {
     setPending(true);
     setError(null);
     try {
-      const signedIn = await completeChallenge(
-        useBackup ? { backupCode: value.trim() } : { code: value.replace(/\s/g, '') },
-      );
+      const signedIn = await completeChallenge(useBackup ? { backupCode: value.trim() } : { code: value.replace(/\s/g, '') });
       navigate(homePath(signedIn));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code is not right.');
@@ -33,10 +31,7 @@ export function TwoFactorPage() {
   }
 
   return (
-    <AuthFrame
-      eyebrow="Two-factor sign-in"
-      lead="Your account is protected with an authenticator app. Enter the code it shows to finish signing in."
-    >
+    <AuthFrame eyebrow="Two-factor sign-in" lead="Your account is protected with an authenticator app. Enter the code it shows to finish signing in.">
       <form onSubmit={onSubmit} className="space-y-4">
         <h2 className="display text-3xl">Enter your code</h2>
         <p className="text-sm text-ink/60">

@@ -40,7 +40,12 @@ type PortalJob = {
 
 export function PortalJobPage() {
   const { id = '' } = useParams();
-  const { data: job, isLoading, isError, error } = useQuery({
+  const {
+    data: job,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['portal-job', id],
     queryFn: () => api<PortalJob>(`/portal/jobs/${id}`),
     enabled: Boolean(id),
@@ -68,9 +73,7 @@ export function PortalJobPage() {
         </p>
         <p className="mt-1 text-sm text-mist">
           {job.originCountry} → {job.destinationCountry}
-          {job.expectedDeliveryDate && !isDestinationReached(job.status)
-            ? ` · expected ${formatDate(job.expectedDeliveryDate)}`
-            : null}
+          {job.expectedDeliveryDate && !isDestinationReached(job.status) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : null}
         </p>
         <div className="mt-3">
           <StatusBadge status={job.status} inverted />

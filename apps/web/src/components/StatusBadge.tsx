@@ -10,20 +10,12 @@ const tones: Record<JobStage, string> = {
   cancelled: 'bg-ink/10 text-ink/50',
 };
 
-export function StatusBadge({
-  status,
-  inverted = false,
-}: {
-  status: string;
-  inverted?: boolean;
-}) {
+export function StatusBadge({ status, inverted = false }: { status: string; inverted?: boolean }) {
   const label = getStatusLabel(status as JobStatus);
   const stage = getJobStage(status as JobStatus);
   return (
     <span
-      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide ${
-        inverted ? 'bg-paper/15 text-paper' : tones[stage]
-      }`}
+      className={`inline-flex max-w-full rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide ${inverted ? 'bg-paper/15 text-paper' : tones[stage]}`}
     >
       {label}
     </span>

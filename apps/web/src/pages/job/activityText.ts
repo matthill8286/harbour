@@ -34,7 +34,8 @@ const shared = (visible?: boolean) => (visible ? 'visible to customer' : 'intern
  */
 export function describeActivity(item: ActivityItem, currency: string): { verb: string; detail: string } {
   const m = item.metadata ?? {};
-  const line = () => [m.description || formatCategory(m.category ?? ''), typeof m.amount === 'number' ? money(m.amount, currency) : null].filter(Boolean).join(' · ');
+  const line = () =>
+    [m.description || formatCategory(m.category ?? ''), typeof m.amount === 'number' ? money(m.amount, currency) : null].filter(Boolean).join(' · ');
   const word = m.kind === 'charge' ? 'charge' : 'cost';
   switch (item.action) {
     case 'JOB_CREATED':

@@ -118,7 +118,12 @@ export function FilesTab({ job }: { job: JobDetail }) {
               value={category}
               onChange={(e) => setCategory(e.detail.value)}
             />
-            <SegmentedControl label="Visibility" options={VISIBILITY_OPTIONS} value={visible ? 'customer' : 'internal'} onChange={(e) => setVisible(e.detail.value === 'customer')} />
+            <SegmentedControl
+              label="Visibility"
+              options={VISIBILITY_OPTIONS}
+              value={visible ? 'customer' : 'internal'}
+              onChange={(e) => setVisible(e.detail.value === 'customer')}
+            />
             <Button type="submit" disabled={chosen.length === 0} busy={upload.isPending} busyLabel="Uploading">
               {chosen.length > 1 ? `Upload ${chosen.length}` : 'Upload'}
             </Button>
@@ -151,7 +156,11 @@ export function FilesTab({ job }: { job: JobDetail }) {
             <ul className="job-photos">
               {job.photos.map((photo) => (
                 <li key={photo.id} className="job-photo">
-                  <AuthenticatedImage path={`/import-jobs/${job.id}/photos/${photo.id}`} alt={`${formatCategory(photo.category)} photo, ${photo.filename}`} className="job-photo-image" />
+                  <AuthenticatedImage
+                    path={`/import-jobs/${job.id}/photos/${photo.id}`}
+                    alt={`${formatCategory(photo.category)} photo, ${photo.filename}`}
+                    className="job-photo-image"
+                  />
                   <span className="job-photo-top">
                     <Badge>{formatCategory(photo.category)}</Badge>
                   </span>
@@ -183,25 +192,28 @@ export function FilesTab({ job }: { job: JobDetail }) {
                 V5C, invoices, transport
               </Text>
             </div>
-            <Text size="sm" tone="muted">{count(job.documents.length, 'document')}</Text>
+            <Text size="sm" tone="muted">
+              {count(job.documents.length, 'document')}
+            </Text>
           </div>
           {job.documents.length === 0 ? (
             <Text tone="muted">No documents yet. The V5C, invoices and transport papers go here.</Text>
           ) : (
             <div role="list">
               {job.documents.map((doc) => (
-                <Row key={doc.id} role="listitem" heading={doc.name} meta={`${formatCategory(doc.type)} · ${formatBytes(doc.sizeBytes)} · ${formatDate(doc.createdAt)}`}>
+                <Row
+                  key={doc.id}
+                  role="listitem"
+                  heading={doc.name}
+                  meta={`${formatCategory(doc.type)} · ${formatBytes(doc.sizeBytes)} · ${formatDate(doc.createdAt)}`}
+                >
                   <span slot="start" className="job-doc-kind" aria-hidden="true">
                     {fileKind(doc.mimeType)}
                   </span>
                   <span slot="end" className="job-doc-end">
                     {doc.customerVisible ? <Badge tone="solid">Visible to customer</Badge> : <Badge>Internal</Badge>}
                     {editable ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => share.mutate({ kind: 'documents', id: doc.id, customerVisible: !doc.customerVisible })}
-                      >
+                      <Button size="sm" variant="ghost" onClick={() => share.mutate({ kind: 'documents', id: doc.id, customerVisible: !doc.customerVisible })}>
                         {doc.customerVisible ? 'Hide' : 'Share'}
                       </Button>
                     ) : null}

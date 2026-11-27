@@ -62,9 +62,7 @@ describe('homePath', () => {
 
 describe('two-step sign-in', () => {
   it('keeps no session token until the code is accepted', async () => {
-    fetchMock.mockReturnValueOnce(
-      reply({ twoFactorRequired: true, challengeToken: 'challenge-1', expiresIn: 600 }),
-    );
+    fetchMock.mockReturnValueOnce(reply({ twoFactorRequired: true, challengeToken: 'challenge-1', expiresIn: 600 }));
     const result = await auth.useAuth.getState().login('staff@demo.local', 'pw');
     expect(result).toEqual({ kind: 'two-factor' });
     expect(store.get('harbour.token')).toBeUndefined();
@@ -88,22 +86,16 @@ describe('two-step sign-in', () => {
   });
 
   it('keeps the challenge after a wrong code so the user can try again', async () => {
-    fetchMock.mockReturnValueOnce(
-      reply({ twoFactorRequired: true, challengeToken: 'challenge-2', expiresIn: 600 }),
-    );
+    fetchMock.mockReturnValueOnce(reply({ twoFactorRequired: true, challengeToken: 'challenge-2', expiresIn: 600 }));
     await auth.useAuth.getState().login('staff@demo.local', 'pw');
     fetchMock.mockReturnValueOnce(reply({ message: 'That code is not right.' }, 401));
-    await expect(
-      auth.useAuth.getState().completeChallenge({ code: '000000' }),
-    ).rejects.toThrow('That code is not right.');
+    await expect(auth.useAuth.getState().completeChallenge({ code: '000000' })).rejects.toThrow('That code is not right.');
     expect(auth.useAuth.getState().challenge?.token).toBe('challenge-2');
   });
 
   it('refuses an expired challenge without calling the api', async () => {
     auth.useAuth.setState({ challenge: { token: 'old', expiresAt: Date.now() - 1 } });
-    await expect(
-      auth.useAuth.getState().completeChallenge({ code: '123456' }),
-    ).rejects.toThrow('expired');
+    await expect(auth.useAuth.getState().completeChallenge({ code: '123456' })).rejects.toThrow('expired');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
