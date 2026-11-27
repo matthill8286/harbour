@@ -1,0 +1,132 @@
+/* The Money tab, after the Figma frame "Business · Job workspace · Money". */
+.job-money {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.job-money-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  margin: 0;
+}
+
+.job-money-totals > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 20px 24px;
+  border-radius: 28px;
+  background: var(--impakt-color-surface-card);
+}
+
+.job-money-totals dt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 15px;
+  color: var(--impakt-color-text-muted);
+}
+
+.job-money-totals dd {
+  margin: 8px 0 0;
+  font-size: 44px;
+  font-weight: 300;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The margin sits on the dark ink, so its words take the card colour. */
+.job-money-totals .is-margin {
+  background: var(--impakt-color-text-default);
+  color: var(--impakt-color-surface-card);
+}
+
+.job-money-totals .is-margin dt,
+.job-money-hint {
+  color: color-mix(in srgb, var(--impakt-color-surface-card) 75%, var(--impakt-color-text-default));
+  font-size: 13px;
+}
+
+.job-money-totals .is-margin dt {
+  font-size: 15px;
+}
+
+.job-money-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+.job-money-none {
+  display: block;
+  margin-block-start: 16px;
+}
+
+.job-money-lines {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-money-lines li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px;
+  padding-block: 10px;
+  border-block-end: 1px solid var(--impakt-color-border-default, #dfe6e5);
+}
+
+.job-money-desc {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.job-money-amount {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.job-money-actions {
+  display: inline-flex;
+}
+
+.job-money-add {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1.2fr) minmax(7rem, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  margin-block-start: 16px;
+}
+
+.job-money-add > * {
+  margin: 0;
+}
+
+@media (max-width: 100rem) {
+  .job-money-add {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 75rem) {
+  .job-money-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 48rem) {
+  .job-money-totals {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-money-add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-money-lines li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+}
