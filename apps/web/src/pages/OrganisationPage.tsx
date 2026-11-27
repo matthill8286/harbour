@@ -1,17 +1,7 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Alert,
-  Avatar,
-  Badge,
-  Button,
-  Card,
-  Heading,
-  Row,
-  Select,
-  Text,
-  TextInput,
-} from "@atomic-ui/ui-react";
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Alert, Avatar, Badge, Button, Card, Heading, Row, Select, Text, TextInput } from '@atomic-ui/ui-react';
 import {
   INVITEABLE_STAFF_ROLES,
   ROLE_LABELS,
@@ -20,13 +10,13 @@ import {
   type SubscriptionPlan,
   type SubscriptionStatus,
   type UserRole,
-} from "@vip/shared";
-import { api } from "../lib/api";
-import { useAuth } from "../lib/auth";
-import type { RouteTemplateOption } from "../lib/tracking";
-import { PhoneHeader } from "../components/PhoneHeader";
-import { LoadingScreen } from "../components/ui";
-import "./account/Account.css";
+} from '@vip/shared';
+import { api } from '../lib/api';
+import { useAuth } from '../lib/auth';
+import { useRoutes } from './routes/routes';
+import { PhoneHeader } from '../components/PhoneHeader';
+import { LoadingScreen } from '../components/ui';
+import './account/Account.css';
 
 type OrganisationView = {
   id: string;
@@ -56,64 +46,49 @@ type Member = {
 
 type InviteResult = { member: Member; inviteUrl: string; expiresAt: string };
 
-type Settings = Pick<
-  OrganisationView,
-  "legalName" | "brandName" | "timezone" | "currency" | "country"
->;
+type Settings = Pick<OrganisationView, 'legalName' | 'brandName' | 'timezone' | 'currency' | 'country'>;
 
-const TIMEZONES = [
-  "Europe/Nicosia",
-  "Europe/London",
-  "Europe/Athens",
-  "Europe/Berlin",
-  "UTC",
-].map((zone) => ({ value: zone, label: zone }));
+const TIMEZONES = ['Europe/Nicosia', 'Europe/London', 'Europe/Athens', 'Europe/Berlin', 'UTC'].map((zone) => ({ value: zone, label: zone }));
 const CURRENCIES = [
-  { value: "EUR", label: "EUR · Euro" },
-  { value: "GBP", label: "GBP · Pound sterling" },
-  { value: "USD", label: "USD · US dollar" },
+  { value: 'EUR', label: 'EUR · Euro' },
+  { value: 'GBP', label: 'GBP · Pound sterling' },
+  { value: 'USD', label: 'USD · US dollar' },
 ];
 const COUNTRIES = [
-  { value: "CY", label: "Cyprus" },
-  { value: "GB", label: "United Kingdom" },
-  { value: "GR", label: "Greece" },
-  { value: "DE", label: "Germany" },
-  { value: "NL", label: "Netherlands" },
-  { value: "IE", label: "Ireland" },
-  { value: "MT", label: "Malta" },
+  { value: 'CY', label: 'Cyprus' },
+  { value: 'GB', label: 'United Kingdom' },
+  { value: 'GR', label: 'Greece' },
+  { value: 'DE', label: 'Germany' },
+  { value: 'NL', label: 'Netherlands' },
+  { value: 'IE', label: 'Ireland' },
+  { value: 'MT', label: 'Malta' },
 ];
 const FEATURES: Array<[string, string]> = [
-  ["GPS_TRACKING", "GPS tracking"],
-  ["CUSTOMER_PORTAL", "Customer portal"],
+  ['GPS_TRACKING', 'GPS tracking'],
+  ['CUSTOMER_PORTAL', 'Customer portal'],
 ];
 const ROLE_OPTIONS = INVITEABLE_STAFF_ROLES.map((role) => ({
   value: role,
   label: ROLE_LABELS[role],
 }));
 const STATUS_LABELS: Record<MembershipStatus, string> = {
-  ACTIVE: "Active",
-  INVITED: "Invite pending",
-  DISABLED: "Disabled",
+  ACTIVE: 'Active',
+  INVITED: 'Invite pending',
+  DISABLED: 'Disabled',
 };
-const message = (error: unknown) =>
-  error instanceof Error ? error.message : "Something went wrong. Try again.";
+const message = (error: unknown) => (error instanceof Error ? error.message : 'Something went wrong. Try again.');
 const title = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
 
 /** Keep an option for a saved value the list does not offer, so the select never shows blank. */
-const withValue = (
-  options: Array<{ value: string; label: string }>,
-  value: string,
-) =>
-  options.some((o) => o.value === value)
-    ? options
-    : [{ value, label: value }, ...options];
+const withValue = (options: Array<{ value: string; label: string }>, value: string) =>
+  options.some((o) => o.value === value) ? options : [{ value, label: value }, ...options];
 
 function WorkspaceSettings({ org }: { org: OrganisationView }) {
   const hydrate = useAuth((state) => state.hydrate);
   const queryClient = useQueryClient();
   const [edits, setEdits] = useState<Partial<Settings>>({});
   const form: Settings = {
-    legalName: edits.legalName ?? org.legalName ?? "",
+    legalName: edits.legalName ?? org.legalName ?? '',
     brandName: edits.brandName ?? org.brandName,
     timezone: edits.timezone ?? org.timezone,
     currency: edits.currency ?? org.currency,
@@ -123,21 +98,20 @@ function WorkspaceSettings({ org }: { org: OrganisationView }) {
   const save = useMutation({
     // The internal name is not on this form; it is sent back unchanged.
     mutationFn: () =>
-      api<OrganisationView>("/organisation", {
-        method: "PATCH",
+      api<OrganisationView>('/organisation', {
+        method: 'PATCH',
         body: JSON.stringify({ ...form, name: org.name }),
       }),
     onSuccess: async () => {
       setEdits({});
-      await queryClient.invalidateQueries({ queryKey: ["organisation"] });
+      await queryClient.invalidateQueries({ queryKey: ['organisation'] });
       await hydrate();
     },
   });
-  const set =
-    (key: keyof Settings) => (event: CustomEvent<{ value: string }>) => {
-      const value = event.detail.value;
-      setEdits((current) => ({ ...current, [key]: value }));
-    };
+  const set = (key: keyof Settings) => (event: CustomEvent<{ value: string }>) => {
+    const value = event.detail.value;
+    setEdits((current) => ({ ...current, [key]: value }));
+  };
 
   return (
     <Card className="account-card">
@@ -151,57 +125,29 @@ function WorkspaceSettings({ org }: { org: OrganisationView }) {
           if (changed && form.brandName.trim()) save.mutate();
         }}
       >
-        <TextInput
-          label="Legal name"
-          value={form.legalName ?? ""}
-          onChange={set("legalName")}
-        />
+        <TextInput label="Legal name" value={form.legalName ?? ''} onChange={set('legalName')} />
         <TextInput
           label="Brand name, shown in the customer portal"
           required
           value={form.brandName}
-          error={!form.brandName.trim() ? "Enter the name customers see" : ""}
-          onChange={set("brandName")}
+          error={!form.brandName.trim() ? 'Enter the name customers see' : ''}
+          onChange={set('brandName')}
         />
-        <Select
-          label="Timezone"
-          options={withValue(TIMEZONES, form.timezone)}
-          value={form.timezone}
-          onChange={set("timezone")}
-        />
-        <Select
-          label="Currency"
-          options={withValue(CURRENCIES, form.currency)}
-          value={form.currency}
-          onChange={set("currency")}
-        />
-        <Select
-          label="Country"
-          options={withValue(COUNTRIES, form.country)}
-          value={form.country}
-          onChange={set("country")}
-        />
+        <Select label="Timezone" options={withValue(TIMEZONES, form.timezone)} value={form.timezone} onChange={set('timezone')} />
+        <Select label="Currency" options={withValue(CURRENCIES, form.currency)} value={form.currency} onChange={set('currency')} />
+        <Select label="Country" options={withValue(COUNTRIES, form.country)} value={form.country} onChange={set('country')} />
         <div className="account-actions">
           {save.isSuccess && !changed ? (
             <Text size="sm" tone="muted">
               Saved.
             </Text>
           ) : null}
-          <Button
-            type="submit"
-            disabled={!changed || !form.brandName.trim()}
-            busy={save.isPending}
-            busyLabel="Saving the workspace"
-          >
+          <Button type="submit" disabled={!changed || !form.brandName.trim()} busy={save.isPending} busyLabel="Saving the workspace">
             Save workspace
           </Button>
         </div>
         {save.isError ? (
-          <Alert
-            tone="danger"
-            heading="The workspace was not saved"
-            className="account-wide"
-          >
+          <Alert tone="danger" heading="The workspace was not saved" className="account-wide">
             {message(save.error)}
           </Alert>
         ) : null}
@@ -211,12 +157,9 @@ function WorkspaceSettings({ org }: { org: OrganisationView }) {
 }
 
 function PlanAndFeatures({ org }: { org: OrganisationView }) {
-  const routes = useQuery({
-    queryKey: ["route-templates"],
-    queryFn: () => api<RouteTemplateOption[]>("/route-templates"),
-  });
+  const routes = useRoutes();
   const count = routes.data?.length ?? 0;
-  const first = routes.data?.[0];
+  const fallback = routes.data?.find((route) => route.isDefault);
 
   return (
     <Card className="account-card">
@@ -224,17 +167,13 @@ function PlanAndFeatures({ org }: { org: OrganisationView }) {
         <Heading level={2} size="md">
           Plan and features
         </Heading>
-        {org.subscription ? (
-          <Badge tone="inverse">{title(org.subscription.plan)}</Badge>
-        ) : null}
+        {org.subscription ? <Badge tone="inverse">{title(org.subscription.plan)}</Badge> : null}
       </div>
       <div className="workspace-features">
         {FEATURES.map(([key, label]) => (
           <div key={key} className="workspace-feature">
             <Text size="sm">{label}</Text>
-            <Badge tone={org.features[key] ? "solid" : "neutral"}>
-              {org.features[key] ? "On" : "Off"}
-            </Badge>
+            <Badge tone={org.features[key] ? 'solid' : 'neutral'}>{org.features[key] ? 'On' : 'Off'}</Badge>
           </div>
         ))}
       </div>
@@ -244,11 +183,14 @@ function PlanAndFeatures({ org }: { org: OrganisationView }) {
         </Heading>
         <Text size="sm" tone="muted">
           {routes.isLoading
-            ? "Loading routes…"
+            ? 'Loading routes…'
             : count === 0
-              ? "No routes yet."
-              : `${count} ${count === 1 ? "route" : "routes"}${first ? ` · ${first.name} is first` : ""}`}
+              ? 'No routes yet.'
+              : `${count} ${count === 1 ? 'route' : 'routes'}${fallback ? ` · ${fallback.name} is the default` : ''}`}
         </Text>
+        <Link to="/organisation/routes" className="workspace-routes-link">
+          Edit routes and stages →
+        </Link>
       </div>
     </Card>
   );
@@ -258,19 +200,18 @@ function Team() {
   const currentUser = useAuth((state) => state.user);
   const queryClient = useQueryClient();
   const members = useQuery({
-    queryKey: ["organisation-members"],
-    queryFn: () => api<Member[]>("/organisation/members"),
+    queryKey: ['organisation-members'],
+    queryFn: () => api<Member[]>('/organisation/members'),
   });
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    role: "STAFF" as InviteableStaffRole,
+    name: '',
+    email: '',
+    role: 'STAFF' as InviteableStaffRole,
   });
   const [tried, setTried] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ["organisation-members"] });
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['organisation-members'] });
   const showLink = (result: InviteResult) => {
     setInviteUrl(result.inviteUrl);
     setCopied(false);
@@ -278,27 +219,21 @@ function Team() {
 
   const invite = useMutation({
     mutationFn: () =>
-      api<InviteResult>("/organisation/members/invite", {
-        method: "POST",
+      api<InviteResult>('/organisation/members/invite', {
+        method: 'POST',
         body: JSON.stringify(form),
       }),
     onSuccess: async (result) => {
       showLink(result);
-      setForm({ name: "", email: "", role: "STAFF" });
+      setForm({ name: '', email: '', role: 'STAFF' });
       setTried(false);
       await refresh();
     },
   });
   const update = useMutation({
-    mutationFn: ({
-      id,
-      body,
-    }: {
-      id: string;
-      body: { role?: InviteableStaffRole; status?: "ACTIVE" | "DISABLED" };
-    }) =>
+    mutationFn: ({ id, body }: { id: string; body: { role?: InviteableStaffRole; status?: 'ACTIVE' | 'DISABLED' } }) =>
       api<Member>(`/organisation/members/${id}`, {
-        method: "PATCH",
+        method: 'PATCH',
         body: JSON.stringify(body),
       }),
     onSuccess: refresh,
@@ -306,7 +241,7 @@ function Team() {
   const resend = useMutation({
     mutationFn: (id: string) =>
       api<InviteResult>(`/organisation/members/${id}/resend-invite`, {
-        method: "POST",
+        method: 'POST',
       }),
     onSuccess: async (result) => {
       showLink(result);
@@ -323,18 +258,14 @@ function Team() {
         Team
       </Heading>
       <Text size="sm" tone="muted">
-        Invite desk colleagues and set their role. Customers are invited to the
-        portal from their customer record.
+        Invite desk colleagues and set their role. Customers are invited to the portal from their customer record.
       </Text>
       <form
         className="workspace-invite"
         onSubmit={(event) => {
           event.preventDefault();
           setTried(true);
-          if (
-            form.name.trim().length >= 2 &&
-            /^\S+@\S+\.\S+$/.test(form.email.trim())
-          ) {
+          if (form.name.trim().length >= 2 && /^\S+@\S+\.\S+$/.test(form.email.trim())) {
             setInviteUrl(null);
             invite.mutate();
           }
@@ -344,7 +275,7 @@ function Team() {
           label="Name"
           autocomplete="off"
           value={form.name}
-          error={nameMissing ? "Enter their name" : ""}
+          error={nameMissing ? 'Enter their name' : ''}
           onChange={(event) => {
             const value = event.detail.value;
             setForm((f) => ({ ...f, name: value }));
@@ -355,7 +286,7 @@ function Team() {
           type="email"
           autocomplete="off"
           value={form.email}
-          error={emailMissing ? "Enter an email like name@example.com" : ""}
+          error={emailMissing ? 'Enter an email like name@example.com' : ''}
           onChange={(event) => {
             const value = event.detail.value;
             setForm((f) => ({ ...f, email: value }));
@@ -370,11 +301,7 @@ function Team() {
             setForm((f) => ({ ...f, role: value }));
           }}
         />
-        <Button
-          type="submit"
-          busy={invite.isPending}
-          busyLabel="Creating the invite"
-        >
+        <Button type="submit" busy={invite.isPending} busyLabel="Creating the invite">
           Invite
         </Button>
       </form>
@@ -386,22 +313,17 @@ function Team() {
       ) : null}
       {inviteUrl ? (
         <div className="invite-link">
-          <Text size="sm">
-            Copy this link now if they need it. Harbour keeps only a fingerprint
-            of it, so it cannot be shown again.
-          </Text>
+          <Text size="sm">Copy this link now if they need it. Harbour keeps only a fingerprint of it, so it cannot be shown again.</Text>
           <code>{inviteUrl}</code>
           <Button
             variant="secondary"
             size="sm"
-            iconBefore={copied ? "check" : "document"}
+            iconBefore={copied ? 'check' : 'document'}
             onClick={() => {
-              void navigator.clipboard
-                .writeText(inviteUrl)
-                .then(() => setCopied(true));
+              void navigator.clipboard.writeText(inviteUrl).then(() => setCopied(true));
             }}
           >
-            {copied ? "Copied" : "Copy link"}
+            {copied ? 'Copied' : 'Copy link'}
           </Button>
         </div>
       ) : null}
@@ -412,19 +334,10 @@ function Team() {
         <div role="list" aria-label="Team members">
           {(members.data ?? []).map((member, index) => {
             const self = member.user.id === currentUser?.id;
-            const editable = member.role !== "OWNER";
+            const editable = member.role !== 'OWNER';
             return (
-              <div
-                key={member.id}
-                role="listitem"
-                className={`workspace-member${index > 0 ? " is-divided" : ""}`}
-              >
-                <Row
-                  heading={
-                    self ? `${member.user.name} (you)` : member.user.name
-                  }
-                  meta={`${member.user.email} · ${STATUS_LABELS[member.status]}`}
-                >
+              <div key={member.id} role="listitem" className={`workspace-member${index > 0 ? ' is-divided' : ''}`}>
+                <Row heading={self ? `${member.user.name} (you)` : member.user.name} meta={`${member.user.email} · ${STATUS_LABELS[member.status]}`}>
                   <Avatar slot="start" fullName={member.user.name} size="sm" />
                 </Row>
                 <div className="workspace-member-actions">
@@ -446,7 +359,7 @@ function Team() {
                   ) : (
                     <Badge tone="inverse">{ROLE_LABELS[member.role]}</Badge>
                   )}
-                  {editable && member.status === "ACTIVE" ? (
+                  {editable && member.status === 'ACTIVE' ? (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -456,14 +369,14 @@ function Team() {
                       onClick={() =>
                         update.mutate({
                           id: member.id,
-                          body: { status: "DISABLED" },
+                          body: { status: 'DISABLED' },
                         })
                       }
                     >
                       Disable
                     </Button>
                   ) : null}
-                  {editable && member.status === "DISABLED" ? (
+                  {editable && member.status === 'DISABLED' ? (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -472,21 +385,15 @@ function Team() {
                       onClick={() =>
                         update.mutate({
                           id: member.id,
-                          body: { status: "ACTIVE" },
+                          body: { status: 'ACTIVE' },
                         })
                       }
                     >
                       Re-enable
                     </Button>
                   ) : null}
-                  {editable && member.status === "INVITED" ? (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      busy={resend.isPending}
-                      busyLabel="Resending"
-                      onClick={() => resend.mutate(member.id)}
-                    >
+                  {editable && member.status === 'INVITED' ? (
+                    <Button variant="secondary" size="sm" busy={resend.isPending} busyLabel="Resending" onClick={() => resend.mutate(member.id)}>
                       Resend invite
                     </Button>
                   ) : null}
@@ -506,8 +413,8 @@ function Team() {
  */
 export function OrganisationPage() {
   const organisation = useQuery({
-    queryKey: ["organisation"],
-    queryFn: () => api<OrganisationView>("/organisation"),
+    queryKey: ['organisation'],
+    queryFn: () => api<OrganisationView>('/organisation'),
   });
   const org = organisation.data;
 
@@ -517,16 +424,14 @@ export function OrganisationPage() {
         <Heading level={1} size="3xl">
           Workspace
         </Heading>
-        <Text size="sm">{org?.brandName ?? " "}</Text>
+        <Text size="sm">{org?.brandName ?? ' '}</Text>
       </PhoneHeader>
 
       <div className="account-heading">
         <Heading level={1} size="4xl">
           Workspace
         </Heading>
-        <Text tone="muted">
-          Company details, plan and team for this workspace.
-        </Text>
+        <Text tone="muted">Company details, plan and team for this workspace.</Text>
       </div>
 
       {organisation.isLoading ? (
@@ -535,10 +440,7 @@ export function OrganisationPage() {
         <Alert tone="danger" heading="The workspace could not load">
           Check your connection, then try again.
           <div className="job-retry">
-            <Button
-              variant="secondary"
-              onClick={() => void organisation.refetch()}
-            >
+            <Button variant="secondary" onClick={() => void organisation.refetch()}>
               Try again
             </Button>
           </div>

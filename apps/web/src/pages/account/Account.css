@@ -239,3 +239,18 @@
     justify-content: flex-start;
   }
 }
+
+.workspace-routes-link {
+  display: inline-block;
+  margin-block-start: 6px;
+  color: var(--impakt-color-brand-default);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.workspace-routes-link:hover,
+.workspace-routes-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}

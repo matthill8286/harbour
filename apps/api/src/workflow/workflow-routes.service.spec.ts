@@ -62,12 +62,18 @@ function setup(
   const prisma = {
     route: {
       findFirst: jest.fn().mockResolvedValue(route),
+      findMany: jest.fn().mockResolvedValue([route]),
       update: jest.fn(),
       updateMany: jest.fn(),
     },
     routeStage: { delete: jest.fn(), update: jest.fn() },
     importJob: {
       findMany: jest.fn().mockResolvedValue(jobs),
+      groupBy: jest.fn().mockResolvedValue([
+        { routeId: 'route-1', status: 'BOOKED', _count: { _all: 2 } },
+        { routeId: 'route-1', status: 'AT_SEA', _count: { _all: 1 } },
+        { routeId: 'other', status: 'BOOKED', _count: { _all: 5 } },
+      ]),
       updateMany: jest.fn(),
     },
     jobStatusHistory: {
@@ -222,5 +228,13 @@ describe('editing a route', () => {
         data: expect.objectContaining({ isDefault: true }),
       }),
     );
+  });
+
+  it('counts open jobs per route and per status', async () => {
+    const { service } = setup(routeRow({ isDefault: true }));
+    jest.spyOn(service, 'ensureDefault').mockResolvedValue({} as never);
+    const [route] = await service.list(owner);
+    expect(route.activeJobs).toBe(3);
+    expect(route.jobsByStatus).toEqual({ BOOKED: 2, AT_SEA: 1 });
   });
 });
