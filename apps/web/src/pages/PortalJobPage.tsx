@@ -172,7 +172,7 @@ export function PortalJobPage() {
               {job.photos.slice(0, PHOTOS_SHOWN).map((photo, index) => (
                 <li key={photo.id}>
                   <button type="button" onClick={() => setViewing(index)} aria-label={`Open photo ${index + 1}, ${formatCategory(photo.category)}`}>
-                    <AuthenticatedImage path={`/portal/jobs/${job.id}/photos/${photo.id}`} alt="" className="portal-photo" />
+                    <AuthenticatedImage path={`/portal/jobs/${job.id}/photos/${photo.id}?size=thumb`} alt="" className="portal-photo" />
                     <span className="portal-photo-tag">{formatCategory(photo.category)}</span>
                   </button>
                 </li>

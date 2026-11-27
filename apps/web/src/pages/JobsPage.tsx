@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Card, Chip, EmptyState, FilterChip, Heading, Select, Table, Text, TextInput } from '@atomic-ui/ui-react';
 import { TERMINAL_LABELS, routeStatusCodes } from '@vip/shared';
-import { api } from '../lib/api';
+import { usePagedList, type Page } from '../lib/pages';
+import { jobCounts, type JobCount } from '../lib/job-counts';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
 import { routeProgress, useWorkflows } from '../lib/workflows';
@@ -27,6 +27,8 @@ type JobListItem = {
 
 /** How many jobs show before Load more. */
 const PAGE = 25;
+
+type JobPage = Page<JobListItem> & { counts: JobCount[] };
 
 const COLUMNS = [
   { key: 'reference', label: 'Reference' },
@@ -60,31 +62,28 @@ export function JobsPage() {
   const many = workflows.routes.length > 1;
   const routeId = many ? (params.get('route') ?? '') : (workflows.routes[0]?.id ?? '');
   const route = routeId ? workflows.routes.find((r) => r.id === routeId) : undefined;
-  // How many jobs show. Changing a filter, or arriving with a different one, starts again from the first page.
-  const filterKey = `${search}|${status}|${stage}|${routeId}`;
-  const [paging, setPaging] = useState({ key: filterKey, count: PAGE });
-  const shown = paging.key === filterKey ? paging.count : PAGE;
-  const loadMore = () => setPaging({ key: filterKey, count: shown + PAGE });
-
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['jobs', search, status],
-    queryFn: () => {
-      const query = new URLSearchParams();
-      if (search) query.set('search', search);
-      if (status) query.set('status', status);
-      const qs = query.toString();
-      return api<JobListItem[]>(`/import-jobs${qs ? `?${qs}` : ''}`);
-    },
-  });
+  const queryClient = useQueryClient();
+  // The server filters and pages. Waiting for the routes avoids asking twice in a workspace with one.
+  const query = usePagedList<JobPage>(
+    ['jobs'],
+    '/import-jobs',
+    { search, status, stage: status ? '' : stage, route: routeId, limit: PAGE },
+    !workflows.isLoading,
+  );
+  const { data, isError, refetch, isFetching, isPlaceholderData, isFetchingNextPage, isFetchNextPageError } = query;
+  const loadMore = () => void query.fetchNextPage();
+  const jobs = data?.pages.flatMap((page) => page.items) ?? [];
+  // Waiting on the first page, or on a new filter when the last one had nothing to show.
+  const isLoading = (!data && !isError) || (isPlaceholderData && jobs.length === 0);
+  /** Every job matching all the filters, loaded or not. */
+  const matching = data?.pages[0].total ?? 0;
+  const hasMore = query.hasNextPage && !isPlaceholderData;
 
   const routeOf = (job: JobListItem) => job.routeId ?? workflows.routeOf(null)?.id ?? null;
-  const everywhere = useMemo(() => data ?? [], [data]);
-  const all = routeId ? everywhere.filter((job) => routeOf(job) === routeId) : everywhere;
-  const stageOf = (job: JobListItem) => (job.status === 'COMPLETED' ? 'completed' : (workflows.stageOf(routeOf(job), job.status)?.id ?? ''));
-  const stageCount = (id: string) => all.filter((job) => stageOf(job) === id).length;
-  const routeCount = (id: string) => everywhere.filter((job) => routeOf(job) === id).length;
-  const jobs = stage && !status ? all.filter((job) => stageOf(job) === stage) : all;
-  const visible = jobs.slice(0, shown);
+  const counts = jobCounts(data?.pages[0].counts ?? [], workflows.routeOf(null)?.id ?? null, (id, code) => workflows.stageOf(id, code)?.id ?? '');
+  const everywhere = counts.onRoute('');
+  const stageCount = (id: string) => counts.inStage(routeId, id);
+  const routeCount = (id: string) => counts.onRoute(id);
 
   // The chosen route's statuses, or every route's, each named once.
   const seen = new Map<string, string>();
@@ -100,11 +99,12 @@ export function JobsPage() {
     if (name === 'status') next.delete('stage');
     // Stages belong to a route, so a new route starts from all of its stages.
     if (name === 'route') next.delete('stage');
-    setPaging({ key: '', count: PAGE });
+    // A changed filter starts again from the first page.
+    queryClient.removeQueries({ queryKey: ['jobs'], type: 'inactive' });
     setParams(next, { replace: true });
   }
 
-  const total = all.length;
+  const total = counts.onRoute(routeId);
   const filtered = Boolean(stage || status || search || (many && routeId));
 
   return (
@@ -170,8 +170,8 @@ export function JobsPage() {
         <div className="jobs-filters" role="group" aria-label="Filter jobs by route">
           <FilterChip
             label="All routes"
-            count={status ? undefined : everywhere.length}
-            countLabel={jobsWord(everywhere.length)}
+            count={status ? undefined : everywhere}
+            countLabel={jobsWord(everywhere)}
             pressed
             onChange={(event) => ((event.currentTarget as HTMLElement & { pressed: boolean }).pressed = true)}
           />
@@ -231,7 +231,7 @@ export function JobsPage() {
 
       {isLoading ? (
         <LoadingScreen label="Loading jobs…" />
-      ) : isError ? (
+      ) : isError && !isFetchNextPageError ? (
         <Alert tone="danger" heading="Jobs could not load">
           Check your connection, then try again.
           <div className="jobs-retry">
@@ -270,7 +270,7 @@ export function JobsPage() {
               className="jobs-table"
               caption="Import jobs"
               columns={COLUMNS}
-              rows={visible.map((job) => ({
+              rows={jobs.map((job) => ({
                 id: job.id,
                 reference: job.reference,
                 vehicle: vehicleName(job),
@@ -282,7 +282,7 @@ export function JobsPage() {
               }))}
               onClick={(event) => openRowLink(event, navigate)}
             >
-              {visible.flatMap((job) => [
+              {jobs.flatMap((job) => [
                 <a key={`${job.id}-ref`} slot={`cell:${job.id}:reference`} href={`/jobs/${job.id}`} className="jobs-ref">
                   {job.reference}
                 </a>,
@@ -295,9 +295,9 @@ export function JobsPage() {
               ])}
             </Table>
             <div className="jobs-foot">
-              <Text size="sm" tone="muted">{`Showing ${visible.length} of ${jobsWord(jobs.length)}`}</Text>
-              {visible.length < jobs.length ? (
-                <Button variant="ghost" size="sm" onClick={loadMore}>
+              <Text size="sm" tone="muted">{`Showing ${jobs.length} of ${jobsWord(matching)}`}</Text>
+              {hasMore ? (
+                <Button variant="ghost" size="sm" busy={isFetchingNextPage} busyLabel="Loading more jobs" onClick={loadMore}>
                   Load more
                 </Button>
               ) : null}
@@ -305,7 +305,7 @@ export function JobsPage() {
           </Card>
 
           <ul className="jobs-cards" aria-label="Import jobs">
-            {visible.map((job) => {
+            {jobs.map((job) => {
               const journey = routeProgress(workflows.routeOf(routeOf(job)), job.status);
               const step = journey.steps.findIndex((item) => item.id === journey.current);
               const done = job.status === 'COMPLETED';
@@ -335,12 +335,17 @@ export function JobsPage() {
               );
             })}
           </ul>
-          {visible.length < jobs.length ? (
+          {hasMore ? (
             <div className="jobs-cards-more">
-              <Button variant="secondary" full onClick={loadMore}>
-                {`Load more (${visible.length} of ${jobs.length})`}
+              <Button variant="secondary" full busy={isFetchingNextPage} busyLabel="Loading more jobs" onClick={loadMore}>
+                {`Load more (${jobs.length} of ${matching})`}
               </Button>
             </div>
+          ) : null}
+          {isFetchNextPageError ? (
+            <Alert tone="danger" heading="More jobs could not load">
+              Check your connection, then choose Load more again.
+            </Alert>
           ) : null}
         </>
       )}

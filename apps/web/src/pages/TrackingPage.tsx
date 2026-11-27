@@ -6,20 +6,25 @@ import { api } from '../lib/api';
 import { relativeTime } from '../lib/format';
 import { hasSignal, nearWaypoint } from '../lib/fleet';
 import { useWorkflows } from '../lib/workflows';
-import { spreadOverlappingMarkers, type LiveTracking, type TrackingVehicle } from '../lib/tracking';
+import { plannedRouteOf, spreadOverlappingMarkers, type LiveTracking, type LiveTrail, type LiveVehicle } from '../lib/tracking';
 import { JourneyMap } from '../components/JourneyMap';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import './fleet/Fleet.css';
 
 type Filter = 'all' | 'live' | 'silent';
+/** A live vehicle with its remaining corridor filled in from the list's corridors. */
+type FleetVehicle = LiveVehicle & { plannedRoute: LiveTracking['corridors'][string] };
 
-const vehicleName = (v: TrackingVehicle) => [v.vehicle.make, v.vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
-const customerName = (v: TrackingVehicle) => `${v.customer.firstName} ${v.customer.lastName}`.trim();
+/** Trackers report every few minutes, so asking more often only repeats the answer. */
+const POLL_MS = 15_000;
+
+const vehicleName = (v: LiveVehicle) => [v.vehicle.make, v.vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
+const customerName = (v: LiveVehicle) => `${v.customer.firstName} ${v.customer.lastName}`.trim();
 const vehiclesWord = (n: number) => `${n} ${n === 1 ? 'vehicle' : 'vehicles'}`;
 
 /** One line on where a vehicle is: its stage, the waypoint it is near, how fresh the ping is and its speed. */
-function whereabouts(v: TrackingVehicle, live: boolean, label: (routeId: string | null | undefined, code: string) => string) {
+function whereabouts(v: FleetVehicle, live: boolean, label: (routeId: string | null | undefined, code: string) => string) {
   const status = label(v.routeId, v.status);
   if (!v.current) return `${status} · no ping yet`;
   const near = nearWaypoint(v.current, v.plannedRoute);
@@ -51,13 +56,21 @@ export function TrackingPage() {
   const query = useQuery({
     queryKey: ['tracking-live'],
     queryFn: () => api<LiveTracking>('/tracking/live'),
-    refetchInterval: 5000,
+    // React Query also stops polling while the tab is hidden.
+    refetchInterval: POLL_MS,
   });
   const data = query.data;
   // Judge freshness against when the data arrived, so a render alone never changes it.
   const now = query.dataUpdatedAt;
 
-  const vehicles = useMemo(() => (data?.vehicles ?? []).map((v) => ({ v, live: hasSignal(v, now) })), [data, now]);
+  const vehicles = useMemo(
+    () =>
+      (data?.vehicles ?? []).map((item) => ({
+        v: { ...item, plannedRoute: plannedRouteOf(item, data!.corridors) },
+        live: hasSignal(item, now),
+      })),
+    [data, now],
+  );
   const liveCount = vehicles.filter((x) => x.live).length;
   const silentCount = vehicles.length - liveCount;
 
@@ -99,6 +112,18 @@ export function TrackingPage() {
 
   const selected = vehicles.find(({ v }) => v.importJobId === selectedId) ?? null;
   const selectedMarker = markers.find((m) => m.id === selectedId) ?? null;
+  // Only the selected vehicle's trail is loaded, and again only when it has a new position.
+  const latest = selected?.v.current?.recordedAt;
+  const trail = useQuery({
+    queryKey: ['tracking-live', 'trail', selectedId, latest],
+    queryFn: () => api<LiveTrail>(`/tracking/live/${encodeURIComponent(selectedId!)}/trail`),
+    enabled: Boolean(selectedId && latest),
+    // Choosing the vehicle again later also picks up older pings that arrived late.
+    staleTime: 60_000,
+    // The old line stays while the new one loads, but never another vehicle's.
+    placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[2] === selectedId ? previous : undefined),
+  });
+  const trailLines = useMemo(() => (selectedId && trail.data ? [{ id: selectedId, points: trail.data.trail }] : []), [selectedId, trail.data]);
   const focusTarget = selectedMarker
     ? { latitude: selectedMarker.latitude, longitude: selectedMarker.longitude }
     : selected?.v.plannedRoute[0]
@@ -213,10 +238,7 @@ export function TrackingPage() {
             <div className="fleet-map">
               <JourneyMap
                 map={data.map}
-                trailLines={vehicles.map(({ v }) => ({
-                  id: v.importJobId,
-                  points: v.trail,
-                }))}
+                trailLines={trailLines}
                 markers={markers}
                 plannedRoutes={plannedRoutes}
                 heightClassName="fleet-map-canvas"
