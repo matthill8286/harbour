@@ -7,7 +7,7 @@ import { WorkflowRoutesService } from './workflow-routes.service';
 const owner = {
   id: 'user-1',
   organisationId: 'org-1',
-  role: 'OWNER',
+  role: 'ADMIN',
 } as AuthUser;
 
 function routeRow(overrides: Record<string, unknown> = {}) {

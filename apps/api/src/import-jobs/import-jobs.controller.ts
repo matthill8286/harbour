@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -44,7 +44,7 @@ export class ImportJobsController {
   constructor(private readonly jobs: ImportJobsService) {}
 
   @Get()
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   list(
     @CurrentUser() user: AuthUser,
     @Query('status') status?: string,
@@ -59,13 +59,13 @@ export class ImportJobsController {
   }
 
   @Get(':id/activity')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   activity(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.jobs.activity(user, id);
   }
 
   @Get(':id')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.jobs.get(user, id);
   }
@@ -80,7 +80,7 @@ export class ImportJobsController {
   }
 
   @Post(':id/route-recommend')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   recommendRoute(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.jobs.recommendRoute(user, id);
   }
@@ -233,7 +233,7 @@ export class ImportJobsController {
   }
 
   @Get(':id/documents/:fileId')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   async downloadDocument(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -247,7 +247,7 @@ export class ImportJobsController {
   }
 
   @Get(':id/photos/:fileId')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   async downloadPhoto(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

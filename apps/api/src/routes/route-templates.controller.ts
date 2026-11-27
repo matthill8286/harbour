@@ -1,5 +1,5 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { STAFF_READ_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -9,7 +9,7 @@ import { RouteTemplatesService } from './route-templates.service';
 
 @Controller('route-templates')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(...STAFF_READ_ROLES)
+@Roles(...STAFF_ROLES)
 export class RouteTemplatesController {
   constructor(private readonly routes: RouteTemplatesService) {}
 

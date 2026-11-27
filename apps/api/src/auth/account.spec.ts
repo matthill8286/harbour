@@ -22,7 +22,7 @@ const me: AuthUser = {
   organisationCountry: 'CY',
   email: 'admin@demo.local',
   name: 'Admin',
-  role: 'OWNER',
+  role: 'ADMIN',
   customerId: null,
   twoFactorEnabled: true,
 };
@@ -48,7 +48,7 @@ describe('account self-service', () => {
             {
               id: 'mem-1',
               organisationId: 'org-1',
-              role: 'OWNER' as UserRole,
+              role: 'ADMIN' as UserRole,
               status: 'ACTIVE',
               customerId: null,
               organisation: { name: 'Demo', status: 'ACTIVE', settings: null },

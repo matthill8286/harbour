@@ -35,7 +35,7 @@ describe('SignupService', () => {
         create: jest.fn().mockResolvedValue({
           id: 'mem-new',
           organisationId: 'org-new',
-          role: 'OWNER',
+          role: 'ADMIN',
           customerId: null,
           organisation: {
             name: 'Anna Imports',
@@ -90,12 +90,12 @@ describe('SignupService', () => {
     ).toMatchObject({
       organisationId: 'org-new',
       userId: 'user-new',
-      role: 'OWNER',
+      role: 'ADMIN',
       status: 'ACTIVE',
     });
     expect(result.user).toMatchObject({
       id: 'user-new',
-      role: 'OWNER',
+      role: 'ADMIN',
       organisationId: 'org-new',
       organisationBrandName: 'Anna Imports',
     });

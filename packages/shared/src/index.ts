@@ -1,56 +1,62 @@
-export const USER_ROLES = [
-  'OWNER',
-  'ADMIN',
-  'STAFF',
-  'VIEWER',
-  'CUSTOMER',
-] as const;
+/**
+ * Three roles. Admins run the workspace: everything Staff do, plus settings,
+ * routes and the team. Staff do the day-to-day work on jobs, customers,
+ * trackers and money. Customers see only their own vehicles in the portal.
+ */
+export const USER_ROLES = ['ADMIN', 'STAFF', 'CUSTOMER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-/** Internal desk roles that can mutate operational records. */
-export const STAFF_ROLES = [
-  'OWNER',
-  'ADMIN',
-  'STAFF',
-] as const satisfies readonly UserRole[];
+/**
+ * Roles from before there were three, still stored in older databases. The API
+ * converts them at startup and reads them this way until it has.
+ */
+export const RETIRED_ROLES = {
+  OWNER: 'ADMIN',
+  VIEWER: 'STAFF',
+} as const satisfies Record<string, UserRole>;
 
-/** Internal desk roles including read-only viewers. */
-export const STAFF_READ_ROLES = [
-  'OWNER',
+/** A stored role as one of the three, reading a retired role as its replacement. */
+export function normaliseRole(role: string): UserRole {
+  if (role in RETIRED_ROLES)
+    return RETIRED_ROLES[role as keyof typeof RETIRED_ROLES];
+  if ((USER_ROLES as readonly string[]).includes(role)) return role as UserRole;
+  throw new Error(`Unknown role: ${role}`);
+}
+
+/** The business side of a workspace: everyone but customers. */
+export const STAFF_ROLES = [
   'ADMIN',
   'STAFF',
-  'VIEWER',
 ] as const satisfies readonly UserRole[];
 
 export function isStaffRole(role: UserRole): boolean {
-  return role !== 'CUSTOMER';
+  return role === 'ADMIN' || role === 'STAFF';
 }
 
 export function isPortalRole(role: UserRole): boolean {
   return role === 'CUSTOMER';
 }
 
+/** Changes jobs, customers, trackers and money. */
 export function canWriteStaff(role: UserRole): boolean {
-  return role === 'OWNER' || role === 'ADMIN' || role === 'STAFF';
+  return isStaffRole(role);
 }
 
+/** Changes workspace settings, routes and the team. */
 export function canManageOrganisation(role: UserRole): boolean {
-  return role === 'OWNER' || role === 'ADMIN';
+  return role === 'ADMIN';
 }
 
-/** Roles OWNER/ADMIN may invite onto the desk (not OWNER, not CUSTOMER). */
+/** Roles an Admin can invite onto the team. Customers are invited from their record. */
 export const INVITEABLE_STAFF_ROLES = [
   'ADMIN',
   'STAFF',
-  'VIEWER',
 ] as const satisfies readonly UserRole[];
 export type InviteableStaffRole = (typeof INVITEABLE_STAFF_ROLES)[number];
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  OWNER: 'Owner',
   ADMIN: 'Admin',
   STAFF: 'Staff',
-  VIEWER: 'Viewer',
   CUSTOMER: 'Customer',
 };
 

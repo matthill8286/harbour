@@ -334,7 +334,8 @@ function Team() {
         <div role="list" aria-label="Team members">
           {(members.data ?? []).map((member, index) => {
             const self = member.user.id === currentUser?.id;
-            const editable = member.role !== 'OWNER';
+            // You cannot change your own role or disable yourself; the API also keeps one active Admin.
+            const editable = !self;
             return (
               <div key={member.id} role="listitem" className={`workspace-member${index > 0 ? ' is-divided' : ''}`}>
                 <Row heading={self ? `${member.user.name} (you)` : member.user.name} meta={`${member.user.email} · ${STATUS_LABELS[member.status]}`}>
@@ -363,7 +364,6 @@ function Team() {
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={self}
                       busy={update.isPending}
                       busyLabel="Updating"
                       onClick={() =>

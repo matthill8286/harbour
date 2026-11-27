@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrganisationsService } from './organisations.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,7 +10,7 @@ describe('OrganisationsService staff invites', () => {
     id: 'user-owner',
     email: 'owner@example.com',
     name: 'Owner',
-    role: 'OWNER',
+    role: 'ADMIN',
     organisationId: 'org-1',
     membershipId: 'mem-owner',
     customerId: null,
@@ -33,6 +33,7 @@ describe('OrganisationsService staff invites', () => {
       findUniqueOrThrow: jest.fn(),
       upsert: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
     },
     staffInvite: {
       updateMany: jest.fn(),
@@ -108,24 +109,70 @@ describe('OrganisationsService staff invites', () => {
       service.inviteStaff(actor, {
         email: 'alex@example.com',
         name: 'Alex',
-        role: 'VIEWER',
+        role: 'STAFF',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  it('blocks changing the owner membership', async () => {
+  it('keeps one active Admin: the last one cannot be made Staff', async () => {
     prisma.organisationMembership.findFirst.mockResolvedValue({
-      id: 'mem-owner',
-      role: 'OWNER',
+      id: 'mem-other',
+      role: 'ADMIN',
       status: 'ACTIVE',
-      userId: 'user-owner',
+      userId: 'user-2',
       createdAt: new Date(),
-      user: { id: 'user-owner', name: 'Owner', email: 'owner@example.com' },
+      user: { id: 'user-2', name: 'Alex', email: 'alex@example.com' },
     });
+    prisma.organisationMembership.count.mockResolvedValue(0);
 
     await expect(
-      service.updateMember(actor, 'mem-owner', { role: 'ADMIN' }),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+      service.updateMember(actor, 'mem-other', { role: 'STAFF' }),
+    ).rejects.toThrow(/only active Admin/);
+    await expect(
+      service.updateMember(actor, 'mem-other', { status: 'DISABLED' }),
+    ).rejects.toThrow(/only active Admin/);
+    expect(prisma.organisationMembership.update).not.toHaveBeenCalled();
+  });
+
+  it('lets an Admin be made Staff while another Admin remains', async () => {
+    prisma.organisationMembership.findFirst.mockResolvedValue({
+      id: 'mem-other',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      userId: 'user-2',
+      createdAt: new Date(),
+      user: { id: 'user-2', name: 'Alex', email: 'alex@example.com' },
+    });
+    prisma.organisationMembership.count.mockResolvedValue(1);
+    prisma.organisationMembership.update.mockResolvedValue({
+      id: 'mem-other',
+      role: 'STAFF',
+      user: { id: 'user-2' },
+    });
+
+    await service.updateMember(actor, 'mem-other', { role: 'STAFF' });
+    expect(prisma.organisationMembership.count).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: { not: 'mem-other' },
+        role: { in: ['ADMIN', 'OWNER'] },
+        status: 'ACTIVE',
+      }),
+    });
+    expect(prisma.organisationMembership.update).toHaveBeenCalled();
+  });
+
+  it('does not let you demote yourself', async () => {
+    prisma.organisationMembership.findFirst.mockResolvedValue({
+      id: 'mem-owner',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      userId: actor.id,
+      createdAt: new Date(),
+      user: { id: actor.id, name: 'Owner', email: actor.email },
+    });
+    await expect(
+      service.updateMember(actor, 'mem-owner', { role: 'STAFF' }),
+    ).rejects.toThrow(/your own role/);
   });
 
   it('blocks disabling yourself', async () => {

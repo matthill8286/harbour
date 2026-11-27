@@ -1,5 +1,5 @@
 import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { STAFF_READ_ROLES, STAFF_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -18,13 +18,13 @@ export class TrackingController {
   }
 
   @Get('tracking/live')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   live(@CurrentUser() user: AuthUser) {
     return this.tracking.live(user);
   }
 
   @Get('import-jobs/:jobId/tracking')
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   forJob(@CurrentUser() user: AuthUser, @Param('jobId') jobId: string) {
     return this.tracking.forJob(user, jobId, false);
   }
