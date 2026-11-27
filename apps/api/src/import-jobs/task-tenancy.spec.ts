@@ -39,7 +39,6 @@ function setup() {
   const memberships: Row[] = [
     member('org-a', 'admin-a', 'ADMIN'),
     member('org-a', 'staff-a', 'STAFF'),
-    member('org-a', 'viewer-a', 'VIEWER'),
     member('org-a', 'customer-a', 'CUSTOMER'),
     member('org-a', 'invited-a', 'STAFF', 'INVITED'),
     member('org-a', 'disabled-a', 'STAFF', 'DISABLED'),
@@ -149,19 +148,16 @@ describe('assigning a task', () => {
     expect(prisma.task.update).not.toHaveBeenCalled();
   });
 
-  it.each(['admin-a', 'staff-a', 'viewer-a'])(
-    'accepts active staff: %s',
-    async (id) => {
-      const { service, prisma } = setup();
-      await service.addTask(userA, 'job-a', {
-        title: 'Call',
-        assignedToId: id,
-      });
-      await service.updateTask(userA, 'job-a', 'task-a', { assignedToId: id });
-      expect(prisma.task.create).toHaveBeenCalled();
-      expect(prisma.task.update).toHaveBeenCalled();
-    },
-  );
+  it.each(['admin-a', 'staff-a'])('accepts active staff: %s', async (id) => {
+    const { service, prisma } = setup();
+    await service.addTask(userA, 'job-a', {
+      title: 'Call',
+      assignedToId: id,
+    });
+    await service.updateTask(userA, 'job-a', 'task-a', { assignedToId: id });
+    expect(prisma.task.create).toHaveBeenCalled();
+    expect(prisma.task.update).toHaveBeenCalled();
+  });
 
   it('lets a task be unassigned, or left as it is', async () => {
     const { service, prisma } = setup();

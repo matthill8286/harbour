@@ -163,7 +163,7 @@ describe('OrganisationsService staff invites', () => {
     expect(prisma.organisationMembership.count).toHaveBeenCalledWith({
       where: expect.objectContaining({
         id: { not: 'mem-other' },
-        role: { in: ['ADMIN', 'OWNER'] },
+        role: 'ADMIN',
         status: 'ACTIVE',
       }),
     });

@@ -30,7 +30,7 @@ describe('pickActiveMembership', () => {
     const picked = pickActiveMembership([
       {
         id: 'dead',
-        role: 'OWNER',
+        role: 'ADMIN',
         status: 'ACTIVE',
         createdAt: new Date('2026-08-01'),
         organisation: { status: 'SUSPENDED' },
@@ -42,7 +42,7 @@ describe('pickActiveMembership', () => {
         createdAt: new Date('2026-08-02'),
         organisation: org,
       },
-      { ...base, id: 'ok', role: 'VIEWER' },
+      { ...base, id: 'ok', role: 'STAFF' },
     ]);
     expect(picked?.id).toBe('ok');
   });
@@ -52,7 +52,7 @@ describe('pickActiveMembership', () => {
       pickActiveMembership([
         {
           id: 'x',
-          role: 'OWNER',
+          role: 'ADMIN',
           status: 'INVITED',
           createdAt: new Date(),
           organisation: org,
