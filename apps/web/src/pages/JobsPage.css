@@ -1,0 +1,222 @@
+/* The Jobs list's layout, after the Figma frames "Business · Jobs" and
+   "Business · Mobile · Jobs". The table, chips, badges and buttons are
+   design-system elements; this places them and draws the phone cards. */
+.jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.jobs-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.jobs-status {
+  margin: 0;
+  min-inline-size: 220px;
+}
+
+/* The status filter needs no visible label beside "All statuses"; the label stays for screen readers. */
+.jobs-status::part(label) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.jobs-filters {
+  /* The containing block for the chips' screen-reader words, so a chip scrolled
+     out of the row cannot widen the page on a phone. */
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.jobs-searching {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jobs-table-card {
+  display: block;
+}
+
+.jobs-table::part(caption) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.jobs-table::part(row) {
+  cursor: pointer;
+}
+
+.jobs-table::part(row):hover {
+  background: var(--impakt-color-surface-inset);
+}
+
+.jobs-ref {
+  color: var(--impakt-color-text-default);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.jobs-ref:hover,
+.jobs-ref:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.jobs-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 4px;
+}
+
+.jobs-retry {
+  margin-block-start: 12px;
+}
+
+/* Phone: the cards and the search are shown, the table and the heading are not. */
+.jobs-phone-search,
+.jobs-cards,
+.jobs-cards-more,
+.jobs-phone-head {
+  display: none;
+}
+
+@media (max-width: 48rem) {
+  .jobs-heading > div,
+  .jobs-table-card {
+    display: none;
+  }
+  .jobs-heading {
+    display: block;
+  }
+  .jobs-status {
+    inline-size: 100%;
+  }
+  .jobs-phone-search {
+    display: block;
+  }
+  .jobs-phone-search impakt-text-input {
+    margin: 0;
+  }
+  .jobs-filters {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-block-end: 4px;
+  }
+  .jobs-filters impakt-filter-chip {
+    flex: none;
+  }
+  .jobs-phone-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .jobs-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .jobs-cards-more {
+    display: block;
+  }
+}
+
+.jobs-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 24px;
+  background: var(--impakt-color-surface-card);
+  color: var(--impakt-color-text-default);
+  text-decoration: none;
+}
+
+.jobs-card:focus-visible {
+  outline: 2px solid var(--impakt-color-text-default);
+  outline-offset: 2px;
+}
+
+.jobs-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.jobs-plate {
+  flex: none;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--impakt-color-surface-inset);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.jobs-card-name {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.jobs-card-name strong {
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.jobs-card-name small {
+  font-size: 13px;
+  color: var(--impakt-color-text-muted);
+}
+
+.jobs-bars {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.jobs-bars span {
+  block-size: 4px;
+  border-radius: 999px;
+  background: var(--impakt-color-border-default, #c3cecc);
+}
+
+.jobs-bars span[data-state='done'] {
+  background: var(--impakt-color-text-default);
+}
+
+.jobs-bars span[data-state='current'] {
+  background: var(--impakt-color-brand-default);
+}
+
+.jobs-card-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.jobs-card-foot span:last-child {
+  color: var(--impakt-color-text-muted);
+}
