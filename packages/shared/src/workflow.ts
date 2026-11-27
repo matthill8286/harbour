@@ -158,6 +158,47 @@ export function customerStatusLabel(
   return next ? next.customerName || next.name : statusLabel(route, code);
 }
 
+export type CustomerStep = {
+  id: string;
+  name: string;
+  state: 'done' | 'current' | 'next';
+  /** A line under the step: how it ended, where the job is now, or "Up next". */
+  detail: string;
+};
+
+/**
+ * The customer's journey: each visible stage of the route, whether it is done,
+ * current or next, and a line about it. A job in a hidden stage is "On the way"
+ * to the next visible one. A cancelled job has no current step.
+ */
+export function customerJourney(
+  route: Pick<RouteWorkflow, 'stages'>,
+  code: string,
+): CustomerStep[] {
+  const visible = route.stages.filter((stage) => stage.customerVisible);
+  const { current } = customerProgress(route, code);
+  const inHidden = stageOfStatus(route, code)?.customerVisible === false;
+  return visible.map((stage, index) => {
+    const base = { id: stage.id, name: stage.customerName || stage.name };
+    if (code === 'CANCELLED') return { ...base, state: 'next', detail: '' };
+    if (index < current)
+      return {
+        ...base,
+        state: 'done',
+        detail: stage.statuses.length
+          ? stage.statuses[stage.statuses.length - 1].label
+          : '',
+      };
+    if (index === current)
+      return {
+        ...base,
+        state: 'current',
+        detail: inHidden ? 'On the way' : statusLabel(route, code),
+      };
+    return { ...base, state: 'next', detail: 'Up next' };
+  });
+}
+
 /** A stable code for a new status, unique within its route. */
 export function newStatusCode(label: string, taken: Iterable<string>): string {
   const used = new Set(taken);
