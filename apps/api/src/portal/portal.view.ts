@@ -1,3 +1,6 @@
+import { renditionOf } from '../integrations/file-delivery.service';
+import { isPicture } from '../integrations/image-renditions';
+
 type PortalJobSource = {
   id: string;
   reference: string;
@@ -79,21 +82,33 @@ export function toPortalJob(job: PortalJobSource) {
       body: note.body,
       createdAt: note.createdAt,
     })),
-    documents: job.documents.map((document) => ({
-      id: document.id,
-      name: document.name,
-      type: document.type,
-      mimeType: document.mimeType,
-      sizeBytes: document.sizeBytes,
-      createdAt: document.createdAt,
-    })),
-    photos: job.photos.map((photo) => ({
-      id: photo.id,
-      filename: photo.filename,
-      category: photo.category,
-      mimeType: photo.mimeType,
-      createdAt: photo.createdAt,
-    })),
+    documents: job.documents.map((document) => {
+      // A picture is sent as a clean copy, which may be in another format.
+      const sent = isPicture(document.mimeType)
+        ? renditionOf(document, 'clean')
+        : document;
+      return {
+        id: document.id,
+        name: sent.name,
+        type: document.type,
+        mimeType: sent.mimeType,
+        sizeBytes: document.sizeBytes,
+        createdAt: document.createdAt,
+      };
+    }),
+    photos: job.photos.map((photo) => {
+      const sent = renditionOf(
+        { name: photo.filename, mimeType: photo.mimeType },
+        'display',
+      );
+      return {
+        id: photo.id,
+        filename: sent.name,
+        category: photo.category,
+        mimeType: sent.mimeType,
+        createdAt: photo.createdAt,
+      };
+    }),
     statusHistory: job.statusHistory.map((item) => ({
       id: item.id,
       toStatus: item.toStatus,

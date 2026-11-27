@@ -175,7 +175,6 @@ describeWithDatabase('lists against PostgreSQL', () => {
       none,
       none,
       none,
-      none,
       workflows,
       none,
     );

@@ -19,8 +19,17 @@ const DOCUMENT_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
+/** Types some browsers send for a file whose format they do not know. */
+const UNNAMED_TYPES = new Set(['', 'application/octet-stream']);
+
 function filter(allowed: Set<string>): NonNullable<Options['fileFilter']> {
   return (_req, file, callback) => {
+    // Many browsers outside Apple's do not know HEIC. The first bytes are
+    // still checked against the type.
+    const heic = /\.(heic|heif)$/i.exec(file.originalname)?.[1];
+    if (heic && UNNAMED_TYPES.has(file.mimetype)) {
+      file.mimetype = `image/${heic.toLowerCase()}`;
+    }
     if (!allowed.has(file.mimetype)) {
       callback(new BadRequestException('That file type is not allowed'));
       return;
@@ -57,8 +66,12 @@ function checkedMemoryStorage(): StorageEngine {
   };
 }
 
-function uploadOptions(allowed: Set<string>): Options {
+function uploadOptions(
+  allowed: Set<string>,
+): Options & { defParamCharset: string } {
   return {
+    // Browsers send file names as UTF-8. multer reads them as Latin-1 unless told.
+    defParamCharset: 'utf8',
     // One file and a few short text fields. Without these limits, many parts
     // in one request are all held in memory.
     limits: {
