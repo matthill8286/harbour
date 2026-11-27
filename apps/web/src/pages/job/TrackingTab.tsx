@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Badge, Button, Card, EmptyState, Heading, Select, Text } from '@atomic-ui/ui-react';
-import { isDestinationReached, nearestRouteIndex, type LocationPoint } from '@vip/shared';
+import { nearestRouteIndex, type LocationPoint } from '@vip/shared';
+import { hasArrived } from '../../lib/workflows';
 import { api } from '../../lib/api';
 import { formatDate, formatDateTime, relativeTime } from '../../lib/format';
 import { FALLBACK_MAP, trackerKindLabel, type JobTracking, type RouteTemplateOption } from '../../lib/tracking';
@@ -72,7 +73,7 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
   const tracker = tracking.tracker;
   const current = tracking.current ?? lastKnown ?? null;
   const trail = tracking.trail?.length ? tracking.trail : current ? [current] : [];
-  const arrived = isDestinationReached(tracking.status);
+  const arrived = hasArrived(job.route, tracking.status);
   const planned = !arrived && tracking.plannedRoute?.length > 1 ? tracking.plannedRoute : [];
   const live = tracker?.lastSeenAt ? now - new Date(tracker.lastSeenAt).getTime() < LIVE_FOR_MS : false;
   const nextWaypoint = current && planned.length ? planned[Math.min(nearestRouteIndex(planned, current) + 1, planned.length - 1)]?.label : null;

@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { Alert, Badge, Button, Card, EmptyState, FilterChip, Heading, Text, TextInput } from '@atomic-ui/ui-react';
-import { getStatusLabel } from '@vip/shared';
 import { api } from '../lib/api';
 import { relativeTime } from '../lib/format';
 import { hasSignal, nearWaypoint } from '../lib/fleet';
+import { useWorkflows } from '../lib/workflows';
 import { spreadOverlappingMarkers, type LiveTracking, type TrackingVehicle } from '../lib/tracking';
 import { JourneyMap } from '../components/JourneyMap';
 import { PhoneHeader } from '../components/PhoneHeader';
@@ -19,13 +19,14 @@ const customerName = (v: TrackingVehicle) => `${v.customer.firstName} ${v.custom
 const vehiclesWord = (n: number) => `${n} ${n === 1 ? 'vehicle' : 'vehicles'}`;
 
 /** One line on where a vehicle is: its stage, the waypoint it is near, how fresh the ping is and its speed. */
-function whereabouts(v: TrackingVehicle, live: boolean) {
-  if (!v.current) return `${getStatusLabel(v.status)} · no ping yet`;
+function whereabouts(v: TrackingVehicle, live: boolean, label: (routeId: string | null | undefined, code: string) => string) {
+  const status = label(v.routeId, v.status);
+  if (!v.current) return `${status} · no ping yet`;
   const near = nearWaypoint(v.current, v.plannedRoute);
   const ago = relativeTime(v.current.recordedAt);
-  if (!live) return `${getStatusLabel(v.status)} · no signal since ${ago}`;
+  if (!live) return `${status} · no signal since ${ago}`;
   const speed = v.current.speed != null && v.current.speed >= 1 ? `${Math.round(v.current.speed)} km/h` : null;
-  return [near ? `Near ${near}` : getStatusLabel(v.status), ago, speed].filter(Boolean).join(' · ');
+  return [near ? `Near ${near}` : status, ago, speed].filter(Boolean).join(' · ');
 }
 
 /**
@@ -34,6 +35,7 @@ function whereabouts(v: TrackingVehicle, live: boolean) {
  * vehicle's details under the map.
  */
 export function TrackingPage() {
+  const workflows = useWorkflows();
   const [params] = useSearchParams();
   const initialJob = params.get('job');
   const [selectedId, setSelectedId] = useState<string | null>(initialJob);
@@ -200,7 +202,7 @@ export function TrackingPage() {
                       <Badge tone={live ? (selectedId === v.importJobId ? 'solid' : 'neutral') : 'danger'}>{live ? 'Live' : 'No signal'}</Badge>
                     </span>
                     <span className="fleet-vehicle-name">{`${vehicleName(v)} · ${customerName(v)}`}</span>
-                    <span className="fleet-vehicle-where">{whereabouts(v, live)}</span>
+                    <span className="fleet-vehicle-where">{whereabouts(v, live, workflows.label)}</span>
                   </button>
                 ))
               )}
@@ -232,7 +234,10 @@ export function TrackingPage() {
                     {`${selected.v.reference} · ${vehicleName(selected.v)}`}
                   </Heading>
                   <Text size="sm" tone="muted">
-                    {[whereabouts(selected.v, selected.live), selected.v.tracker?.batteryLevel != null ? `battery ${selected.v.tracker.batteryLevel}%` : null]
+                    {[
+                      whereabouts(selected.v, selected.live, workflows.label),
+                      selected.v.tracker?.batteryLevel != null ? `battery ${selected.v.tracker.batteryLevel}%` : null,
+                    ]
                       .filter(Boolean)
                       .join(' · ')}
                   </Text>

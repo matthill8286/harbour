@@ -1,10 +1,14 @@
-import type { JobStatus, TaskPriority } from '@vip/shared';
+import type { RouteWorkflow, TaskPriority } from '@vip/shared';
 
 /** A job as `/import-jobs/:id` returns it. */
 export type JobDetail = {
   id: string;
   reference: string;
-  status: JobStatus;
+  /** A status of the job's route, or COMPLETED or CANCELLED. */
+  status: string;
+  routeId: string | null;
+  /** The route the job follows, with its stages and statuses. */
+  route?: RouteWorkflow;
   originCountry: string;
   destinationCountry: string;
   registrationCountry: string | null;

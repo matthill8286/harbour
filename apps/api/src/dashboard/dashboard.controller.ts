@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { STAFF_READ_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -14,7 +14,7 @@ export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 
   @Get()
-  get(@CurrentUser() user: AuthUser) {
-    return this.dashboard.get(user);
+  get(@CurrentUser() user: AuthUser, @Query('route') route?: string) {
+    return this.dashboard.get(user, route || undefined);
   }
 }

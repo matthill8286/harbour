@@ -332,6 +332,7 @@ export class TrackingService {
       id: string;
       reference: string;
       status: string;
+      routeId?: string | null;
       customer: { firstName: string; lastName: string };
       vehicle: {
         make: string | null;
@@ -375,6 +376,7 @@ export class TrackingService {
       importJobId: job.id,
       reference: job.reference,
       status: job.status,
+      routeId: job.routeId ?? null,
       customer: job.customer,
       vehicle: job.vehicle,
       current,

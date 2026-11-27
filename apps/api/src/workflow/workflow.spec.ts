@@ -1,5 +1,6 @@
 import {
   customerProgress,
+  customerStatusLabel,
   JOB_STATUSES,
   moveProblem,
   newStatusCode,
@@ -88,5 +89,11 @@ describe('route workflow rules', () => {
       }),
     ).toMatch(/Add a status to Japan/);
     expect(routeProblem(seeded)).toBeNull();
+  });
+
+  it('tells the customer a hidden stage by the next visible one', () => {
+    expect(customerStatusLabel(seeded, 'AT_GREECE')).toBe('At Greece');
+    expect(customerStatusLabel(seeded, 'SHIPPING_TO_CYPRUS')).toBe('Cyprus');
+    expect(customerStatusLabel(seeded, 'COMPLETED')).toBe('Completed');
   });
 });

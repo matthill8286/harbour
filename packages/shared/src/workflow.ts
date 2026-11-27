@@ -138,6 +138,26 @@ export function customerProgress(
   return { steps, current };
 }
 
+/**
+ * The status label a customer sees. A status in a stage hidden from the
+ * customer reads as the next visible stage, so the customer never sees it.
+ */
+export function customerStatusLabel(
+  route: Pick<RouteWorkflow, 'stages'>,
+  code: string,
+): string {
+  if (isTerminalStatus(code)) return TERMINAL_LABELS[code];
+  const at = route.stages.findIndex((stage) =>
+    stage.statuses.some((status) => status.code === code),
+  );
+  if (at === -1) return code;
+  if (route.stages[at].customerVisible) return statusLabel(route, code);
+  const next = route.stages
+    .slice(at + 1)
+    .find((stage) => stage.customerVisible);
+  return next ? next.customerName || next.name : statusLabel(route, code);
+}
+
 /** A stable code for a new status, unique within its route. */
 export function newStatusCode(label: string, taken: Iterable<string>): string {
   const used = new Set(taken);
