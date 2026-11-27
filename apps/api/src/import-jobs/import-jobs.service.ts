@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -53,6 +54,9 @@ import {
   UpdateImportJobDto,
   UpdateTaskDto,
 } from './dto/import-job.dto';
+
+/** Creations in one workspace queue for the next reference, so allow longer than Prisma's defaults. */
+const jobWriteTransaction = { maxWait: 10_000, timeout: 15_000 };
 
 /** A route loaded with its stages, as the detail view includes it, rather than the list's summary. */
 const isFullRoute = (value: unknown): value is RouteRow =>
@@ -204,54 +208,15 @@ export class ImportJobsService {
       throw new NotFoundException('Customer not found');
     }
 
-    let vehicleId = dto.vehicleId;
-    if (vehicleId) {
+    if (dto.vehicleId) {
       const existing = await this.prisma.vehicle.findFirst({
-        where: { id: vehicleId, organisationId: user.organisationId },
+        where: { id: dto.vehicleId, organisationId: user.organisationId },
       });
       if (!existing) {
         throw new NotFoundException('Vehicle not found');
       }
-    } else {
-      const vehicle = await this.prisma.vehicle.create({
-        data: {
-          organisationId: user.organisationId,
-          vin: dto.vin,
-          make: dto.make,
-          model: dto.model,
-          variant: dto.variant,
-          year: dto.year,
-          mileage: dto.mileage,
-          fuelType: dto.fuelType,
-          colour: dto.colour,
-          engineSize: dto.engineSize,
-          bodyType: dto.bodyType,
-          countryOfRegistration: dto.countryOfRegistration ?? 'GB',
-          ukRegistration: dto.ukRegistration,
-          registrations: dto.ukRegistration
-            ? {
-                create: {
-                  organisationId: user.organisationId,
-                  kind: 'UK',
-                  number: dto.ukRegistration,
-                  country: dto.countryOfRegistration ?? 'GB',
-                },
-              }
-            : undefined,
-        },
-      });
-      vehicleId = vehicle.id;
     }
 
-    const year = new Date().getFullYear();
-    const prefix = `CY-${year}-`;
-    const count = await this.prisma.importJob.count({
-      where: {
-        organisationId: user.organisationId,
-        reference: { startsWith: prefix },
-      },
-    });
-    const reference = `${prefix}${String(count + 1).padStart(5, '0')}`;
     const route = await this.workflows.routeForNewJob(
       user.organisationId,
       dto.routeId,
@@ -262,35 +227,52 @@ export class ImportJobsService {
     }
     const routeTemplateId = await this.routes.defaultTemplateId();
 
-    const job = await this.prisma.importJob.create({
-      data: {
-        organisationId: user.organisationId,
-        customerId: customer.id,
-        vehicleId,
-        reference,
-        routeId: route.id,
-        status: startStatus,
-        originCountry: dto.originCountry ?? route.originCountry,
-        destinationCountry: dto.destinationCountry ?? route.destinationCountry,
-        registrationCountry: dto.registrationCountry,
-        routeTemplateId: routeTemplateId ?? undefined,
-        expectedDeliveryDate: dto.expectedDeliveryDate
-          ? new Date(dto.expectedDeliveryDate)
-          : undefined,
-        startedAt: new Date(),
-        statusHistory: {
-          create: {
-            organisationId: user.organisationId,
-            fromStatus: null,
-            toStatus: startStatus,
-            changedById: user.id,
-            note: 'Import job created',
+    const job = await this.prisma.$transaction(async (tx) => {
+      await this.workflows.holdStatus(
+        tx,
+        user.organisationId,
+        route.id,
+        startStatus,
+      );
+      const reference = await this.nextReference(tx, user.organisationId);
+      const vehicleId =
+        dto.vehicleId || (await this.createVehicle(tx, user, dto)).id;
+      const created = await tx.importJob.create({
+        data: {
+          organisationId: user.organisationId,
+          customerId: customer.id,
+          vehicleId,
+          reference,
+          routeId: route.id,
+          status: startStatus,
+          originCountry: dto.originCountry ?? route.originCountry,
+          destinationCountry:
+            dto.destinationCountry ?? route.destinationCountry,
+          registrationCountry: dto.registrationCountry,
+          routeTemplateId: routeTemplateId ?? undefined,
+          expectedDeliveryDate: dto.expectedDeliveryDate
+            ? new Date(dto.expectedDeliveryDate)
+            : undefined,
+          startedAt: new Date(),
+          statusHistory: {
+            create: {
+              organisationId: user.organisationId,
+              fromStatus: null,
+              toStatus: startStatus,
+              changedById: user.id,
+              note: 'Import job created',
+            },
           },
         },
-      },
-      include: jobDetailInclude,
-    });
-    void this.usage.incrementImportJobs(user.organisationId, job.createdAt);
+        include: jobDetailInclude,
+      });
+      await this.usage.incrementImportJobs(
+        user.organisationId,
+        created.createdAt,
+        tx,
+      );
+      return created;
+    }, jobWriteTransaction);
     void this.audit.record(user, {
       action: 'JOB_CREATED',
       entityType: 'ImportJob',
@@ -298,6 +280,60 @@ export class ImportJobsService {
       metadata: { importJobId: job.id, reference: job.reference },
     });
     return this.present(job);
+  }
+
+  /**
+   * The workspace's next job reference for this year: one more than the highest
+   * so far. The lock lasts until the transaction ends, so a second creation
+   * waits and then sees this job.
+   */
+  private async nextReference(
+    tx: Prisma.TransactionClient,
+    organisationId: string,
+  ) {
+    const prefix = `CY-${new Date().getFullYear()}-`;
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`job-reference:${organisationId}`}))`;
+    const [{ highest }] = await tx.$queryRaw<[{ highest: bigint | null }]>`
+      SELECT max(substring("reference" from '[0-9]+$')::bigint) AS highest
+      FROM "ImportJob"
+      WHERE "organisationId" = ${organisationId}
+        AND "reference" ~ ${`^${prefix}[0-9]{1,15}$`}
+    `;
+    return `${prefix}${String(Number(highest ?? 0) + 1).padStart(5, '0')}`;
+  }
+
+  private createVehicle(
+    tx: Prisma.TransactionClient,
+    user: AuthUser,
+    dto: CreateImportJobDto,
+  ) {
+    return tx.vehicle.create({
+      data: {
+        organisationId: user.organisationId,
+        vin: dto.vin,
+        make: dto.make,
+        model: dto.model,
+        variant: dto.variant,
+        year: dto.year,
+        mileage: dto.mileage,
+        fuelType: dto.fuelType,
+        colour: dto.colour,
+        engineSize: dto.engineSize,
+        bodyType: dto.bodyType,
+        countryOfRegistration: dto.countryOfRegistration ?? 'GB',
+        ukRegistration: dto.ukRegistration,
+        registrations: dto.ukRegistration
+          ? {
+              create: {
+                organisationId: user.organisationId,
+                kind: 'UK',
+                number: dto.ukRegistration,
+                country: dto.countryOfRegistration ?? 'GB',
+              },
+            }
+          : undefined,
+      },
+    });
   }
 
   async update(user: AuthUser, id: string, dto: UpdateImportJobDto) {
@@ -451,32 +487,46 @@ export class ImportJobsService {
     if (problem) {
       throw new BadRequestException(problem);
     }
-    const lastHistory = await this.prisma.jobStatusHistory.findFirst({
-      where: { importJobId: id },
-      orderBy: { createdAt: 'desc' },
-    });
-    const createdAt = lastHistory
-      ? new Date(Math.max(Date.now(), lastHistory.createdAt.getTime() + 60_000))
-      : new Date();
-    await this.prisma.importJob.update({
-      where: { id },
-      data: {
-        status: to,
-        completedAt:
-          to === 'COMPLETED' || to === 'CANCELLED' ? createdAt : null,
-        statusHistory: {
-          create: {
-            organisationId: user.organisationId,
-            fromStatus: from,
-            toStatus: to,
-            changedById: user.id,
-            note: dto.note,
-            createdAt,
+    await this.prisma.$transaction(async (tx) => {
+      await this.workflows.holdStatus(tx, user.organisationId, route.id, to);
+      // Moves the job only if nobody has moved it since it was read. This also
+      // locks the job until the history line is written.
+      const moved = await tx.importJob.updateMany({
+        where: { id, organisationId: user.organisationId, status: from },
+        data: { status: to },
+      });
+      if (!moved.count) {
+        throw new ConflictException(
+          'This job’s status has just changed. Reload it and try again.',
+        );
+      }
+      const lastHistory = await tx.jobStatusHistory.findFirst({
+        where: { importJobId: id },
+        orderBy: { createdAt: 'desc' },
+      });
+      const createdAt = lastHistory
+        ? new Date(
+            Math.max(Date.now(), lastHistory.createdAt.getTime() + 60_000),
+          )
+        : new Date();
+      await tx.importJob.update({
+        where: { id },
+        data: {
+          completedAt:
+            to === 'COMPLETED' || to === 'CANCELLED' ? createdAt : null,
+          statusHistory: {
+            create: {
+              organisationId: user.organisationId,
+              fromStatus: from,
+              toStatus: to,
+              changedById: user.id,
+              note: dto.note,
+              createdAt,
+            },
           },
         },
-      },
-      include: jobDetailInclude,
-    });
+      });
+    }, jobWriteTransaction);
     void this.audit.record(user, {
       action: 'JOB_STATUS_CHANGED',
       entityType: 'ImportJob',
