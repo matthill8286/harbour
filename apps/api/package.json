@@ -15,7 +15,9 @@
     "prisma:push": "prisma db push",
     "prisma:reset": "prisma db push --force-reset && prisma db seed",
     "prisma:seed": "prisma db seed",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "format": "prettier --write . --ignore-path ../../.prettierignore",
+    "format:check": "prettier --check . --ignore-path ../../.prettierignore"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
