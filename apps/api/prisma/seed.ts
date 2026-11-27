@@ -637,9 +637,13 @@ trailer<</Root 1 0 R>>
   );
 }
 
-/** Studio photos for the demo vehicles, from the Figma file. Others get the placeholder. */
+/**
+ * Photos for the demo vehicles: the BMW from the Figma file, and the Range Rover
+ * with the dealer's plate blurred. Others get the placeholder.
+ */
 const SEED_PHOTOS: Record<string, string> = {
   bmw: 'bmw-m5-competition.jpg',
+  rr: 'range-rover-sport-hse.jpg',
 };
 
 /**
