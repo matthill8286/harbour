@@ -151,16 +151,22 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
         orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
       }),
       this.prisma.importJob.groupBy({
-        by: ['routeId'],
+        by: ['routeId', 'status'],
         where: { organisationId: user.organisationId, status: OPEN },
         _count: { _all: true },
       }),
     ]);
-    const active = new Map(counts.map((c) => [c.routeId, c._count._all]));
-    return routes.map((route) => ({
-      ...toWorkflow(route),
-      activeJobs: active.get(route.id) ?? 0,
-    }));
+    return routes.map((route) => {
+      const mine = counts.filter((c) => c.routeId === route.id);
+      return {
+        ...toWorkflow(route),
+        activeJobs: mine.reduce((sum, c) => sum + c._count._all, 0),
+        /** Open jobs at each status, so the editor knows what a removal would move. */
+        jobsByStatus: Object.fromEntries(
+          mine.map((c) => [c.status, c._count._all]),
+        ),
+      };
+    });
   }
 
   async create(user: AuthUser, dto: CreateRouteDto) {

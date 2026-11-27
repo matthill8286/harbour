@@ -15,6 +15,7 @@ import { PortalPage } from './pages/PortalPage';
 import { PortalJobPage } from './pages/PortalJobPage';
 import { TrackingPage } from './pages/TrackingPage';
 import { TrackersPage } from './pages/TrackersPage';
+import { RoutesPage } from './pages/routes/RoutesPage';
 import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { MorePage } from './pages/MorePage';
@@ -137,6 +138,14 @@ export default function App() {
           element={
             <Guard allow={manager}>
               <OrganisationPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/organisation/routes"
+          element={
+            <Guard allow={manager}>
+              <RoutesPage />
             </Guard>
           }
         />
