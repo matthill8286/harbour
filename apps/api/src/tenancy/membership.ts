@@ -1,8 +1,7 @@
-import type { UserRole } from '@vip/shared';
-
 export type MembershipCandidate = {
   id: string;
-  role: UserRole;
+  /** As stored; a retired role is still a member. */
+  role: string;
   status: string;
   createdAt: Date;
   organisation: { status: string };

@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { STAFF_READ_ROLES } from '@vip/shared';
+import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -32,19 +32,19 @@ export class WorkflowRoutesController {
   constructor(private readonly routes: WorkflowRoutesService) {}
 
   @Get()
-  @Roles(...STAFF_READ_ROLES)
+  @Roles(...STAFF_ROLES)
   list(@CurrentUser() user: AuthUser) {
     return this.routes.list(user);
   }
 
   @Post()
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateRouteDto) {
     return this.routes.create(user, dto);
   }
 
   @Patch(':id')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   update(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -54,7 +54,7 @@ export class WorkflowRoutesController {
   }
 
   @Post(':id/stages')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   addStage(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -64,7 +64,7 @@ export class WorkflowRoutesController {
   }
 
   @Put(':id/stages/order')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   reorder(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -74,7 +74,7 @@ export class WorkflowRoutesController {
   }
 
   @Put(':id/stages/:stageId')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   saveStage(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,
@@ -85,7 +85,7 @@ export class WorkflowRoutesController {
   }
 
   @Delete(':id/stages/:stageId')
-  @Roles('OWNER', 'ADMIN')
+  @Roles('ADMIN')
   removeStage(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

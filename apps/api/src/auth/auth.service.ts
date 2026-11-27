@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { hash, verify } from 'argon2';
-import { isStaffRole, ROLE_LABELS, type UserRole } from '@vip/shared';
+import { isStaffRole, normaliseRole, ROLE_LABELS } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { pickActiveMembership } from '../tenancy/membership';
 import type { AuthUser } from './auth.types';
@@ -41,7 +41,8 @@ type StaffInviteLoaded = {
   id: string;
   userId: string;
   organisationId: string;
-  role: UserRole;
+  /** As stored; read through normaliseRole. */
+  role: string;
   expiresAt: Date;
   acceptedAt: Date | null;
   user: { email: string; name: string };
@@ -57,7 +58,8 @@ type LoadedInvite = PortalInviteLoaded | StaffInviteLoaded;
 type SessionMembership = {
   id: string;
   organisationId: string;
-  role: AuthUser['role'];
+  /** As stored; buildAuthUser reads a retired role as its replacement. */
+  role: string;
   customerId: string | null;
   organisation: {
     name: string;
@@ -159,7 +161,7 @@ export class AuthService {
       firstName: firstName || invite.user.name,
       lastName: rest.join(' '),
       role: invite.role,
-      roleLabel: ROLE_LABELS[invite.role],
+      roleLabel: ROLE_LABELS[normaliseRole(invite.role)],
       organisationName: invite.organisation.name,
       organisationBrandName,
       expiresAt: invite.expiresAt,
@@ -240,7 +242,7 @@ export class AuthService {
   }
 
   private async acceptStaffInvite(invite: StaffInviteLoaded, password: string) {
-    if (!isStaffRole(invite.role) || invite.role === 'CUSTOMER') {
+    if (!isStaffRole(normaliseRole(invite.role))) {
       throw new BadRequestException('Invalid staff invite role');
     }
     const passwordHash = await hash(password);
@@ -264,7 +266,8 @@ export class AuthService {
           organisationId: invite.organisationId,
           role: { not: 'CUSTOMER' },
         },
-        data: { status: 'ACTIVE', role: invite.role },
+        // An invite sent before the roles were reduced still lands on one of the three.
+        data: { status: 'ACTIVE', role: normaliseRole(invite.role) },
       });
       return tx.user.update({
         where: { id: invite.userId },

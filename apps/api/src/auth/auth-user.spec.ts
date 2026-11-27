@@ -21,7 +21,8 @@ describe('buildAuthUser', () => {
     });
     expect(user.organisationId).toBe('org-a');
     expect(user.membershipId).toBe('mem-1');
-    expect(user.role).toBe('OWNER');
+    // A retired Owner reads as Admin.
+    expect(user.role).toBe('ADMIN');
     expect(user.organisationBrandName).toBe('Demo Desk');
     expect(user.organisationName).toBe('Demo Imports');
     expect(user.organisationCurrency).toBe('GBP');
