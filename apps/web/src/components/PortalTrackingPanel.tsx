@@ -1,11 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
-import { getStatusLabel, isDestinationReached, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDateTime } from '../lib/format';
 import type { JobTracking } from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
 
-export function PortalTrackingPanel({ jobId, destination }: { jobId: string; destination?: string }) {
+/** The vehicle on the map. The status label and arrival come from the job's route, as the customer sees it. */
+export function PortalTrackingPanel({
+  jobId,
+  destination,
+  statusLabel,
+  arrived,
+}: {
+  jobId: string;
+  destination?: string;
+  statusLabel: string;
+  arrived: boolean;
+}) {
   const { data: tracking } = useQuery({
     queryKey: ['portal-tracking', jobId],
     queryFn: () => api<JobTracking>(`/portal/jobs/${jobId}/tracking`),
@@ -18,7 +28,6 @@ export function PortalTrackingPanel({ jobId, destination }: { jobId: string; des
   }
 
   const current = tracking.current;
-  const arrived = isDestinationReached(tracking.status as JobStatus);
   const plannedRoute = !arrived && tracking.plannedRoute?.length ? tracking.plannedRoute : [];
   const markers = current
     ? [
@@ -28,7 +37,7 @@ export function PortalTrackingPanel({ jobId, destination }: { jobId: string; des
           longitude: current.longitude,
           heading: current.heading,
           label: `${tracking.vehicle.make ?? 'Your vehicle'} ${tracking.vehicle.model ?? ''}`.trim(),
-          sublabel: getStatusLabel(tracking.status as JobStatus),
+          sublabel: statusLabel,
         },
       ]
     : [];

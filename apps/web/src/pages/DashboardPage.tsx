@@ -1,17 +1,26 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Badge, Button, Card, DateTile, EmptyState, Heading, Progress, Row, StatTile, Text } from '@atomic-ui/ui-react';
-import { JOB_STAGE_LABELS, JOB_STAGES, getJobStage, getStatusLabel, type JobStage, type JobStatus } from '@vip/shared';
+import { Alert, Badge, Button, Card, DateTile, EmptyState, Heading, Progress, Row, Select, StatTile, Text } from '@atomic-ui/ui-react';
+import { useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
+import { routeProgress, useWorkflows } from '../lib/workflows';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import './DashboardPage.css';
 
 type Dashboard = {
   activeJobs: number;
-  byStage: { stage: string; label: string; count: number }[];
+  byRoute: {
+    id: string;
+    name: string;
+    shortLabel: string;
+    isDefault: boolean;
+    activeJobs: number;
+    completed: number;
+    stages: { id: string; name: string; count: number }[];
+  }[];
   overdueTasks: {
     id: string;
     title: string;
@@ -21,7 +30,8 @@ type Dashboard = {
   upcomingDeliveries: {
     id: string;
     reference: string;
-    status: JobStatus;
+    status: string;
+    routeId: string | null;
     expectedDeliveryDate: string;
     customer: { firstName: string; lastName: string };
     vehicle: { make: string | null; model: string | null; ukRegistration?: string | null };
@@ -37,27 +47,39 @@ type Dashboard = {
   }[];
 };
 
-/** The stages a job moves through on the way, for the journey bars. */
-const JOURNEY: JobStage[] = JOB_STAGES.filter((stage) => stage !== 'completed' && stage !== 'cancelled');
-const journeySteps = JOURNEY.map((stage) => ({ id: stage, label: JOB_STAGE_LABELS[stage] }));
-
 const vehicleName = (vehicle: { make: string | null; model: string | null }) => [vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
 const customerName = (customer: { firstName: string; lastName: string }) => `${customer.firstName} ${customer.lastName}`.trim();
 const day = (iso: string) => iso.slice(0, 10);
 
 export function DashboardPage() {
   const { canWrite, workspace } = useSession();
+  const workflows = useWorkflows();
+  const [params, setParams] = useSearchParams();
+  const many = workflows.routes.length > 1;
+  const routeId = many ? (params.get('route') ?? '') : '';
+  const chosen = workflows.routes.find((r) => r.id === routeId);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: () => api<Dashboard>('/dashboard'),
+    queryKey: ['dashboard', routeId],
+    queryFn: () => api<Dashboard>(`/dashboard${routeId ? `?route=${encodeURIComponent(routeId)}` : ''}`),
   });
+
+  const picker = many ? (
+    <Select
+      className="board-route"
+      label="Route"
+      options={[{ value: '', label: 'All routes' }, ...workflows.routes.map((r) => ({ value: r.id, label: r.name }))]}
+      value={routeId}
+      onChange={(event) => setParams(event.detail.value ? { route: event.detail.value } : {}, { replace: true })}
+    />
+  ) : null;
+  const lead = chosen ? `What needs attention on ${chosen.name} today.` : undefined;
 
   if (isLoading) return <LoadingScreen label="Loading the Board…" />;
 
   if (isError || !data) {
     return (
       <div className="board">
-        <BoardHeading />
+        <BoardHeading lead={lead} picker={picker} />
         <Alert tone="danger" heading="The Board could not load">
           Check your connection, then try again.
           <div className="board-retry">
@@ -72,7 +94,8 @@ export function DashboardPage() {
 
   const arriving = data.upcomingDeliveries;
   const next = arriving[0];
-  const stages = data.byStage.filter((item) => item.stage !== 'cancelled');
+  const jobsLink = (route: string, stage: string) => `/jobs?${new URLSearchParams({ ...(many ? { route } : {}), stage })}`;
+  const single = data.byRoute.length === 1 ? data.byRoute[0] : null;
   const arrivingCaption = `${arriving.length} arriving in the next two weeks`;
 
   return (
@@ -90,7 +113,11 @@ export function DashboardPage() {
         </div>
       </PhoneHeader>
 
+      {picker ? <div className="board-route-phone">{picker}</div> : null}
+
       <BoardHeading
+        lead={lead}
+        picker={picker}
         action={
           <Button variant="secondary" href="/jobs" iconAfter="arrow-right">
             Browse all jobs
@@ -124,19 +151,35 @@ export function DashboardPage() {
             />
             <Card className="board-card">
               <Heading level={2} size="md">
-                Jobs by stage
+                {single ? 'Jobs by stage' : 'Jobs by route and stage'}
               </Heading>
-              <ul className="board-stages" role="list">
-                {stages.map((item) => (
-                  <li key={item.stage}>
-                    <StatTile
-                      label={JOB_STAGE_LABELS[item.stage as JobStage] ?? item.label}
-                      value={String(item.count)}
-                      href={`/jobs?stage=${encodeURIComponent(item.stage)}`}
-                    />
-                  </li>
-                ))}
-              </ul>
+              {single ? (
+                <ul className="board-stages" role="list">
+                  {[...single.stages, { id: 'completed', name: 'Completed', count: single.completed }].map((item) => (
+                    <li key={item.id}>
+                      <StatTile label={item.name} value={String(item.count)} href={jobsLink(single.id, item.id)} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="board-routes" role="list">
+                  {data.byRoute.map((route) => (
+                    <div key={route.id} className="board-route-row" role="listitem">
+                      <div className="board-route-name">
+                        <strong>{route.name}</strong>
+                        <Text size="sm" tone="muted">{`${route.activeJobs} active`}</Text>
+                      </div>
+                      <ul className="board-stages is-compact" role="list" aria-label={`${route.name} stages`}>
+                        {route.stages.map((item) => (
+                          <li key={item.id}>
+                            <StatTile label={item.name} value={String(item.count)} href={jobsLink(route.id, item.id)} />
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </div>
 
@@ -189,7 +232,7 @@ export function DashboardPage() {
                       href={`/jobs/${job.id}`}
                     >
                       <DateTile slot="start" date={day(job.expectedDeliveryDate)} />
-                      <Badge slot="end">{getStatusLabel(job.status)}</Badge>
+                      <Badge slot="end">{workflows.label(job.routeId, job.status)}</Badge>
                     </Row>
                   ))}
                 </div>
@@ -207,10 +250,10 @@ export function DashboardPage() {
                 </Heading>
                 <Text size="sm">{[next.vehicle.ukRegistration, customerName(next.customer)].filter(Boolean).join(' · ')}</Text>
                 <div className="board-next-status">
-                  <Progress look="bars" label="Journey" steps={journeySteps} current={getJobStage(next.status)} />
+                  <Progress look="bars" label="Journey" {...routeProgress(workflows.routeOf(next.routeId), next.status)} />
                   <div className="board-next-line">
                     <span>
-                      <strong>{getStatusLabel(next.status)}</strong>
+                      <strong>{workflows.label(next.routeId, next.status)}</strong>
                       <Text size="sm" tone="muted">{`Expected delivery ${formatDate(next.expectedDeliveryDate)}`}</Text>
                     </span>
                     <Button icon="arrow-up-right" label={`Open ${next.reference}`} href={`/jobs/${next.id}`} />
@@ -261,16 +304,19 @@ export function DashboardPage() {
   );
 }
 
-function BoardHeading({ action }: { action?: ReactNode }) {
+function BoardHeading({ action, picker, lead }: { action?: ReactNode; picker?: ReactNode; lead?: string }) {
   return (
     <div className="board-heading">
       <div>
         <Heading level={1} size="4xl" className="board-title">
           Board
         </Heading>
-        <Text tone="muted">What needs attention in this workspace today.</Text>
+        <Text tone="muted">{lead ?? 'What needs attention in this workspace today.'}</Text>
       </div>
-      {action}
+      <div className="board-heading-actions">
+        {picker}
+        {action}
+      </div>
     </div>
   );
 }

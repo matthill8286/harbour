@@ -1,4 +1,8 @@
 import { getStatusLabel, type JobStatus } from '@vip/shared';
+
+/** Names a status code; the job's route knows its own labels. */
+export type StatusLabeller = (code: string) => string;
+const fixedLabel: StatusLabeller = (code) => getStatusLabel(code as JobStatus);
 import { formatCategory, money } from '../../lib/format';
 
 /** One entry in a job's Activity, as `/import-jobs/:id/activity` returns it. */
@@ -32,7 +36,7 @@ const shared = (visible?: boolean) => (visible ? 'visible to customer' : 'intern
  * frame reads each entry that way. Amounts may show, because Activity is only
  * ever seen by staff.
  */
-export function describeActivity(item: ActivityItem, currency: string): { verb: string; detail: string } {
+export function describeActivity(item: ActivityItem, currency: string, label: StatusLabeller = fixedLabel): { verb: string; detail: string } {
   const m = item.metadata ?? {};
   const line = () =>
     [m.description || formatCategory(m.category ?? ''), typeof m.amount === 'number' ? money(m.amount, currency) : null].filter(Boolean).join(' · ');
@@ -41,7 +45,7 @@ export function describeActivity(item: ActivityItem, currency: string): { verb: 
     case 'JOB_CREATED':
       return { verb: 'created the job', detail: m.reference ?? '' };
     case 'JOB_STATUS_CHANGED':
-      return { verb: 'changed status', detail: m.from && m.to ? `${getStatusLabel(m.from as JobStatus)} → ${getStatusLabel(m.to as JobStatus)}` : '' };
+      return { verb: 'changed status', detail: m.from && m.to ? `${label(String(m.from))} → ${label(String(m.to))}` : '' };
     case 'JOB_ROUTE_TEMPLATE_CHANGED':
       return { verb: 'changed the corridor', detail: '' };
     case 'JOB_NOTE_ADDED':
