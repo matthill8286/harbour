@@ -1,10 +1,14 @@
 import { Navigate, useNavigate } from 'react-router-dom';
+import { Badge, Heading, Text } from '@atomic-ui/ui-react';
 import { homePath, useAuth } from '../lib/auth';
 import { AuthFrame } from '../components/AuthFrame';
 import { TwoFactorEnrolment } from '../components/TwoFactorEnrolment';
 import { LoadingScreen } from '../components/ui';
 
-/** Staff land here after their first sign-in, and cannot open the workspace until it is done. */
+/**
+ * Admins and Staff land here after their first sign-in, and cannot open the
+ * workspace until two-factor sign-in is on. After the Figma frames "Security setup".
+ */
 export function SecuritySetupPage() {
   const { user, ready, refresh, logout } = useAuth();
   const navigate = useNavigate();
@@ -14,12 +18,16 @@ export function SecuritySetupPage() {
   if (user.twoFactorEnabled) return <Navigate to={homePath(user)} replace />;
 
   return (
-    <AuthFrame
-      eyebrow="Account security"
-      lead="Harbour holds customer and vehicle records, so every team member signs in with a password and a code from an authenticator app."
-    >
-      <h2 className="display text-3xl">Set up two-factor sign-in</h2>
-      <p className="text-sm text-ink/60">You need an authenticator app on your phone. This takes about a minute.</p>
+    <AuthFrame>
+      <div className="auth-intro">
+        <Badge>Required for your team</Badge>
+        <Heading level={1} size="3xl" className="auth-title">
+          Set up two-factor sign-in
+        </Heading>
+        <Text tone="muted">
+          Harbour holds customer and vehicle records, so everyone on the team signs in with a password and a code from an authenticator app.
+        </Text>
+      </div>
       <TwoFactorEnrolment
         onEnabled={async () => {
           const updated = await refresh();
@@ -28,7 +36,7 @@ export function SecuritySetupPage() {
       />
       <button
         type="button"
-        className="text-sm text-ink/60"
+        className="auth-link auth-switch"
         onClick={() => {
           logout();
           navigate('/login');

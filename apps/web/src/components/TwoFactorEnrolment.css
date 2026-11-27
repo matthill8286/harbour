@@ -1,0 +1,39 @@
+.enrol {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.enrol-scan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.enrol-scan img {
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--impakt-color-text-default) 12%, transparent);
+  border-radius: 16px;
+  background: var(--impakt-color-surface-card);
+}
+
+.enrol-key {
+  display: block;
+  margin-block-start: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+
+.enrol-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.enrol-form impakt-text-input {
+  margin: 0;
+}

@@ -19,9 +19,16 @@ type AuthState = {
   adopt: (session: SessionResponse) => void;
   /** Update the signed-in user in place, as after a profile edit. */
   setUser: (user: PublicUser) => void;
+  /** Signing out on purpose; the sign-in page then says so. */
   logout: () => void;
   hydrate: () => Promise<void>;
+  /** Why the last session ended, for the sign-in page, until someone signs in again. */
+  ended: SessionEnd;
+  clearEnded: () => void;
 };
+
+/** How a session ended: signed out here, or expired and refused by the API. */
+export type SessionEnd = 'signed-out' | 'expired' | null;
 
 export const useAuth = create<AuthState>((set, get) => {
   function start(result: LoginResponse): SignInResult {
@@ -38,7 +45,7 @@ export const useAuth = create<AuthState>((set, get) => {
       return { kind: 'two-factor' };
     }
     setToken(result.accessToken);
-    set({ user: result.user, ready: true, challenge: null });
+    set({ user: result.user, ready: true, challenge: null, ended: null });
     return { kind: 'session', user: result.user };
   }
 
@@ -72,7 +79,7 @@ export const useAuth = create<AuthState>((set, get) => {
         body: JSON.stringify({ challengeToken: challenge.token, ...input }),
       });
       setToken(result.accessToken);
-      set({ user: result.user, ready: true, challenge: null });
+      set({ user: result.user, ready: true, challenge: null, ended: null });
       return result.user;
     },
     refresh: async () => {
@@ -87,8 +94,10 @@ export const useAuth = create<AuthState>((set, get) => {
     setUser: (user) => set({ user }),
     logout: () => {
       setToken(null);
-      set({ user: null, ready: true, challenge: null });
+      set({ user: null, ready: true, challenge: null, ended: 'signed-out' });
     },
+    ended: null,
+    clearEnded: () => set({ ended: null }),
     hydrate: async () => {
       if (!getToken()) {
         set({ user: null, ready: true });
@@ -99,8 +108,9 @@ export const useAuth = create<AuthState>((set, get) => {
         set({ user, ready: true });
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {
+          // A stored session the API refuses has expired; the sign-in page says so.
           setToken(null);
-          set({ user: null, ready: true });
+          set({ user: null, ready: true, ended: 'expired' });
           return;
         }
         window.setTimeout(() => {
@@ -113,8 +123,10 @@ export const useAuth = create<AuthState>((set, get) => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('harbour:unauthorized', () => {
+    // Only a session that was open has expired; a wrong password is not this.
+    const wasSignedIn = Boolean(useAuth.getState().user);
     setToken(null);
-    useAuth.setState({ user: null, ready: true });
+    useAuth.setState({ user: null, ready: true, ...(wasSignedIn ? { ended: 'expired' as const } : {}) });
   });
   // The api says this account still needs two-factor setup, so reload it and let the router redirect.
   window.addEventListener('harbour:two-factor-required', () => {

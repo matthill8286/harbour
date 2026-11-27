@@ -1,16 +1,24 @@
 import { useState, type FormEvent } from 'react';
 import QRCode from 'qrcode';
+import { Alert, Button, Heading, Text, TextInput } from '@atomic-ui/ui-react';
 import { api, type TwoFactorSetup } from '../lib/api';
-import { ErrorBanner, fieldClass, primaryBtn } from './ui';
 import { BackupCodeList } from './BackupCodeList';
+import './TwoFactorEnrolment.css';
 
 type Setup = TwoFactorSetup & { qr: string };
+type Step = 'password' | 'scan' | 'codes';
+
+/** "JBSWY3DPEHPK3PXP" as "JBSW Y3DP EHPK 3PXP", easier to type into an app. */
+const grouped = (secret: string) => secret.replace(/(.{4})/g, '$1 ').trim();
 
 /**
- * The setup flow ported from Kleidi: confirm the password, scan the QR code (or type the
- * secret), save the backup codes, then enter a code to prove the authenticator works.
+ * Turning on two-factor sign-in, after the Figma frames "Security setup": confirm
+ * the password, scan the QR code (or type the key) and enter a code, then save
+ * the backup codes, which are shown only this once. Used at first sign-in and on
+ * Account and security.
  */
 export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<void> | void }) {
+  const [step, setStep] = useState<Step>('password');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [setup, setSetup] = useState<Setup | null>(null);
@@ -19,18 +27,17 @@ export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<voi
 
   async function start(event: FormEvent) {
     event.preventDefault();
+    if (!password) return;
     setPending(true);
     setError(null);
     try {
-      const result = await api<TwoFactorSetup>('/auth/two-factor/enable', {
-        method: 'POST',
-        body: JSON.stringify({ password }),
-      });
+      const result = await api<TwoFactorSetup>('/auth/two-factor/enable', { method: 'POST', body: JSON.stringify({ password }) });
       const qr = await QRCode.toDataURL(result.totpURI, { margin: 1, width: 200 });
       setPassword('');
       setSetup({ ...result, qr });
+      setStep('scan');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not start setup');
+      setError(err instanceof Error ? err.message : 'Setup did not start. Try again.');
     } finally {
       setPending(false);
     }
@@ -38,14 +45,12 @@ export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<voi
 
   async function activate(event: FormEvent) {
     event.preventDefault();
+    if (!code.trim()) return;
     setPending(true);
     setError(null);
     try {
-      await api('/auth/two-factor/verify', {
-        method: 'POST',
-        body: JSON.stringify({ code: code.replace(/\s/g, '') }),
-      });
-      await onEnabled();
+      await api('/auth/two-factor/verify', { method: 'POST', body: JSON.stringify({ code: code.replace(/\s/g, '') }) });
+      setStep('codes');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code is not right.');
     } finally {
@@ -53,59 +58,73 @@ export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<voi
     }
   }
 
-  if (!setup) {
+  if (step === 'password' || !setup) {
     return (
-      <form onSubmit={start} className="space-y-4">
-        <label className="block text-sm font-semibold">
-          Confirm your password
-          <input
-            type="password"
-            className={`${fieldClass} mt-1`}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {error ? <ErrorBanner message={error} /> : null}
-        <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
-          {pending ? 'Starting…' : 'Set up authenticator'}
-        </button>
+      <form className="enrol-form" onSubmit={(event) => void start(event)} noValidate>
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        <TextInput
+          label="Confirm your password"
+          type="password"
+          autocomplete="current-password"
+          value={password}
+          onChange={(event) => {
+            const value = event.detail.value;
+            setPassword(value);
+          }}
+        />
+        <Button type="submit" full disabled={!password} busy={pending} busyLabel="Starting setup">
+          Set up authenticator
+        </Button>
       </form>
     );
   }
 
-  return (
-    <form onSubmit={activate} className="space-y-4">
-      <div className="grid justify-items-center gap-3 rounded-2xl bg-paper p-4 text-center">
-        <p className="text-sm text-ink/60">Scan this QR code with an authenticator app such as 1Password, Google Authenticator or Microsoft Authenticator.</p>
-        <img src={setup.qr} alt="QR code for your authenticator app" width={200} height={200} />
-        <p className="text-xs text-ink/55">Or type this key into the app</p>
-        <code className="break-all rounded-lg bg-sand px-3 py-1.5 font-mono text-xs">{setup.secret}</code>
-      </div>
-      <div className="rounded-2xl bg-paper p-4">
-        <h3 className="font-semibold">Save your backup codes</h3>
-        <p className="mt-1 text-sm text-ink/60">Keep these somewhere safe. If you lose your phone, each code signs you in once.</p>
+  if (step === 'codes') {
+    return (
+      <div className="enrol">
+        <Heading level={2} size="xl">
+          Save your backup codes
+        </Heading>
+        <Text size="sm" tone="muted">
+          Each code signs you in once if you lose your phone. They are shown only now.
+        </Text>
         <BackupCodeList codes={setup.backupCodes} />
+        <Button full onClick={() => void onEnabled()}>
+          I saved them, continue
+        </Button>
       </div>
-      <label className="block text-sm font-semibold">
-        Enter the 6-digit code from the app
-        <input
-          className={`${fieldClass} mt-1 font-mono tracking-widest`}
-          value={code}
-          onChange={(event) => setCode(event.target.value)}
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          pattern="[0-9 ]{6,7}"
-          placeholder="123 456"
-          required
-          autoFocus
-        />
-      </label>
-      {error ? <ErrorBanner message={error} /> : null}
-      <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
-        {pending ? 'Checking…' : 'Turn on two-factor sign-in'}
-      </button>
+    );
+  }
+
+  return (
+    <form className="enrol-form" onSubmit={(event) => void activate(event)} noValidate>
+      <Text size="sm" tone="muted">
+        Scan this code with an authenticator app such as 1Password, Google Authenticator or Microsoft Authenticator, then enter the 6-digit code it shows.
+      </Text>
+      <div className="enrol-scan">
+        <img src={setup.qr} alt="QR code for your authenticator app" width={152} height={152} />
+        <div>
+          <Text size="sm" tone="muted">
+            Or type this key into the app
+          </Text>
+          <code className="enrol-key">{grouped(setup.secret)}</code>
+        </div>
+      </div>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+      <TextInput
+        label="6-digit code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        placeholder="123 456"
+        value={code}
+        onChange={(event) => {
+          const value = event.detail.value;
+          setCode(value);
+        }}
+      />
+      <Button type="submit" full disabled={!code.trim()} busy={pending} busyLabel="Checking the code">
+        Turn on two-factor sign-in
+      </Button>
     </form>
   );
 }

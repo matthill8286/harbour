@@ -1,0 +1,222 @@
+/* Sign-in, two-factor, password reset, invites and sign-up, after the Figma page "04 · Auth & access". */
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 16px;
+  min-block-size: 100svh;
+  padding: 20px;
+  background: var(--impakt-shell-canvas);
+  color: var(--impakt-color-text-default);
+  /* Captured here, because the panel turns the text tokens light for its own content. */
+  --auth-ink: var(--impakt-color-text-default);
+}
+
+.auth-card {
+  display: grid;
+  place-items: center;
+  padding: 48px 24px;
+  border-radius: 28px;
+  background: var(--impakt-color-surface-page);
+}
+
+.auth-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  inline-size: min(100%, 26rem);
+}
+
+.auth-phone-logo {
+  display: none;
+}
+
+.auth-title {
+  --impakt-font-weight-bold: 400;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-form impakt-text-input {
+  margin: 0;
+}
+
+.auth-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.auth-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-block-start: 8px;
+}
+
+.auth-link {
+  color: var(--impakt-color-brand-default);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.auth-link:hover,
+.auth-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.auth-switch {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-aside {
+  font-size: 14px;
+  color: var(--impakt-color-text-muted);
+}
+
+.auth-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-demo {
+  font-size: 12px;
+  color: var(--impakt-color-text-muted);
+}
+
+.auth-demo summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.auth-demo p {
+  margin: 8px 0 0;
+  line-height: 1.6;
+}
+
+/* The brand panel */
+.auth-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 40px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--auth-ink);
+  color: var(--impakt-color-surface-card);
+  --impakt-color-text-default: var(--impakt-color-surface-card);
+  --impakt-color-text-heading: var(--impakt-color-surface-card);
+  --impakt-color-text-muted: rgb(255 255 255 / 0.6);
+}
+
+.auth-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 26px;
+  letter-spacing: -0.01em;
+}
+
+.auth-importer {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-importer span {
+  display: flex;
+  flex-direction: column;
+}
+
+.auth-importer strong {
+  font-weight: 500;
+}
+
+.auth-importer small {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.auth-route {
+  flex: 1;
+  inline-size: 100%;
+  max-block-size: 22rem;
+  min-block-size: 0;
+}
+
+.auth-route circle {
+  fill: var(--impakt-color-brand-default, #b24424);
+}
+
+.auth-route .auth-route-hole {
+  fill: #ffffff;
+}
+
+.auth-route .auth-route-ring {
+  fill: none;
+  stroke: var(--impakt-color-brand-default, #b24424);
+  stroke-width: 6;
+}
+
+.auth-headline {
+  --impakt-font-weight-bold: 300;
+}
+
+.auth-panel-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+@media (max-width: 60rem) {
+  .auth {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0;
+  }
+  .auth-panel {
+    display: none;
+  }
+  .auth-card {
+    place-items: start center;
+    align-content: start;
+    gap: 32px;
+    padding: 24px 20px 40px;
+    border-radius: 0;
+  }
+  .auth-phone-logo {
+    display: block;
+    inline-size: min(100%, 26rem);
+  }
+}
+
+@media (max-width: 30rem) {
+  .auth-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* On the light sign-in card, the backup codes sit on white, as in the design. */
+.auth .backup-codes li {
+  background: var(--impakt-color-surface-card);
+}

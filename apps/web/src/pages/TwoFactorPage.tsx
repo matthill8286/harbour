@@ -1,10 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Alert, Button, Heading, Text, TextInput } from '@atomic-ui/ui-react';
 import { homePath, useAuth } from '../lib/auth';
 import { AuthFrame } from '../components/AuthFrame';
-import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
-/** Second step of sign-in for accounts with two-factor on. */
+/**
+ * The second step of sign-in for accounts with two-factor on, after the Figma
+ * frames "Auth · Two-factor": a code from the authenticator app, or a backup code.
+ * One field rather than six boxes, so pasting and the phone's code autofill work.
+ */
 export function TwoFactorPage() {
   const { user, challenge, completeChallenge } = useAuth();
   const navigate = useNavigate();
@@ -18,6 +22,7 @@ export function TwoFactorPage() {
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (!value.trim()) return;
     setPending(true);
     setError(null);
     try {
@@ -31,50 +36,46 @@ export function TwoFactorPage() {
   }
 
   return (
-    <AuthFrame eyebrow="Two-factor sign-in" lead="Your account is protected with an authenticator app. Enter the code it shows to finish signing in.">
-      <form onSubmit={onSubmit} className="space-y-4">
-        <h2 className="display text-3xl">Enter your code</h2>
-        <p className="text-sm text-ink/60">
+    <AuthFrame>
+      <div className="auth-intro">
+        <Heading level={1} size="3xl" className="auth-title">
+          Enter your code
+        </Heading>
+        <Text tone="muted">
           {useBackup
             ? 'Enter one of the backup codes you saved when you set up two-factor sign-in. Each code works once.'
             : 'Open your authenticator app and enter the 6-digit code for Harbour.'}
-        </p>
-        <label className="block text-sm font-semibold">
-          {useBackup ? 'Backup code' : 'Authenticator code'}
-          <input
-            key={useBackup ? 'backup' : 'code'}
-            className={`${fieldClass} mt-1 font-mono tracking-widest`}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            inputMode={useBackup ? 'text' : 'numeric'}
-            autoComplete="one-time-code"
-            pattern={useBackup ? undefined : '[0-9 ]{6,7}'}
-            placeholder={useBackup ? 'abcde-12345' : '123 456'}
-            required
-            autoFocus
-          />
-        </label>
-        {error ? <ErrorBanner message={error} /> : null}
-        <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
-          {pending ? 'Checking…' : 'Verify'}
-        </button>
-        <div className="flex items-center justify-between text-sm">
-          <button
-            type="button"
-            className="font-semibold text-harbour"
-            onClick={() => {
-              setUseBackup((current) => !current);
-              setValue('');
-              setError(null);
-            }}
-          >
-            {useBackup ? 'Use the authenticator app' : 'Use a backup code'}
-          </button>
-          <Link to="/login" className="text-ink/60">
-            Start again
-          </Link>
-        </div>
+        </Text>
+      </div>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
+      <form className="auth-form" onSubmit={(event) => void onSubmit(event)} noValidate>
+        <TextInput
+          key={useBackup ? 'backup' : 'code'}
+          label={useBackup ? 'Backup code' : 'Authenticator code'}
+          inputmode={useBackup ? 'text' : 'numeric'}
+          autocomplete="one-time-code"
+          placeholder={useBackup ? 'abcde-12345' : '123 456'}
+          value={value}
+          onChange={(event) => {
+            const next = event.detail.value;
+            setValue(next);
+          }}
+        />
+        <Button type="submit" full busy={pending} busyLabel="Checking the code">
+          Continue
+        </Button>
       </form>
+      <button
+        type="button"
+        className="auth-link auth-switch"
+        onClick={() => {
+          setUseBackup((b) => !b);
+          setValue('');
+          setError(null);
+        }}
+      >
+        {useBackup ? 'Use the authenticator app' : 'Use a backup code'}
+      </button>
     </AuthFrame>
   );
 }

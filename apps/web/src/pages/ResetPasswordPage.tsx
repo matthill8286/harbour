@@ -1,22 +1,23 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { Alert, Button, Heading, Text, TextInput } from '@atomic-ui/ui-react';
 import { api } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { AuthFrame } from '../components/AuthFrame';
-import { ErrorBanner, fieldClass, LoadingScreen, primaryBtn } from '../components/ui';
+import { AuthFrame, AuthNotice } from '../components/AuthFrame';
+import { LoadingScreen } from '../components/ui';
 
 type ResetPreview = { email: string; expiresAt: string };
 
+/** Choosing a new password from a reset link, after the Figma frames "Auth · Reset password". */
 export function ResetPasswordPage() {
   const { token = '' } = useParams();
-  const logout = useAuth((state) => state.logout);
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
+  const { logout, clearEnded } = useAuth();
+  const [form, setForm] = useState({ password: '', confirm: '' });
+  const [tried, setTried] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-
   const preview = useQuery({
     queryKey: ['password-reset', token],
     queryFn: () => api<ResetPreview>(`/auth/password/reset/${encodeURIComponent(token)}`),
@@ -26,85 +27,81 @@ export function ResetPasswordPage() {
 
   if (!token) return <Navigate to="/forgot-password" replace />;
 
+  const short = form.password.length < 10;
+  const mismatch = form.confirm !== form.password;
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
-    if (password !== confirm) {
-      setError('Passwords do not match');
-      return;
-    }
+    setTried(true);
+    if (short || mismatch) return;
     setPending(true);
     setError(null);
     try {
-      await api('/auth/password/reset', {
-        method: 'POST',
-        body: JSON.stringify({ token, password }),
-      });
-      // Every older session has ended, including one in this browser.
+      await api('/auth/password/reset', { method: 'POST', body: JSON.stringify({ token, password: form.password }) });
+      // Every older session has ended, including one in this browser; the next screen says so itself.
       logout();
+      clearEnded();
       setDone(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not reset the password');
+      setError(err instanceof Error ? err.message : 'The password was not changed. Try again.');
     } finally {
       setPending(false);
     }
   }
 
+  const set = (key: 'password' | 'confirm') => (event: CustomEvent<{ value: string }>) => {
+    const value = event.detail.value;
+    setForm((f) => ({ ...f, [key]: value }));
+  };
+
   return (
-    <AuthFrame eyebrow="Password reset" lead="Choose a new password. Any device still signed in with the old one will be signed out.">
-      {preview.isLoading ? <LoadingScreen label="Checking your link…" /> : null}
-      {preview.error ? (
-        <div className="space-y-4">
-          <h2 className="display text-3xl">Link not valid</h2>
-          <ErrorBanner message={preview.error.message} />
-          <Link to="/forgot-password" className={`${primaryBtn} w-full py-3`}>
-            Ask for a new link
+    <AuthFrame>
+      {preview.isLoading ? (
+        <LoadingScreen label="Checking your link…" />
+      ) : preview.isError || !preview.data ? (
+        <AuthNotice title="Link not valid" lead="This reset link was already used or has expired. Ask for a new one.">
+          <Button href="/forgot-password">Send a new link</Button>
+          <Link to="/login" className="auth-link">
+            Back to sign in
           </Link>
-        </div>
-      ) : null}
-      {preview.data && done ? (
-        <div className="space-y-4">
-          <h2 className="display text-3xl">Password changed</h2>
-          <p className="text-sm text-ink/60">Sign in with your new password.</p>
-          <Link to="/login" className={`${primaryBtn} w-full py-3`}>
-            Sign in
-          </Link>
-        </div>
-      ) : null}
-      {preview.data && !done ? (
-        <form onSubmit={onSubmit} className="space-y-4">
-          <h2 className="display text-3xl">Choose a new password</h2>
-          <p className="text-sm text-ink/60">For {preview.data.email}. Use at least 10 characters.</p>
-          <label className="block text-sm font-semibold">
-            New password
-            <input
+        </AuthNotice>
+      ) : done ? (
+        <AuthNotice title="Password changed" lead="Sign in with your new password.">
+          <Button href="/login">Sign in</Button>
+        </AuthNotice>
+      ) : (
+        <>
+          <div className="auth-intro">
+            <Heading level={1} size="3xl" className="auth-title">
+              Choose a new password
+            </Heading>
+            <Text tone="muted">{`For ${preview.data.email}.`}</Text>
+          </div>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
+          <form className="auth-form" onSubmit={(event) => void onSubmit(event)} noValidate>
+            <TextInput
+              label="New password"
               type="password"
-              className={`${fieldClass} mt-1`}
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              autoComplete="new-password"
-              minLength={10}
-              required
-              autoFocus
+              autocomplete="new-password"
+              description="At least 10 characters"
+              value={form.password}
+              error={tried && short ? 'Use at least 10 characters' : ''}
+              onChange={set('password')}
             />
-          </label>
-          <label className="block text-sm font-semibold">
-            Confirm new password
-            <input
+            <TextInput
+              label="Confirm password"
               type="password"
-              className={`${fieldClass} mt-1`}
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-              autoComplete="new-password"
-              minLength={10}
-              required
+              autocomplete="new-password"
+              value={form.confirm}
+              error={tried && !short && mismatch ? 'Passwords do not match' : ''}
+              onChange={set('confirm')}
             />
-          </label>
-          {error ? <ErrorBanner message={error} /> : null}
-          <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
-            {pending ? 'Saving…' : 'Save new password'}
-          </button>
-        </form>
-      ) : null}
+            <Button type="submit" full busy={pending} busyLabel="Saving your password">
+              Save new password
+            </Button>
+          </form>
+        </>
+      )}
     </AuthFrame>
   );
 }
