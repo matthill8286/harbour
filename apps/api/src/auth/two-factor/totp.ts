@@ -80,7 +80,8 @@ export function totpUri(input: {
     digits: String(TOTP_DIGITS),
     period: String(TOTP_PERIOD_SECONDS),
   });
-  return `otpauth://totp/${label}?${params.toString()}`;
+  // Spaces as %20, not +: some authenticator apps show a + in the name.
+  return `otpauth://totp/${label}?${params.toString().replace(/\+/g, '%20')}`;
 }
 
 const BACKUP_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
