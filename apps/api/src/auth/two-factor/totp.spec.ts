@@ -78,3 +78,18 @@ describe('totp', () => {
     expect(normaliseBackupCode('abcde-12345')).toBe('abcde-12345');
   });
 });
+
+describe('the authenticator entry name', () => {
+  it('writes spaces in the issuer as %20, so apps do not show a +', () => {
+    const uri = totpUri({
+      issuer: 'Harbour (localhost)',
+      account: 'a@b.co',
+      secret: 'ABC',
+    });
+    expect(uri).toContain('issuer=Harbour%20%28localhost%29');
+    expect(decodeURIComponent(uri.split('issuer=')[1].split('&')[0])).toBe(
+      'Harbour (localhost)',
+    );
+    expect(uri).not.toContain('+');
+  });
+});
