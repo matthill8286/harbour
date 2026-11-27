@@ -1,19 +1,15 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import type { JobStatus } from '@vip/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Alert, Badge, Button, Card, Heading, Row, Text, TextInput, Textarea } from '@atomic-ui/ui-react';
+import { getStatusLabel, type JobStatus } from '@vip/shared';
 import { api, ApiError } from '../lib/api';
 import { formatDate } from '../lib/format';
-import { StatusBadge } from '../components/StatusBadge';
-import { Card, ErrorBanner, LoadingScreen, PageHeader, StaffPage, fieldClass, primaryBtn, secondaryBtn } from '../components/ui';
 import { useSession } from '../lib/session';
-
-type PortalAccess = {
-  status: 'NONE' | 'INVITED' | 'ACTIVE';
-  email: string | null;
-  invitedAt: string | null;
-  expiresAt: string | null;
-};
+import { PhoneHeader } from '../components/PhoneHeader';
+import { LoadingScreen } from '../components/ui';
+import { PORTAL_LABEL, PORTAL_TONE, type PortalStatus } from './customers/portal';
+import './customers/Customers.css';
 
 type CustomerDetail = {
   id: string;
@@ -23,7 +19,7 @@ type CustomerDetail = {
   phone: string | null;
   address: string | null;
   notes: string | null;
-  portal: PortalAccess;
+  portal: { status: PortalStatus; email: string | null; invitedAt: string | null; expiresAt: string | null };
   importJobs: {
     id: string;
     reference: string;
@@ -33,20 +29,20 @@ type CustomerDetail = {
   }[];
 };
 
-const PORTAL_COPY: Record<PortalAccess['status'], { title: string; body: string; action: string }> = {
+type Contact = { firstName: string; lastName: string; email: string; phone: string; address: string; notes: string };
+
+/** What the Portal card says and offers in each state, after the Figma frames "Customer record · …". */
+const PORTAL: Record<PortalStatus, { body: string; action: string }> = {
   NONE: {
-    title: 'No portal access',
-    body: 'Invite them with the email on this record. Harbour emails the invite when mail is configured, and always shows a copyable link here.',
+    body: 'Invite them with the email on this record. Harbour emails the invite when mail is set up, and shows a link here to copy.',
     action: 'Invite to portal',
   },
   INVITED: {
-    title: 'Invite sent',
-    body: 'They have not set a password yet. Resend emails a fresh link — the raw token is not stored.',
+    body: 'They have not set a password yet. Resending emails a fresh link; the old one stops working.',
     action: 'Resend invite',
   },
   ACTIVE: {
-    title: 'Portal active',
-    body: 'They can sign in. Send a new link only if they need to set a fresh password — it is emailed when mail is configured.',
+    body: 'The customer can sign in and sees only their own jobs and what you marked visible.',
     action: 'Send password reset link',
   },
 };
@@ -54,166 +50,199 @@ const PORTAL_COPY: Record<PortalAccess['status'], { title: string; body: string;
 export function CustomerDetailPage() {
   const { canWrite } = useSession();
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const query = useQuery({
-    queryKey: ['customer', id],
-    queryFn: () => api<CustomerDetail>(`/customers/${id}`),
-    enabled: Boolean(id),
-  });
+  const query = useQuery({ queryKey: ['customer', id], queryFn: () => api<CustomerDetail>(`/customers/${id}`), enabled: Boolean(id) });
   const customer = query.data;
-  const [form, setForm] = useState<Pick<CustomerDetail, 'firstName' | 'lastName' | 'email' | 'phone' | 'address' | 'notes'> | null>(null);
+  const [edits, setEdits] = useState<Partial<Contact>>({});
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const values = form ?? (customer
+  const refresh = () =>
+    Promise.all([queryClient.invalidateQueries({ queryKey: ['customer', id] }), queryClient.invalidateQueries({ queryKey: ['customers'] })]);
+  const contact: Contact | null = customer
     ? {
-        firstName: customer.firstName,
-        lastName: customer.lastName,
-        email: customer.email ?? '',
-        phone: customer.phone ?? '',
-        address: customer.address ?? '',
-        notes: customer.notes ?? '',
+        firstName: edits.firstName ?? customer.firstName,
+        lastName: edits.lastName ?? customer.lastName,
+        email: edits.email ?? customer.email ?? '',
+        phone: edits.phone ?? customer.phone ?? '',
+        address: edits.address ?? customer.address ?? '',
+        notes: edits.notes ?? customer.notes ?? '',
       }
-    : null);
+    : null;
+  const changed = Object.keys(edits).length > 0;
 
   const save = useMutation({
-    mutationFn: () =>
-      api(`/customers/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          ...values,
-          email: values?.email || undefined,
-        }),
-      }),
-    onSuccess: () => {
-      setError(null);
-      void queryClient.invalidateQueries({ queryKey: ['customer', id] });
-      void queryClient.invalidateQueries({ queryKey: ['customers'] });
-    },
-    onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Could not save');
+    mutationFn: () => api(`/customers/${id}`, { method: 'PATCH', body: JSON.stringify({ ...contact, email: contact?.email.trim() || undefined }) }),
+    onSuccess: async () => {
+      setEdits({});
+      await refresh();
     },
   });
-
   const invite = useMutation({
-    mutationFn: () => api<CustomerDetail & { inviteUrl: string }>(`/customers/${id}/invite`, { method: 'POST' }),
-    onSuccess: (result) => {
-      setError(null);
+    mutationFn: () => api<{ inviteUrl: string }>(`/customers/${id}/invite`, { method: 'POST' }),
+    onSuccess: async (result) => {
       setInviteUrl(result.inviteUrl);
       setCopied(false);
-      void queryClient.invalidateQueries({ queryKey: ['customer', id] });
-      void queryClient.invalidateQueries({ queryKey: ['customers'] });
-    },
-    onError: (err: unknown) => {
-      setError(err instanceof Error ? err.message : 'Could not create invite');
+      await refresh();
     },
   });
 
-  async function copyLink() {
-    if (!inviteUrl) return;
-    await navigator.clipboard.writeText(inviteUrl);
-    setCopied(true);
-  }
-
-  if (query.isLoading) return <LoadingScreen label="Loading customer…" />;
-  if (query.isError || !customer || !values) {
+  if (query.isLoading) return <LoadingScreen label="Loading the customer…" />;
+  if (query.isError || !customer || !contact) {
+    const notFound = query.error instanceof ApiError && query.error.status === 404;
     return (
-      <ErrorBanner
-        message={query.error instanceof ApiError ? query.error.message : 'Could not load this customer.'}
-      />
+      <Alert tone="danger" heading={notFound ? 'This customer does not exist' : 'The customer could not load'}>
+        {notFound ? 'They may have been removed, or the link is wrong.' : 'Check your connection, then try again.'}
+        <div className="job-retry">
+          <Button variant="ghost" href="/customers">
+            Back to customers
+          </Button>
+        </div>
+      </Alert>
     );
   }
 
-  const copy = PORTAL_COPY[customer.portal.status];
+  const name = `${customer.firstName} ${customer.lastName}`.trim();
+  const set = (key: keyof Contact) => (e: CustomEvent<{ value: string }>) => {
+    const value = e.detail.value;
+    setEdits((current) => ({ ...current, [key]: value }));
+  };
+  const portal = PORTAL[customer.portal.status];
 
   return (
-    <StaffPage>
-      <Link to="/customers" className="text-sm font-semibold text-harbour">
-        ← All customers
-      </Link>
-      <PageHeader
-        eyebrow="Customer"
-        title={`${customer.firstName} ${customer.lastName}`}
-        description={customer.email ?? 'No email yet'}
-      />
-      {error ? <ErrorBanner message={error} /> : null}
+    <div className="customers">
+      <PhoneHeader>
+        <Text size="sm">Customer</Text>
+        <Heading level={1} size="3xl">
+          {name}
+        </Heading>
+      </PhoneHeader>
 
-      <Card>
-        <h2 className="display text-2xl">Portal</h2>
-        <p className="mt-1 text-sm font-semibold">{copy.title}</p>
-        <p className="text-sm text-ink/60">
-          {canWrite ? copy.body : 'Portal access is managed by staff in this organisation.'}
-        </p>
-        {customer.portal.expiresAt && customer.portal.status === 'INVITED' ? (
-          <p className="mt-2 text-xs text-ink/45">Expires {formatDate(customer.portal.expiresAt)}</p>
-        ) : null}
-        {canWrite ? (
-        <button
-          type="button"
-          className={`${primaryBtn} mt-4`}
-          disabled={invite.isPending || !customer.email}
-          onClick={() => invite.mutate()}
-        >
-          {invite.isPending ? 'Creating link…' : copy.action}
-        </button>
-        ) : null}
-        {inviteUrl ? (
-          <div className="mt-4 rounded-xl bg-sand px-3 py-3 text-sm">
-            <p className="font-semibold">Copy this link now if they need it — Harbour only stores a hash of the token.</p>
-            <p className="mt-1 break-all text-ink/70">{inviteUrl}</p>
-            <button type="button" className={`${secondaryBtn} mt-3`} onClick={() => void copyLink()}>
-              {copied ? 'Copied' : 'Copy invite link'}
-            </button>
-          </div>
-        ) : null}
-      </Card>
-
-      <Card>
-        <h2 className="display text-2xl">Contact</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <input className={fieldClass} disabled={!canWrite} value={values.firstName} onChange={(event) => setForm({ ...values, firstName: event.target.value })} placeholder="First name" />
-          <input className={fieldClass} disabled={!canWrite} value={values.lastName} onChange={(event) => setForm({ ...values, lastName: event.target.value })} placeholder="Last name" />
-          <input className={fieldClass} disabled={!canWrite} value={values.email} onChange={(event) => setForm({ ...values, email: event.target.value })} placeholder="Email" />
-          <input className={fieldClass} disabled={!canWrite} value={values.phone} onChange={(event) => setForm({ ...values, phone: event.target.value })} placeholder="Phone" />
-          <input className={`${fieldClass} sm:col-span-2`} disabled={!canWrite} value={values.address} onChange={(event) => setForm({ ...values, address: event.target.value })} placeholder="Address" />
-          <textarea className={`${fieldClass} min-h-24 sm:col-span-2`} disabled={!canWrite} value={values.notes} onChange={(event) => setForm({ ...values, notes: event.target.value })} placeholder="Internal notes — never shown in the portal" />
+      <div className="customer-heading">
+        <Button icon="arrow-left" label="Back to customers" variant="secondary" onClick={() => navigate('/customers')} />
+        <div className="customer-title">
+          <Text size="sm" tone="muted">{`Customer${customer.email ? ` · ${customer.email}` : ''}`}</Text>
+          <Heading level={1} size="3xl">
+            {name}
+          </Heading>
         </div>
         {canWrite ? (
-        <button
-          type="button"
-          className={`${primaryBtn} mt-3`}
-          disabled={!values.firstName || !values.lastName || save.isPending}
-          onClick={() => save.mutate()}
-        >
-          {save.isPending ? 'Saving…' : 'Save'}
-        </button>
+          <Button variant="secondary" iconBefore="plus" href={`/jobs/new?customer=${customer.id}`}>
+            {`New job for ${customer.firstName}`}
+          </Button>
         ) : null}
-      </Card>
+      </div>
 
-      <Card>
-        <h2 className="display text-2xl">Import jobs</h2>
-        {customer.importJobs.length === 0 ? (
-          <p className="mt-2 text-sm text-ink/50">No jobs for this customer yet.</p>
-        ) : (
-          <ul className="mt-3 space-y-2">
-            {customer.importJobs.map((job) => (
-              <li key={job.id}>
-                <Link to={`/jobs/${job.id}`} className="flex items-center justify-between gap-3 rounded-xl bg-sand/70 px-3 py-2 text-sm">
-                  <span>
-                    <span className="font-semibold">{job.reference}</span>
-                    <span className="block text-ink/55">
-                      {job.vehicle.make} {job.vehicle.model}
-                      {job.vehicle.ukRegistration ? ` · ${job.vehicle.ukRegistration}` : ''}
-                    </span>
-                  </span>
-                  <StatusBadge status={job.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-    </StaffPage>
+      <div className="customer-grid">
+        <Card className="customers-card">
+          <Heading level={2} size="md">
+            Contact
+          </Heading>
+          <form
+            className="customer-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (contact.firstName.trim() && contact.lastName.trim()) save.mutate();
+            }}
+          >
+            <TextInput label="First name" required disabled={!canWrite} value={contact.firstName} onChange={set('firstName')} />
+            <TextInput label="Last name" required disabled={!canWrite} value={contact.lastName} onChange={set('lastName')} />
+            <TextInput label="Email" type="email" disabled={!canWrite} value={contact.email} onChange={set('email')} />
+            <TextInput label="Phone" type="tel" disabled={!canWrite} value={contact.phone} onChange={set('phone')} />
+            <TextInput label="Address" disabled={!canWrite} value={contact.address} onChange={set('address')} className="customer-wide" />
+            <Textarea label="Internal notes, never shown in the portal" rows={3} disabled={!canWrite} value={contact.notes} onChange={set('notes')} className="customer-wide" />
+            {save.isError ? (
+              <Alert tone="danger" heading="The changes were not saved" className="customer-wide">
+                {save.error instanceof Error ? save.error.message : 'Try again.'}
+              </Alert>
+            ) : null}
+            {canWrite ? (
+              <div className="customer-wide customer-save">
+                {save.isSuccess && !changed ? <Text size="sm" tone="muted">Saved.</Text> : null}
+                <Button type="submit" disabled={!changed || !contact.firstName.trim() || !contact.lastName.trim()} busy={save.isPending} busyLabel="Saving the changes">
+                  Save changes
+                </Button>
+              </div>
+            ) : null}
+          </form>
+        </Card>
+
+        <aside className="customer-side" aria-label="Portal and jobs">
+          <Card className="customers-card">
+            <div className="job-card-head">
+              <div>
+                <Heading level={2} size="md">
+                  Portal
+                </Heading>
+                <Text size="sm" tone="muted">
+                  {canWrite ? 'Portal access is managed by you.' : 'Portal access is managed by the workspace owner.'}
+                </Text>
+              </div>
+              <Badge tone={PORTAL_TONE[customer.portal.status]}>{PORTAL_LABEL[customer.portal.status]}</Badge>
+            </div>
+            <Text size="sm">{portal.body}</Text>
+            {customer.portal.status === 'INVITED' && customer.portal.expiresAt ? (
+              <Text size="sm" tone="muted">{`The invite expires on ${formatDate(customer.portal.expiresAt)}.`}</Text>
+            ) : null}
+            {canWrite ? (
+              <div className="customer-portal-action">
+                {customer.email ? null : <Text size="sm" tone="muted">Add an email above first; the invite goes to it.</Text>}
+                <Button variant={customer.portal.status === 'NONE' ? 'primary' : 'secondary'} full disabled={!customer.email} busy={invite.isPending} busyLabel="Creating the link" onClick={() => invite.mutate()}>
+                  {portal.action}
+                </Button>
+              </div>
+            ) : null}
+            {inviteUrl ? (
+              <div className="customer-link">
+                <Text size="sm">Copy this link now if they need it. Harbour keeps only a fingerprint of it, so it cannot be shown again.</Text>
+                <code>{inviteUrl}</code>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconBefore={copied ? 'check' : 'document'}
+                  onClick={() => {
+                    void navigator.clipboard.writeText(inviteUrl).then(() => setCopied(true));
+                  }}
+                >
+                  {copied ? 'Copied' : 'Copy link'}
+                </Button>
+              </div>
+            ) : null}
+            {invite.isError ? (
+              <Alert tone="danger" heading="No link was created">
+                {invite.error instanceof Error ? invite.error.message : 'Try again.'}
+              </Alert>
+            ) : null}
+          </Card>
+
+          <Card className="customers-card">
+            <div className="job-card-head">
+              <Heading level={2} size="md">
+                Import jobs
+              </Heading>
+              <Text size="sm" tone="muted">{`${customer.importJobs.length} ${customer.importJobs.length === 1 ? 'job' : 'jobs'}`}</Text>
+            </div>
+            {customer.importJobs.length === 0 ? (
+              <Text tone="muted">No jobs for this customer yet.</Text>
+            ) : (
+              <div role="list">
+                {customer.importJobs.map((job) => (
+                  <Row
+                    key={job.id}
+                    role="listitem"
+                    heading={job.reference}
+                    meta={[[job.vehicle.make, job.vehicle.model].filter(Boolean).join(' '), job.vehicle.ukRegistration].filter(Boolean).join(' · ')}
+                    href={`/jobs/${job.id}`}
+                  >
+                    <Badge slot="end">{getStatusLabel(job.status)}</Badge>
+                  </Row>
+                ))}
+              </div>
+            )}
+          </Card>
+        </aside>
+      </div>
+    </div>
   );
 }

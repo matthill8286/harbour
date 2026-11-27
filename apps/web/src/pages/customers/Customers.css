@@ -1,0 +1,154 @@
+/* Customers and the customer record, after the Figma frames "Business · Customers"
+   and "Business · Customer record". */
+.customers {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.customers-card {
+  display: block;
+}
+
+.customers-new {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 12px;
+  margin-block-start: 16px;
+}
+
+.customers-new > impakt-text-input {
+  margin: 0;
+}
+
+.customers-table::part(caption) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.customers-table::part(row) {
+  cursor: pointer;
+}
+
+.customers-table::part(row):hover {
+  background: var(--impakt-color-surface-inset);
+}
+
+.customers-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.customers-name a {
+  color: var(--impakt-color-text-default);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.customers-name a:hover,
+.customers-name a:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.customer-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-title {
+  flex: 1 1 16rem;
+  min-inline-size: 0;
+}
+
+.customer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.customer-side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-inline-size: 0;
+}
+
+.customer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-block-start: 16px;
+}
+
+.customer-form > impakt-text-input,
+.customer-form > impakt-textarea {
+  margin: 0;
+}
+
+.customer-wide {
+  grid-column: 1 / -1;
+}
+
+.customer-save {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.customer-portal-action {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-block-start: 16px;
+}
+
+.customer-link {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-block-start: 16px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: var(--impakt-color-surface-inset);
+}
+
+.customer-link code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 90rem) {
+  .customers-new {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 75rem) {
+  .customer-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 48rem) {
+  .customers-heading,
+  .customer-heading > impakt-button:first-child,
+  .customer-title {
+    display: none;
+  }
+  .customers-new,
+  .customer-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -27,6 +27,7 @@ import {
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
 import { useSession } from '../lib/session';
+import { openRowLink } from '../lib/tableRows';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import './JobsPage.css';
@@ -112,17 +113,6 @@ export function JobsPage() {
     if (name === 'status') next.delete('stage');
     setPaging({ key: '', count: PAGE });
     setParams(next, { replace: true });
-  }
-
-  /** A row can be pressed anywhere, as the design asks; its reference stays the link a keyboard reaches. */
-  function openRow(event: MouseEvent<HTMLElement>) {
-    const path = event.nativeEvent.composedPath();
-    if (path.some((node) => node instanceof HTMLAnchorElement)) return;
-    const row = path.find((node): node is HTMLTableRowElement => node instanceof HTMLTableRowElement);
-    const slot = row?.querySelector('slot');
-    const link = slot?.assignedElements()[0];
-    const href = link instanceof HTMLAnchorElement ? link.getAttribute('href') : null;
-    if (href) navigate(href);
   }
 
   const total = all.length;
@@ -261,7 +251,7 @@ export function JobsPage() {
                 status: getStatusLabel(job.status),
                 expected: job.expectedDeliveryDate ? formatDate(job.expectedDeliveryDate) : '—',
               }))}
-              onClick={openRow}
+              onClick={(event) => openRowLink(event, navigate)}
             >
               {visible.flatMap((job) => [
                 <a key={`${job.id}-ref`} slot={`cell:${job.id}:reference`} href={`/jobs/${job.id}`} className="jobs-ref">

@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Alert, Button, Card, FileUpload, Heading, Progress, Select, Text, TextInput } from '@atomic-ui/ui-react';
 import type { VehicleLookupResult } from '@vip/shared';
 import { api } from '../lib/api';
@@ -34,8 +34,10 @@ const vehicleTitle = (lookup: VehicleLookupResult) => [lookup.make, lookup.model
 export function JobNewPage() {
   const { country } = useSession();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const [step, setStep] = useState<Step>('customer');
-  const [customerId, setCustomerId] = useState('');
+  // A customer record's "New job for …" opens this page with that customer chosen.
+  const [customerId, setCustomerId] = useState(params.get('customer') ?? '');
   const [newCustomer, setNewCustomer] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [lookup, setLookup] = useState<VehicleLookupResult | null>(null);
   const [scanMeta, setScanMeta] = useState<{ confidence: number; source: string } | null>(null);
