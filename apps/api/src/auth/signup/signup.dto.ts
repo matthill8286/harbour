@@ -25,5 +25,6 @@ export class ConfirmSignupDto {
   /** Same minimum as accepting an invite. */
   @IsString()
   @MinLength(10)
+  @MaxLength(1024)
   password!: string;
 }

@@ -2,8 +2,10 @@ import {
   Injectable,
   Logger,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { OutboundStatusError, outboundCall } from './outbound-call';
 import { VehicleDataService } from './vehicle-data.service';
 import {
   formatUkRegistration,
@@ -23,6 +25,9 @@ type PlateRecognizerResult = {
     score?: number;
   }>;
 };
+
+/** The photo is uploaded within this time too. */
+export const PLATE_RECOGNIZER_TIMEOUT_MS = 20_000;
 
 @Injectable()
 export class AnprService {
@@ -96,29 +101,29 @@ export class AnprService {
       type: input.mimeType || 'application/octet-stream',
     });
     form.append('upload', blob, input.originalName || 'plate.jpg');
-    const response = await fetch(
-      'https://api.platerecognizer.com/v1/plate-reader/',
-      {
+    const payload = await outboundCall(this.logger, {
+      service: 'Plate Recognizer',
+      url: 'https://api.platerecognizer.com/v1/plate-reader/',
+      timeoutMs: PLATE_RECOGNIZER_TIMEOUT_MS,
+      unavailable:
+        'Plate scanning is not answering. Type the registration instead.',
+      init: {
         method: 'POST',
-        headers: {
-          Authorization: `Token ${this.plateRecognizerKey()}`,
-        },
+        headers: { Authorization: `Token ${this.plateRecognizerKey()}` },
         body: form,
       },
-    );
-    if (!response.ok) {
-      const detail = await response.text();
-      this.logger.warn(
-        `Plate Recognizer ${response.status}: ${detail.slice(0, 240)}`,
-      );
-      throw new Error(`Plate recognition returned ${response.status}`);
-    }
-    const payload = (await response.json()) as PlateRecognizerResult;
+      read: async (response) => {
+        if (!response.ok) throw new OutboundStatusError(response.status);
+        return (await response.json()) as PlateRecognizerResult;
+      },
+    });
     const best = [...(payload.results ?? [])].sort(
       (a, b) => (b.score ?? 0) - (a.score ?? 0),
     )[0];
     if (!best?.plate) {
-      throw new Error('No registration plate detected in the image');
+      throw new UnprocessableEntityException(
+        'No registration plate was found in the photo. Type the registration instead.',
+      );
     }
     const registration = formatUkRegistration(best.plate);
     return {

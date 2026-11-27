@@ -9,6 +9,7 @@ import {
 export class PasswordDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(1024)
   password!: string;
 }
 
@@ -34,6 +35,7 @@ export class VerifyCodeDto {
 export class ChallengeDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(4096)
   challengeToken!: string;
 
   @IsOptional()

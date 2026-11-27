@@ -1,15 +1,36 @@
 import {
-  IsISO8601,
   IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Max,
+  Min,
+  MinLength,
+  ValidateBy,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsRealDate } from '../../common/validators';
+
+/** The same slack the GPS gateway is given: a clock a day ahead is broken. */
+const MAX_CLOCK_AHEAD_MS = 24 * 60 * 60 * 1000;
+
+function IsNotInTheFuture() {
+  return ValidateBy({
+    name: 'isNotInTheFuture',
+    validator: {
+      validate: (value: unknown) =>
+        !(
+          typeof value === 'string' &&
+          new Date(value).getTime() > Date.now() + MAX_CLOCK_AHEAD_MS
+        ),
+      defaultMessage: () => 'recordedAt cannot be in the future',
+    },
+  });
+}
 
 export class CreateTrackerDto {
   @IsString()
   @MaxLength(64)
+  @MinLength(1)
   serialNumber!: string;
 
   @IsOptional()
@@ -20,34 +41,41 @@ export class CreateTrackerDto {
 
 export class AssignTrackerDto {
   @IsString()
+  @MaxLength(64)
   trackerId!: string;
 }
 
 export class CreateLocationDto {
-  @Type(() => Number)
   @IsNumber()
+  @Min(-90)
+  @Max(90)
   latitude!: number;
 
-  @Type(() => Number)
   @IsNumber()
+  @Min(-180)
+  @Max(180)
   longitude!: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(999999)
   accuracy?: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(2000)
   speed?: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Min(0)
+  @Max(360)
   heading?: number;
 
   @IsOptional()
-  @IsISO8601()
+  @IsRealDate()
+  @IsNotInTheFuture()
   recordedAt?: string;
 }

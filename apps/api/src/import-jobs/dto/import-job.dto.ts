@@ -1,7 +1,6 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsDateString,
   IsIn,
   IsNumber,
   IsOptional,
@@ -10,6 +9,8 @@ import {
   Min,
   MinLength,
   ValidateIf,
+  IsInt,
+  Max,
 } from 'class-validator';
 import {
   CHARGE_CATEGORIES,
@@ -22,108 +23,140 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
 } from '@vip/shared';
+import {
+  IfSent,
+  IsCountryCode,
+  IsCurrencyCode,
+  IsRealDate,
+  MAX_YEAR,
+} from '../../common/validators';
+
+/** The most a money line can be. The column holds just under ten billion. */
+const MAX_AMOUNT = 1_000_000_000;
 
 export class CreateImportJobDto {
   /** The route the job follows. The workspace's default when left out. */
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   routeId?: string;
 
   @IsString()
+  @MaxLength(64)
   customerId!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   vehicleId?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(32)
   vin?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   make?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   model?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   variant?: string;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(1886)
+  @Max(MAX_YEAR)
   year?: number;
 
   @IsOptional()
-  @Type(() => Number)
-  @IsNumber()
+  @IsInt()
+  @Min(0)
+  @Max(10_000_000)
   mileage?: number;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   fuelType?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   colour?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   engineSize?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   bodyType?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(60)
   countryOfRegistration?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(20)
   ukRegistration?: string;
 
   @IsOptional()
   @IsString()
+  @IsCountryCode()
   originCountry?: string;
 
   @IsOptional()
   @IsString()
+  @IsCountryCode()
   destinationCountry?: string;
 
   @IsOptional()
   @IsString()
+  @IsCountryCode()
   registrationCountry?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   expectedDeliveryDate?: string;
 }
 
 export class UpdateImportJobDto {
-  @IsOptional()
+  @IfSent()
   @IsString()
+  @IsCountryCode()
   originCountry?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsString()
+  @IsCountryCode()
   destinationCountry?: string;
 
   @IsOptional()
   @IsString()
+  @IsCountryCode()
   registrationCountry?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   expectedDeliveryDate?: string | null;
 
   /** Assign or clear a curated UK→BG→GR corridor template. */
   @IsOptional()
   @ValidateIf((_, value) => value !== null)
   @IsString()
+  @MaxLength(64)
   routeTemplateId?: string | null;
 }
 
@@ -131,20 +164,24 @@ export class ChangeStatusDto {
   /** A status of the job's route, or COMPLETED or CANCELLED. The route decides which moves are allowed. */
   @IsString()
   @MaxLength(60)
+  @MinLength(1)
   status!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(2000)
   note?: string;
 }
 
 export class CreateTaskDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(200)
   title!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @IsOptional()
@@ -157,36 +194,41 @@ export class CreateTaskDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   assignedToId?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   dueDate?: string;
 }
 
 export class UpdateTaskDto {
-  @IsOptional()
+  @IfSent()
   @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   title?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(5000)
   description?: string;
 
-  @IsOptional()
+  @IfSent()
   @IsIn(TASK_STATUSES)
   status?: (typeof TASK_STATUSES)[number];
 
-  @IsOptional()
+  @IfSent()
   @IsIn(TASK_PRIORITIES)
   priority?: (typeof TASK_PRIORITIES)[number];
 
   @IsOptional()
   @IsString()
+  @MaxLength(64)
   assignedToId?: string | null;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   dueDate?: string | null;
 }
 
@@ -200,25 +242,28 @@ export class CreateCostDto {
   @MaxLength(200)
   description?: string;
 
-  @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(MAX_AMOUNT)
   amount!: number;
 
   @IsOptional()
   @IsString()
+  @IsCurrencyCode()
   currency?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   supplier?: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   invoiceReference?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   incurredOn?: string;
 }
 
@@ -232,57 +277,59 @@ export class CreateChargeDto {
   @MaxLength(200)
   description?: string;
 
-  @Type(() => Number)
   @IsNumber()
   @Min(0)
+  @Max(MAX_AMOUNT)
   amount!: number;
 
   @IsOptional()
   @IsString()
+  @IsCurrencyCode()
   currency?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   incurredOn?: string;
 }
 
 export class UpdateCostDto {
-  @IsOptional()
+  @IfSent()
   @IsIn(COST_CATEGORIES)
   category?: (typeof COST_CATEGORIES)[number];
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @MaxLength(200)
   description?: string;
 
-  @IsOptional()
-  @Type(() => Number)
+  @IfSent()
   @IsNumber()
   @Min(0)
+  @Max(MAX_AMOUNT)
   amount?: number;
 }
 
 export class UpdateChargeDto {
-  @IsOptional()
+  @IfSent()
   @IsIn(CHARGE_CATEGORIES)
   category?: (typeof CHARGE_CATEGORIES)[number];
 
-  @IsOptional()
+  @IfSent()
   @IsString()
   @MaxLength(200)
   description?: string;
 
-  @IsOptional()
-  @Type(() => Number)
+  @IfSent()
   @IsNumber()
   @Min(0)
+  @Max(MAX_AMOUNT)
   amount?: number;
 }
 
 export class CreateNoteDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(5000)
   body!: string;
 
   @IsOptional()
@@ -293,10 +340,12 @@ export class CreateNoteDto {
 export class DraftCustomerNoteDto {
   @IsString()
   @MinLength(1)
+  @MaxLength(5000)
   intent!: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(40)
   tone?: string;
 }
 
@@ -306,9 +355,13 @@ export class CreateJourneyDto {
   type?: (typeof JOURNEY_TYPES)[number];
 
   @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   origin!: string;
 
   @IsString()
+  @MinLength(1)
+  @MaxLength(200)
   destination!: string;
 
   @IsOptional()
@@ -316,11 +369,11 @@ export class CreateJourneyDto {
   status?: (typeof JOURNEY_STATUSES)[number];
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   startedAt?: string;
 
   @IsOptional()
-  @IsDateString()
+  @IsRealDate()
   completedAt?: string;
 }
 

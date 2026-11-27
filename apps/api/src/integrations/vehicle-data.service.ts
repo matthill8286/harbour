@@ -6,6 +6,7 @@ import {
   mapDvlaEnquiry,
   type DvlaVehicleEnquiry,
 } from './dvla-vehicle-mapper';
+import { OutboundStatusError, outboundCall } from './outbound-call';
 import {
   formatUkRegistration,
   normalizeRegistrationKey,
@@ -59,6 +60,8 @@ const KNOWN: Record<string, VehicleLookupResult> = {
   },
 };
 
+export const DVLA_TIMEOUT_MS = 10_000;
+
 @Injectable()
 export class VehicleDataService {
   private readonly logger = new Logger(VehicleDataService.name);
@@ -111,25 +114,30 @@ export class VehicleDataService {
         'https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles',
       )
       .replace(/\/$/, '');
-    const response = await fetch(base, {
-      method: 'POST',
-      headers: {
-        'x-api-key': this.dvlaKey(),
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
+    return outboundCall(this.logger, {
+      service: 'DVLA',
+      url: base,
+      timeoutMs: DVLA_TIMEOUT_MS,
+      unavailable:
+        'The vehicle lookup is not answering. Please try again shortly.',
+      init: {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.dvlaKey(),
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({ registrationNumber }),
       },
-      body: JSON.stringify({ registrationNumber }),
+      read: async (response) => {
+        if (response.status === 404) {
+          return emptyLookup(formatUkRegistration(registration), 'dvla');
+        }
+        if (!response.ok) throw new OutboundStatusError(response.status);
+        const payload = (await response.json()) as DvlaVehicleEnquiry;
+        return mapDvlaEnquiry(registration, payload);
+      },
     });
-    if (response.status === 404) {
-      return emptyLookup(formatUkRegistration(registration), 'dvla');
-    }
-    if (!response.ok) {
-      const detail = await response.text();
-      this.logger.warn(`DVLA VES ${response.status}: ${detail.slice(0, 240)}`);
-      throw new Error(`DVLA vehicle enquiry returned ${response.status}`);
-    }
-    const payload = (await response.json()) as DvlaVehicleEnquiry;
-    return mapDvlaEnquiry(registration, payload);
   }
 
   private dvlaKey() {
