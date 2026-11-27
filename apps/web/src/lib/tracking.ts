@@ -76,10 +76,28 @@ export type JobTracking = TrackingVehicle & {
   }>;
 };
 
+type Corridor = TrackingVehicle['plannedRoute'];
+
+/** A vehicle in the live list: where it is now, without its trail. */
+export type LiveVehicle = Omit<TrackingVehicle, 'trail' | 'plannedRoute' | 'routeTemplate'> & {
+  /** What is left of its corridor: one of the list's corridors, from this waypoint on. */
+  corridor: { id: string; from: number } | null;
+};
+
 export type LiveTracking = {
   map: MapConfig;
-  vehicles: TrackingVehicle[];
+  /** Each corridor once, however many vehicles are on it. */
+  corridors: Record<string, Corridor>;
+  vehicles: LiveVehicle[];
 };
+
+export type LiveTrail = { trail: LocationPoint[] };
+
+/** The waypoints still ahead of a vehicle. */
+export function plannedRouteOf(vehicle: Pick<LiveVehicle, 'corridor'>, corridors: LiveTracking['corridors']): Corridor {
+  const { corridor } = vehicle;
+  return corridor ? (corridors[corridor.id] ?? []).slice(corridor.from) : [];
+}
 
 export function trackerKindLabel(provider: string) {
   return provider === 'flespi' ? 'Teltonika / Flespi' : 'Demo simulator';

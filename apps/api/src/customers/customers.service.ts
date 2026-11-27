@@ -16,9 +16,14 @@ import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
 import { CreateCustomerDto, UpdateCustomerDto } from './dto/customer.dto';
 import { describePortalAccess } from './portal-access';
 import { portalMembershipWasAccepted } from '../auth/accepted-membership';
+import { toPage } from '../common/pagination';
+import { afterName, customerSearch, nameCursor } from './customer-list';
+import type { CustomerListQuery } from './dto/customer-list.query';
 
 const portalUserSelect = { id: true, email: true, passwordHash: true } as const;
 const pendingInviteSelect = { createdAt: true, expiresAt: true } as const;
+
+const CUSTOMER_PAGE_SIZE = 50;
 
 @Injectable()
 export class CustomersService {
@@ -30,38 +35,43 @@ export class CustomersService {
     private readonly email: EmailTransport,
   ) {}
 
-  async list(user: AuthUser, search?: string) {
-    const customers = await this.prisma.customer.findMany({
-      where: {
-        organisationId: user.organisationId,
-        ...(search
-          ? {
-              OR: [
-                { firstName: { contains: search, mode: 'insensitive' } },
-                { lastName: { contains: search, mode: 'insensitive' } },
-                { email: { contains: search, mode: 'insensitive' } },
-                { phone: { contains: search, mode: 'insensitive' } },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        _count: { select: { importJobs: true } },
-        memberships: {
-          where: { role: 'CUSTOMER' },
-          select: { status: true, user: { select: portalUserSelect } },
-          take: 1,
+  /** One page of customers, by last name, then first name. */
+  async list(user: AuthUser, query: CustomerListQuery = {}) {
+    const limit = query.limit ?? CUSTOMER_PAGE_SIZE;
+    const where: Prisma.CustomerWhereInput[] = [
+      { organisationId: user.organisationId },
+      ...(query.search ? customerSearch(query.search) : []),
+    ];
+    const [rows, total] = await Promise.all([
+      this.prisma.customer.findMany({
+        where: {
+          AND: [...where, ...(query.cursor ? [afterName(query.cursor)] : [])],
         },
-        portalInvites: {
-          where: { acceptedAt: null, expiresAt: { gt: new Date() } },
-          select: pendingInviteSelect,
-          orderBy: { createdAt: 'desc' },
-          take: 1,
+        include: {
+          _count: { select: { importJobs: true } },
+          memberships: {
+            where: { role: 'CUSTOMER' },
+            select: { status: true, user: { select: portalUserSelect } },
+            take: 1,
+          },
+          portalInvites: {
+            where: { acceptedAt: null, expiresAt: { gt: new Date() } },
+            select: pendingInviteSelect,
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
-      },
-      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
-    });
-    return customers.map((customer) => this.present(customer));
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }, { id: 'asc' }],
+        take: limit + 1,
+      }),
+      this.prisma.customer.count({ where: { AND: where } }),
+    ]);
+    const page = toPage(rows, limit, nameCursor);
+    return {
+      ...page,
+      items: page.items.map((customer) => this.present(customer)),
+      total,
+    };
   }
 
   async get(user: AuthUser, id: string) {
