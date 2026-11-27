@@ -9,6 +9,8 @@ import {
   getJobStage,
   moveProblem,
   moneyLineProblem,
+  RETIRED_ROLES,
+  STAFF_ROLES,
   statusLabel,
   type JobStatus,
   type MoneyLineKind,
@@ -61,6 +63,12 @@ const publicUserSelect = {
   name: true,
   email: true,
 } satisfies Prisma.UserSelect;
+
+/** Stored roles that count as staff. A retired role is read as the role that replaced it. */
+const storedStaffRoles = [
+  ...STAFF_ROLES,
+  ...(Object.keys(RETIRED_ROLES) as Array<keyof typeof RETIRED_ROLES>),
+];
 
 const jobListInclude = {
   customer: true,
@@ -488,6 +496,7 @@ export class ImportJobsService {
 
   async addTask(user: AuthUser, jobId: string, dto: CreateTaskDto) {
     await this.get(user, jobId);
+    await this.requireAssignee(user, dto.assignedToId);
     return this.prisma.task.create({
       data: {
         organisationId: user.organisationId,
@@ -510,8 +519,19 @@ export class ImportJobsService {
     dto: UpdateTaskDto,
   ) {
     await this.get(user, jobId);
+    const where = {
+      id: taskId,
+      importJobId: jobId,
+      organisationId: user.organisationId,
+    };
+    const task = await this.prisma.task.findFirst({
+      where,
+      select: { id: true },
+    });
+    if (!task) throw new NotFoundException('Task not found');
+    await this.requireAssignee(user, dto.assignedToId);
     return this.prisma.task.update({
-      where: { id: taskId },
+      where,
       data: {
         title: dto.title,
         description: dto.description,
@@ -533,6 +553,25 @@ export class ImportJobsService {
       },
       include: { assignedTo: { select: publicUserSelect } },
     });
+  }
+
+  /** A task can only go to someone who is on this workspace's staff now. Null leaves it unassigned. */
+  private async requireAssignee(user: AuthUser, assignedToId?: string | null) {
+    if (assignedToId === undefined || assignedToId === null) return;
+    const member = await this.prisma.organisationMembership.findFirst({
+      where: {
+        organisationId: user.organisationId,
+        userId: assignedToId,
+        status: 'ACTIVE',
+        role: { in: storedStaffRoles },
+      },
+      select: { id: true },
+    });
+    if (!member) {
+      throw new BadRequestException(
+        'Tasks can only be assigned to an active member of your team.',
+      );
+    }
   }
 
   /** Refuse a money line that breaks the shared rule, with the rule's own words. */
