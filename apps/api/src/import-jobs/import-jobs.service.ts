@@ -10,7 +10,6 @@ import {
   getJobStage,
   moveProblem,
   moneyLineProblem,
-  RETIRED_ROLES,
   STAFF_ROLES,
   statusLabel,
   type JobStatus,
@@ -68,12 +67,6 @@ const publicUserSelect = {
   name: true,
   email: true,
 } satisfies Prisma.UserSelect;
-
-/** Stored roles that count as staff. A retired role is read as the role that replaced it. */
-const storedStaffRoles = [
-  ...STAFF_ROLES,
-  ...(Object.keys(RETIRED_ROLES) as Array<keyof typeof RETIRED_ROLES>),
-];
 
 const jobListInclude = {
   customer: true,
@@ -608,7 +601,7 @@ export class ImportJobsService {
         organisationId: user.organisationId,
         userId: assignedToId,
         status: 'ACTIVE',
-        role: { in: storedStaffRoles },
+        role: { in: [...STAFF_ROLES] },
       },
       select: { id: true },
     });

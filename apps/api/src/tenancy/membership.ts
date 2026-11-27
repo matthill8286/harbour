@@ -1,6 +1,5 @@
 export type MembershipCandidate = {
   id: string;
-  /** As stored; a retired role is still a member. */
   role: string;
   status: string;
   createdAt: Date;

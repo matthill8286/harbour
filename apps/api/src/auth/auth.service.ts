@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import type { Prisma } from '@prisma/client';
 import { hash, verify } from 'argon2';
-import { isStaffRole, normaliseRole, ROLE_LABELS } from '@vip/shared';
+import { isStaffRole, ROLE_LABELS, type UserRole } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { pickActiveMembership } from '../tenancy/membership';
 import type { AuthUser } from './auth.types';
@@ -117,8 +117,7 @@ type StaffInviteLoaded = {
   id: string;
   userId: string;
   organisationId: string;
-  /** As stored; read through normaliseRole. */
-  role: string;
+  role: UserRole;
   expiresAt: Date;
   acceptedAt: Date | null;
   user: InviteAccount;
@@ -134,8 +133,7 @@ type LoadedInvite = PortalInviteLoaded | StaffInviteLoaded;
 type SessionMembership = {
   id: string;
   organisationId: string;
-  /** As stored; buildAuthUser reads a retired role as its replacement. */
-  role: string;
+  role: UserRole;
   customerId: string | null;
   organisation: {
     name: string;
@@ -250,7 +248,7 @@ export class AuthService {
       firstName: firstName || name,
       lastName: rest.join(' '),
       role: invite.role,
-      roleLabel: ROLE_LABELS[normaliseRole(invite.role)],
+      roleLabel: ROLE_LABELS[invite.role],
       organisationName: invite.organisation.name,
       organisationBrandName,
       expiresAt: invite.expiresAt,
@@ -338,7 +336,7 @@ export class AuthService {
     invite: StaffInviteLoaded,
     dto: AcceptInviteDto,
   ) {
-    if (!isStaffRole(normaliseRole(invite.role))) {
+    if (!isStaffRole(invite.role)) {
       throw new BadRequestException('Invalid staff invite role');
     }
     const proof = await this.proveInvitee(invite.user, dto);
@@ -360,12 +358,7 @@ export class AuthService {
           role: { not: 'CUSTOMER' },
           status: { in: ['INVITED', 'ACTIVE'] },
         },
-        // An invite sent before the roles were reduced still lands on one of the three.
-        data: {
-          status: 'ACTIVE',
-          role: normaliseRole(invite.role),
-          acceptedAt,
-        },
+        data: { status: 'ACTIVE', role: invite.role, acceptedAt },
       });
       assertClaimed(joined.count);
       if (proof.newPasswordHash) {

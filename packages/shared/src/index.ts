@@ -6,23 +6,6 @@
 export const USER_ROLES = ['ADMIN', 'STAFF', 'CUSTOMER'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-/**
- * Roles from before there were three, still stored in older databases. The API
- * converts them at startup and reads them this way until it has.
- */
-export const RETIRED_ROLES = {
-  OWNER: 'ADMIN',
-  VIEWER: 'STAFF',
-} as const satisfies Record<string, UserRole>;
-
-/** A stored role as one of the three, reading a retired role as its replacement. */
-export function normaliseRole(role: string): UserRole {
-  if (role in RETIRED_ROLES)
-    return RETIRED_ROLES[role as keyof typeof RETIRED_ROLES];
-  if ((USER_ROLES as readonly string[]).includes(role)) return role as UserRole;
-  throw new Error(`Unknown role: ${role}`);
-}
-
 /** The business side of a workspace: everyone but customers. */
 export const STAFF_ROLES = [
   'ADMIN',
