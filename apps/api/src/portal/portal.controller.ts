@@ -1,16 +1,27 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { PortalService } from './portal.service';
+import { UpdateOwnDetailsDto } from './portal.dto';
 
 @Controller('portal')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('CUSTOMER')
 export class PortalController {
   constructor(private readonly portal: PortalService) {}
+
+  @Get('me')
+  me(@CurrentUser() user: AuthUser) {
+    return this.portal.me(user);
+  }
+
+  @Patch('me')
+  updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateOwnDetailsDto) {
+    return this.portal.updateMe(user, dto);
+  }
 
   @Get('jobs')
   list(@CurrentUser() user: AuthUser) {

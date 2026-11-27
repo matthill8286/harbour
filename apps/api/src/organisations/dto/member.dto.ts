@@ -1,17 +1,12 @@
-import {
-  IsEmail,
-  IsIn,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
+import { IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { TrimmedEmail } from '../../common/trimmed-email';
 import { INVITEABLE_STAFF_ROLES } from '@vip/shared';
 import { UpdateOrganisationDto } from './organisation.dto';
 
 export { UpdateOrganisationDto };
 
 export class InviteStaffDto {
-  @IsEmail()
+  @TrimmedEmail()
   email!: string;
 
   @IsString()

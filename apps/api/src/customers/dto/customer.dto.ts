@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
+import { TrimmedEmail } from '../../common/trimmed-email';
 
 export class CreateCustomerDto {
   @IsString()
@@ -10,7 +11,7 @@ export class CreateCustomerDto {
   lastName!: string;
 
   @IsOptional()
-  @IsEmail()
+  @TrimmedEmail()
   email?: string;
 
   @IsOptional()
@@ -36,7 +37,7 @@ export class UpdateCustomerDto {
   lastName?: string;
 
   @IsOptional()
-  @IsEmail()
+  @TrimmedEmail()
   email?: string;
 
   @IsOptional()

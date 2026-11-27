@@ -1,4 +1,5 @@
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
+import { TrimmedEmail } from '../../common/trimmed-email';
 
 export class SignupDto {
   @IsString()
@@ -11,7 +12,7 @@ export class SignupDto {
   @MaxLength(120)
   name!: string;
 
-  @IsEmail()
+  @TrimmedEmail()
   email!: string;
 
   /** Same minimum as accepting an invite. */
