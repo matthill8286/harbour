@@ -97,3 +97,11 @@ New-job intake can look up a UK plate or scan a photo.
 - Default: `VEHICLE_DATA_PROVIDER=mock` and `ANPR_PROVIDER=mock` (seeded `KN19 XPL` / `LF21 TRK`; filename-based plate guess).
 - DVLA Vehicle Enquiry: `VEHICLE_DATA_PROVIDER=dvla` + `DVLA_API_KEY`.
 - Plate Recognizer OCR: `ANPR_PROVIDER=platerecognizer` + `PLATE_RECOGNIZER_API_KEY` (image bytes are sent; then vehicle data lookup runs on the detected plate).
+
+When `NODE_ENV` is `production`, mock data is shown only in the demo workspaces (`demo-imports` and `cyprus-auto-logistics`). In every other workspace, a lookup without a real provider returns only the typed registration, plate scanning is refused, and the new-job screen says so.
+
+## File uploads
+
+- Job photos, job documents and plate photos are limited to 12 MB, one file per request.
+- The API checks that a file’s first bytes match its declared type. It does not scan for malware.
+- Each organisation may store up to `STORAGE_ORG_QUOTA_MB` megabytes of files (default 2048).

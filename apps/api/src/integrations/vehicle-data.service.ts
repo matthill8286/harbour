@@ -76,9 +76,20 @@ export class VehicleDataService {
     return 'mock';
   }
 
-  async lookup(registration: string): Promise<VehicleLookupResult> {
-    const provider = this.provider();
-    if (provider === 'dvla') {
+  /** False when the only source is sample data and this workspace may not see it. */
+  available(sampleAllowed: boolean): boolean {
+    return this.provider() !== 'mock' || sampleAllowed;
+  }
+
+  async lookup(
+    registration: string,
+    sampleAllowed: boolean,
+  ): Promise<VehicleLookupResult> {
+    if (!this.available(sampleAllowed)) {
+      // Only the typed registration, so the job can still be created.
+      return emptyLookup(formatUkRegistration(registration), 'unavailable');
+    }
+    if (this.provider() === 'dvla') {
       return this.lookupDvla(registration);
     }
     return this.lookupMock(registration);

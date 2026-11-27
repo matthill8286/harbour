@@ -24,7 +24,12 @@
       "argon2",
       "prisma",
       "unrs-resolver"
-    ]
+    ],
+    "overrides": {
+      "body-parser@^2": ">=2.4.0 <3",
+      "proxy-addr@^2": ">=2.0.8 <3",
+      "qs@^6": ">=6.16.1 <7"
+    }
   },
   "devDependencies": {
     "prettier": "^3.9.6"

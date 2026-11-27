@@ -10,7 +10,7 @@ describe('VehicleDataService', () => {
   it('defaults to mock and returns seeded BMW data', async () => {
     const service = make({});
     expect(service.provider()).toBe('mock');
-    await expect(service.lookup('kn19 xpl')).resolves.toMatchObject({
+    await expect(service.lookup('kn19 xpl', true)).resolves.toMatchObject({
       make: 'BMW',
       model: 'M5',
       source: 'mock',
@@ -19,7 +19,7 @@ describe('VehicleDataService', () => {
 
   it('returns the demo BMW M3 for RJ14 XOO', async () => {
     const service = make({});
-    await expect(service.lookup('rj14xoo')).resolves.toMatchObject({
+    await expect(service.lookup('rj14xoo', true)).resolves.toMatchObject({
       registration: 'RJ14 XOO',
       make: 'BMW',
       model: 'M3',
@@ -29,7 +29,7 @@ describe('VehicleDataService', () => {
 
   it('returns an empty mock shell for unknown plates', async () => {
     const service = make({});
-    await expect(service.lookup('ZZ99ZZZ')).resolves.toMatchObject({
+    await expect(service.lookup('ZZ99ZZZ', true)).resolves.toMatchObject({
       registration: 'ZZ99 ZZZ',
       make: null,
       source: 'mock',
@@ -44,5 +44,24 @@ describe('VehicleDataService', () => {
         DVLA_API_KEY: 'test-key',
       }).provider(),
     ).toBe('dvla');
+  });
+
+  it('returns only the registration where sample data is not allowed', async () => {
+    const service = make({});
+    expect(service.available(false)).toBe(false);
+    await expect(service.lookup('kn19xpl', false)).resolves.toMatchObject({
+      registration: 'KN19 XPL',
+      vin: null,
+      make: null,
+      source: 'unavailable',
+    });
+  });
+
+  it('is available to every workspace with a real provider', () => {
+    const service = make({
+      VEHICLE_DATA_PROVIDER: 'dvla',
+      DVLA_API_KEY: 'test-key',
+    });
+    expect(service.available(false)).toBe(true);
   });
 });

@@ -1,7 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { VehicleCapabilities } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { VehicleDataService } from '../integrations/vehicle-data.service';
 import { AnprService } from '../integrations/anpr.service';
+import { sampleDataAllowed } from '../integrations/sample-data';
 import type { AuthUser } from '../auth/auth.types';
 import { CreateVehicleDto, UpdateVehicleDto } from './dto/vehicle.dto';
 
@@ -11,6 +14,7 @@ export class VehiclesService {
     private readonly prisma: PrismaService,
     private readonly vehicleData: VehicleDataService,
     private readonly anpr: AnprService,
+    private readonly config: ConfigService,
   ) {}
 
   list(user: AuthUser, search?: string) {
@@ -59,16 +63,42 @@ export class VehiclesService {
     return vehicle;
   }
 
-  lookup(registration: string) {
-    return this.vehicleData.lookup(registration);
+  /** What the new-job screen can offer this workspace. */
+  async capabilities(user: AuthUser): Promise<VehicleCapabilities> {
+    const sampleAllowed = await this.sampleAllowed(user);
+    return {
+      lookup: this.vehicleData.available(sampleAllowed),
+      scan: this.anpr.available(sampleAllowed),
+    };
   }
 
-  scanPlate(file?: Express.Multer.File) {
-    return this.anpr.recognise({
-      originalName: file?.originalname ?? 'plate.jpg',
-      buffer: file?.buffer,
-      mimeType: file?.mimetype,
+  async lookup(user: AuthUser, registration: string) {
+    return this.vehicleData.lookup(
+      registration,
+      await this.sampleAllowed(user),
+    );
+  }
+
+  async scanPlate(user: AuthUser, file: Express.Multer.File) {
+    return this.anpr.recognise(
+      {
+        originalName: file.originalname,
+        buffer: file.buffer,
+        mimeType: file.mimetype,
+      },
+      await this.sampleAllowed(user),
+    );
+  }
+
+  private async sampleAllowed(user: AuthUser) {
+    const organisation = await this.prisma.organisation.findUnique({
+      where: { id: user.organisationId },
+      select: { slug: true },
     });
+    return sampleDataAllowed(
+      this.config.get<string>('NODE_ENV'),
+      organisation?.slug,
+    );
   }
 
   create(user: AuthUser, dto: CreateVehicleDto) {
