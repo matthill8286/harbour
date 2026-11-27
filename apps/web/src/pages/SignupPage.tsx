@@ -51,8 +51,7 @@ export function SignupPage() {
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
-              Create a workspace for your import business. Add jobs, track vehicles and invite your
-              team and customers once you are in.
+              Create a workspace for your import business. Add jobs, track vehicles and invite your team and customers once you are in.
             </p>
           </div>
           <p className="text-sm text-mist">Your data stays inside your own workspace.</p>
@@ -75,13 +74,7 @@ export function SignupPage() {
             </label>
             <label className="block text-sm font-semibold">
               Your name
-              <input
-                className={`${fieldClass} mt-1`}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                autoComplete="name"
-                required
-              />
+              <input className={`${fieldClass} mt-1`} value={name} onChange={(event) => setName(event.target.value)} autoComplete="name" required />
             </label>
             <label className="block text-sm font-semibold">
               Work email

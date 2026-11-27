@@ -1,18 +1,6 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Alert,
-  Badge,
-  Button,
-  Card,
-  DateTile,
-  EmptyState,
-  Heading,
-  Progress,
-  Row,
-  StatTile,
-  Text,
-} from '@atomic-ui/ui-react';
+import { Alert, Badge, Button, Card, DateTile, EmptyState, Heading, Progress, Row, StatTile, Text } from '@atomic-ui/ui-react';
 import { JOB_STAGE_LABELS, JOB_STAGES, getJobStage, getStatusLabel, type JobStage, type JobStatus } from '@vip/shared';
 import { api } from '../lib/api';
 import { formatDate } from '../lib/format';
@@ -53,8 +41,7 @@ type Dashboard = {
 const JOURNEY: JobStage[] = JOB_STAGES.filter((stage) => stage !== 'completed' && stage !== 'cancelled');
 const journeySteps = JOURNEY.map((stage) => ({ id: stage, label: JOB_STAGE_LABELS[stage] }));
 
-const vehicleName = (vehicle: { make: string | null; model: string | null }) =>
-  [vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
+const vehicleName = (vehicle: { make: string | null; model: string | null }) => [vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
 const customerName = (customer: { firstName: string; lastName: string }) => `${customer.firstName} ${customer.lastName}`.trim();
 const day = (iso: string) => iso.slice(0, 10);
 
@@ -114,11 +101,7 @@ export function DashboardPage() {
       {data.activeJobs === 0 ? (
         <EmptyState
           heading="No active import jobs"
-          lead={
-            canWrite
-              ? 'Create a job to follow a vehicle from collection to delivery.'
-              : 'There are no active imports in this workspace yet.'
-          }
+          lead={canWrite ? 'Create a job to follow a vehicle from collection to delivery.' : 'There are no active imports in this workspace yet.'}
           framed
         >
           {canWrite ? (
@@ -222,9 +205,7 @@ export function DashboardPage() {
                 <Heading level={2} size="2xl" id="board-next-heading">
                   {vehicleName(next.vehicle)}
                 </Heading>
-                <Text size="sm">
-                  {[next.vehicle.ukRegistration, customerName(next.customer)].filter(Boolean).join(' · ')}
-                </Text>
+                <Text size="sm">{[next.vehicle.ukRegistration, customerName(next.customer)].filter(Boolean).join(' · ')}</Text>
                 <div className="board-next-status">
                   <Progress look="bars" label="Journey" steps={journeySteps} current={getJobStage(next.status)} />
                   <div className="board-next-line">

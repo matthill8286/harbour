@@ -23,10 +23,16 @@
         --slide-h: 7.5in;
       }
 
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
-        font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
         color: var(--ink);
         background: var(--mist);
       }
@@ -55,15 +61,27 @@
         padding: 0.72in 0.72in 0.55in;
       }
 
-      h1, h2, .display {
-        font-family: "Fraunces", Georgia, serif;
+      h1,
+      h2,
+      .display {
+        font-family: 'Fraunces', Georgia, serif;
         font-weight: 500;
         letter-spacing: -0.02em;
         margin: 0;
       }
-      h1 { font-size: 44px; line-height: 1.12; max-width: 11.2in; }
-      h2 { font-size: 34px; line-height: 1.18; max-width: 11.2in; }
-      p { margin: 0; }
+      h1 {
+        font-size: 44px;
+        line-height: 1.12;
+        max-width: 11.2in;
+      }
+      h2 {
+        font-size: 34px;
+        line-height: 1.18;
+        max-width: 11.2in;
+      }
+      p {
+        margin: 0;
+      }
       .lede {
         margin-top: 16px;
         font-size: 20px;
@@ -72,7 +90,9 @@
         color: var(--muted);
       }
       .cover .lede,
-      .ask .lede { color: rgba(255, 250, 242, 0.8); }
+      .ask .lede {
+        color: rgba(255, 250, 242, 0.8);
+      }
 
       .kicker {
         font-size: 13px;
@@ -83,7 +103,9 @@
         margin-bottom: 14px;
       }
       .cover .kicker,
-      .ask .kicker { color: var(--sand); }
+      .ask .kicker {
+        color: var(--sand);
+      }
 
       .foot {
         position: absolute;
@@ -96,7 +118,9 @@
         color: var(--muted);
       }
       .cover .foot,
-      .ask .foot { color: rgba(255, 250, 242, 0.45); }
+      .ask .foot {
+        color: rgba(255, 250, 242, 0.45);
+      }
 
       .stats {
         display: grid;
@@ -111,7 +135,7 @@
       }
       .stat b {
         display: block;
-        font-family: "Fraunces", Georgia, serif;
+        font-family: 'Fraunces', Georgia, serif;
         font-size: 28px;
         font-weight: 500;
         color: var(--harbour);
@@ -123,9 +147,15 @@
         line-height: 1.35;
         color: var(--muted);
       }
-      .cover .stat { background: rgba(255, 250, 242, 0.08); }
-      .cover .stat b { color: var(--sand); }
-      .cover .stat span { color: rgba(255, 250, 242, 0.68); }
+      .cover .stat {
+        background: rgba(255, 250, 242, 0.08);
+      }
+      .cover .stat b {
+        color: var(--sand);
+      }
+      .cover .stat span {
+        color: rgba(255, 250, 242, 0.68);
+      }
 
       .cols-2 {
         display: grid;
@@ -152,12 +182,18 @@
         text-transform: uppercase;
         color: var(--harbour);
       }
-      .card p, .card li {
+      .card p,
+      .card li {
         font-size: 16px;
         line-height: 1.4;
       }
-      .card ul { margin: 0; padding-left: 1.15em; }
-      .card li + li { margin-top: 8px; }
+      .card ul {
+        margin: 0;
+        padding-left: 1.15em;
+      }
+      .card li + li {
+        margin-top: 8px;
+      }
 
       table {
         width: 100%;
@@ -203,7 +239,7 @@
         margin-top: 24px;
       }
       .step-num {
-        font-family: "Fraunces", Georgia, serif;
+        font-family: 'Fraunces', Georgia, serif;
         font-size: 22px;
         color: var(--harbour);
         margin-bottom: 8px;
@@ -216,7 +252,11 @@
         margin-top: 22px;
         align-items: center;
       }
-      .legend { font-size: 17px; line-height: 1.5; color: rgba(255,250,242,0.9); }
+      .legend {
+        font-size: 17px;
+        line-height: 1.5;
+        color: rgba(255, 250, 242, 0.9);
+      }
       .legend i {
         display: inline-block;
         width: 12px;
@@ -224,7 +264,9 @@
         border-radius: 2px;
         margin-right: 8px;
       }
-      .legend p + p { margin-top: 12px; }
+      .legend p + p {
+        margin-top: 12px;
+      }
 
       .hero-line {
         margin-top: 24px;
@@ -233,7 +275,9 @@
       }
 
       @media screen {
-        body { padding: 28px 0 48px; }
+        body {
+          padding: 28px 0 48px;
+        }
         .slide {
           margin: 0 auto 28px;
           box-shadow: 0 12px 40px rgba(11, 31, 51, 0.18);
@@ -241,8 +285,12 @@
       }
 
       @media print {
-        body { background: none; }
-        .slide { box-shadow: none; }
+        body {
+          background: none;
+        }
+        .slide {
+          box-shadow: none;
+        }
         * {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
@@ -258,8 +306,22 @@
   <body>
     <section class="slide cover">
       <p class="kicker">A private note · August 2026</p>
-      <p class="display" style="font-size: 18px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--sand); margin-bottom: 18px;">Harbour</p>
-      <h1 style="font-size: 36px;">I want to build software for one import desk. I am asking you for €3,000 to start.</h1>
+      <p
+        class="display"
+        style="
+          font-size: 18px;
+          letter-spacing: 0.22em;
+          text-transform: uppercase;
+          color: var(--sand);
+          margin-bottom: 18px;
+        "
+      >
+        Harbour
+      </p>
+      <h1 style="font-size: 36px">
+        I want to build software for one import desk. I am asking you for €3,000
+        to start.
+      </h1>
       <p class="lede">
         One place for the job, the tracking, and what that desk’s customer can
         see. No more chasing a car across a spreadsheet, a WhatsApp chat, and a
@@ -279,7 +341,9 @@
           <span>This money is to start, not to scale</span>
         </div>
       </div>
-      <p class="hero-line">The route I would build around first: UK → Europe → Greece → Cyprus.</p>
+      <p class="hero-line">
+        The route I would build around first: UK → Europe → Greece → Cyprus.
+      </p>
       <div class="foot">
         <span>For you only · nothing is built yet</span>
         <span>1 / 8</span>
@@ -300,24 +364,34 @@
           <ul>
             <li>The job list lives in a spreadsheet</li>
             <li>The customer lives in WhatsApp</li>
-            <li>The tracker lives in another login the customer must not see</li>
-            <li>What it cost you and what you charged them sit in the same mess</li>
+            <li>
+              The tracker lives in another login the customer must not see
+            </li>
+            <li>
+              What it cost you and what you charged them sit in the same mess
+            </li>
           </ul>
         </div>
         <div class="card">
           <h3>Then this happens</h3>
           <ul>
-            <li>The owner asks “where is my car?” and nobody has a clean answer</li>
+            <li>
+              The owner asks “where is my car?” and nobody has a clean answer
+            </li>
             <li>Staff cannot see which jobs are actually stuck this morning</li>
-            <li>You move the tracker onto the next car and lose the old trail</li>
-            <li>Number plates get typed in by hand, from a website or a photo</li>
+            <li>
+              You move the tracker onto the next car and lose the old trail
+            </li>
+            <li>
+              Number plates get typed in by hand, from a website or a photo
+            </li>
           </ul>
         </div>
       </div>
       <div class="note">
         <strong>Who uses it:</strong> the people running the desk.
-        <strong>Who watches:</strong> their customer, on a simple page that never
-        shows costs, suppliers, or the number on the tracker box.
+        <strong>Who watches:</strong> their customer, on a simple page that
+        never shows costs, suppliers, or the number on the tracker box.
       </div>
       <div class="foot">
         <span>Harbour · for you</span>
@@ -341,11 +415,31 @@
           </tr>
         </thead>
         <tbody>
-          <tr><td>UK</td><td>Collect it, confirm it, it’s moving</td><td>Collected / on the way</td></tr>
-          <tr><td>Registration</td><td>Arrived, paperwork in progress, done</td><td>Being registered</td></tr>
-          <tr><td>Greece</td><td>Waiting or moving toward the port</td><td>Heading to the port</td></tr>
-          <tr><td>On the water</td><td>Shipped</td><td>On the boat</td></tr>
-          <tr><td>Cyprus</td><td>Arrived, ready to collect</td><td>Ready to pick up</td></tr>
+          <tr>
+            <td>UK</td>
+            <td>Collect it, confirm it, it’s moving</td>
+            <td>Collected / on the way</td>
+          </tr>
+          <tr>
+            <td>Registration</td>
+            <td>Arrived, paperwork in progress, done</td>
+            <td>Being registered</td>
+          </tr>
+          <tr>
+            <td>Greece</td>
+            <td>Waiting or moving toward the port</td>
+            <td>Heading to the port</td>
+          </tr>
+          <tr>
+            <td>On the water</td>
+            <td>Shipped</td>
+            <td>On the boat</td>
+          </tr>
+          <tr>
+            <td>Cyprus</td>
+            <td>Arrived, ready to collect</td>
+            <td>Ready to pick up</td>
+          </tr>
         </tbody>
       </table>
       <div class="cols-4">
@@ -355,18 +449,30 @@
         </div>
         <div class="card">
           <h3>A pin on a map</h3>
-          <p>A tracker on that job. Move the box to the next car without losing history.</p>
+          <p>
+            A tracker on that job. Move the box to the next car without losing
+            history.
+          </p>
         </div>
         <div class="card">
           <h3>A customer page</h3>
-          <p>The desk’s brand. Status, files, a map. Not costs. Not someone else’s car.</p>
+          <p>
+            The desk’s brand. Status, files, a map. Not costs. Not someone
+            else’s car.
+          </p>
         </div>
         <div class="card">
           <h3>Starting a job</h3>
-          <p>Look up a UK plate or snap a photo, instead of typing the car in from scratch.</p>
+          <p>
+            Look up a UK plate or snap a photo, instead of typing the car in
+            from scratch.
+          </p>
         </div>
       </div>
-      <p class="caption">That is the first version I would build with your money. Fancy extras can wait.</p>
+      <p class="caption">
+        That is the first version I would build with your money. Fancy extras
+        can wait.
+      </p>
       <div class="foot">
         <span>Harbour · for you</span>
         <span>3 / 8</span>
@@ -398,7 +504,9 @@
           <tr>
             <td>A normal GPS app</td>
             <td>Where is the van?</td>
-            <td>Does not know whose car it is, or what the owner is allowed to see</td>
+            <td>
+              Does not know whose car it is, or what the owner is allowed to see
+            </td>
           </tr>
           <tr>
             <td>Car dealer software</td>
@@ -422,22 +530,31 @@
       <h2>Lots of cars move. The small firms still run on chat.</h2>
       <p class="lede">
         Britain brought in tens of billions of dollars of passenger cars last
-        year. A lot of that work is still run on chat and spreadsheets. I am
-        not asking you to fund “all of logistics.” I am asking you to fund one
-        tool for one desk.
+        year. A lot of that work is still run on chat and spreadsheets. I am not
+        asking you to fund “all of logistics.” I am asking you to fund one tool
+        for one desk.
       </p>
       <div class="stats">
         <div class="stat">
           <b>The work is real</b>
-          <span>Cars already move on this route. The pain is already there. I am not inventing a job.</span>
+          <span
+            >Cars already move on this route. The pain is already there. I am
+            not inventing a job.</span
+          >
         </div>
         <div class="stat">
           <b>The tools are wrong</b>
-          <span>Maps, WhatsApp, and freight software exist. None of them were made for this trip.</span>
+          <span
+            >Maps, WhatsApp, and freight software exist. None of them were made
+            for this trip.</span
+          >
         </div>
         <div class="stat">
           <b>What I am aiming at</b>
-          <span>Get this desk off the sticky tape. That is the test of your €3,000.</span>
+          <span
+            >Get this desk off the sticky tape. That is the test of your
+            €3,000.</span
+          >
         </div>
       </div>
       <div class="note">
@@ -472,13 +589,21 @@
           <h3>Plain rules</h3>
           <ul>
             <li>Your €3,000 is the start-up money, not rent</li>
-            <li>Trackers are ordinary boxes you buy separately. I am not making gadgets</li>
-            <li>More cars through the books can mean a higher monthly bill later</li>
+            <li>
+              Trackers are ordinary boxes you buy separately. I am not making
+              gadgets
+            </li>
+            <li>
+              More cars through the books can mean a higher monthly bill later
+            </li>
             <li>Those monthly numbers are a sketch, not a price list</li>
           </ul>
         </div>
       </div>
-      <p class="caption">Nothing is for sale until there is a product. I am not asking you to buy a subscription.</p>
+      <p class="caption">
+        Nothing is for sale until there is a product. I am not asking you to buy
+        a subscription.
+      </p>
       <div class="foot">
         <span>Harbour · for you</span>
         <span>6 / 8</span>
@@ -495,15 +620,24 @@
       <div class="steps">
         <div class="card">
           <div class="step-num">1. Start</div>
-          <p>I build the first version: jobs, a customer page, a map, start a job from a plate or a photo. UK to Cyprus only.</p>
+          <p>
+            I build the first version: jobs, a customer page, a map, start a job
+            from a plate or a photo. UK to Cyprus only.
+          </p>
         </div>
         <div class="card">
           <div class="step-num">2. Prove it</div>
-          <p>Keep what the desk actually uses. Drop what they ignore. Success is fewer phone calls, not a pretty demo.</p>
+          <p>
+            Keep what the desk actually uses. Drop what they ignore. Success is
+            fewer phone calls, not a pretty demo.
+          </p>
         </div>
         <div class="card">
           <div class="step-num">3. Then we talk</div>
-          <p>If it is in daily use, we sit down about what comes next. I am not asking you to fund that now.</p>
+          <p>
+            If it is in daily use, we sit down about what comes next. I am not
+            asking you to fund that now.
+          </p>
         </div>
       </div>
       <div class="note">
@@ -520,26 +654,94 @@
       <p class="kicker">What I am asking you for</p>
       <h2>€3,000 to start</h2>
       <p class="lede">
-        Not a big investment round. Enough for me to begin, with the desk in
-        the room so I build the real job, not a guess.
+        Not a big investment round. Enough for me to begin, with the desk in the
+        room so I build the real job, not a guess.
       </p>
       <div class="split">
-        <svg viewBox="0 0 120 120" width="220" height="220" aria-label="Where the first €3,000 goes">
-          <circle cx="60" cy="60" r="40" fill="none" stroke="#3d5c5c" stroke-width="18" />
-          <circle cx="60" cy="60" r="40" fill="none" stroke="#f4ead7" stroke-width="18"
-            stroke-dasharray="176 251.2" stroke-dashoffset="0" transform="rotate(-90 60 60)" />
-          <circle cx="60" cy="60" r="40" fill="none" stroke="#1c6b6a" stroke-width="18"
-            stroke-dasharray="50.2 251.2" stroke-dashoffset="-176" transform="rotate(-90 60 60)" />
-          <circle cx="60" cy="60" r="40" fill="none" stroke="#d7e4e3" stroke-width="18"
-            stroke-dasharray="25.1 251.2" stroke-dashoffset="-226.2" transform="rotate(-90 60 60)" />
-          <text x="60" y="56" text-anchor="middle" fill="#fffaf2" font-size="11" font-family="Nunito Sans, sans-serif">First €3k</text>
-          <text x="60" y="72" text-anchor="middle" fill="#f4ead7" font-size="13" font-family="Fraunces, Georgia, serif">70 / 20 / 10</text>
+        <svg
+          viewBox="0 0 120 120"
+          width="220"
+          height="220"
+          aria-label="Where the first €3,000 goes"
+        >
+          <circle
+            cx="60"
+            cy="60"
+            r="40"
+            fill="none"
+            stroke="#3d5c5c"
+            stroke-width="18"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="40"
+            fill="none"
+            stroke="#f4ead7"
+            stroke-width="18"
+            stroke-dasharray="176 251.2"
+            stroke-dashoffset="0"
+            transform="rotate(-90 60 60)"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="40"
+            fill="none"
+            stroke="#1c6b6a"
+            stroke-width="18"
+            stroke-dasharray="50.2 251.2"
+            stroke-dashoffset="-176"
+            transform="rotate(-90 60 60)"
+          />
+          <circle
+            cx="60"
+            cy="60"
+            r="40"
+            fill="none"
+            stroke="#d7e4e3"
+            stroke-width="18"
+            stroke-dasharray="25.1 251.2"
+            stroke-dashoffset="-226.2"
+            transform="rotate(-90 60 60)"
+          />
+          <text
+            x="60"
+            y="56"
+            text-anchor="middle"
+            fill="#fffaf2"
+            font-size="11"
+            font-family="Nunito Sans, sans-serif"
+          >
+            First €3k
+          </text>
+          <text
+            x="60"
+            y="72"
+            text-anchor="middle"
+            fill="#f4ead7"
+            font-size="13"
+            font-family="Fraunces, Georgia, serif"
+          >
+            70 / 20 / 10
+          </text>
         </svg>
         <div class="legend">
-          <p><i style="background:#f4ead7"></i><strong>Most of it (€2,100)</strong> — build the first version: the job list, the customer page, the map.</p>
-          <p><i style="background:#1c6b6a"></i><strong>Some of it (€600)</strong> — plug in maps, trackers, and UK car lookup. Buy those. Don’t invent them.</p>
-          <p><i style="background:#d7e4e3"></i><strong>A bit (€300)</strong> — sit with the desk and get the steps of the trip right.</p>
-          <p style="font-size: 15px; color: rgba(255,250,242,0.55)">
+          <p>
+            <i style="background: #f4ead7"></i
+            ><strong>Most of it (€2,100)</strong> — build the first version: the
+            job list, the customer page, the map.
+          </p>
+          <p>
+            <i style="background: #1c6b6a"></i
+            ><strong>Some of it (€600)</strong> — plug in maps, trackers, and UK
+            car lookup. Buy those. Don’t invent them.
+          </p>
+          <p>
+            <i style="background: #d7e4e3"></i><strong>A bit (€300)</strong> —
+            sit with the desk and get the steps of the trip right.
+          </p>
+          <p style="font-size: 15px; color: rgba(255, 250, 242, 0.55)">
             €3,000 gets me started. It is not a year of wages. If the desk is
             actually using it, you and I can talk again.
           </p>

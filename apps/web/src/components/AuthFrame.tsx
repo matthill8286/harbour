@@ -1,15 +1,7 @@
 import type { ReactNode } from 'react';
 
 /** The two-column sign-in frame shared by the login, two-factor and setup screens. */
-export function AuthFrame({
-  eyebrow,
-  lead,
-  children,
-}: {
-  eyebrow: string;
-  lead: string;
-  children: ReactNode;
-}) {
+export function AuthFrame({ eyebrow, lead, children }: { eyebrow: string; lead: string; children: ReactNode }) {
   return (
     <div className="min-h-svh bg-ink text-paper">
       <div className="mx-auto grid min-h-svh max-w-5xl md:grid-cols-2">

@@ -78,26 +78,14 @@ export function TwoFactorEnrolment({ onEnabled }: { onEnabled: () => Promise<voi
   return (
     <form onSubmit={activate} className="space-y-4">
       <div className="grid justify-items-center gap-3 rounded-2xl bg-paper p-4 text-center">
-        <p className="text-sm text-ink/60">
-          Scan this QR code with an authenticator app such as 1Password, Google Authenticator or
-          Microsoft Authenticator.
-        </p>
-        <img
-          src={setup.qr}
-          alt="QR code for your authenticator app"
-          width={200}
-          height={200}
-        />
+        <p className="text-sm text-ink/60">Scan this QR code with an authenticator app such as 1Password, Google Authenticator or Microsoft Authenticator.</p>
+        <img src={setup.qr} alt="QR code for your authenticator app" width={200} height={200} />
         <p className="text-xs text-ink/55">Or type this key into the app</p>
-        <code className="break-all rounded-lg bg-sand px-3 py-1.5 font-mono text-xs">
-          {setup.secret}
-        </code>
+        <code className="break-all rounded-lg bg-sand px-3 py-1.5 font-mono text-xs">{setup.secret}</code>
       </div>
       <div className="rounded-2xl bg-paper p-4">
         <h3 className="font-semibold">Save your backup codes</h3>
-        <p className="mt-1 text-sm text-ink/60">
-          Keep these somewhere safe. If you lose your phone, each code signs you in once.
-        </p>
+        <p className="mt-1 text-sm text-ink/60">Keep these somewhere safe. If you lose your phone, each code signs you in once.</p>
         <BackupCodeList codes={setup.backupCodes} />
       </div>
       <label className="block text-sm font-semibold">

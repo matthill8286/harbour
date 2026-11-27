@@ -28,12 +28,8 @@ describe('parseTrackerImeiFromScan', () => {
   });
 
   it('parses URL query parameters', () => {
-    expect(parseTrackerImeiFromScan('https://device.local/?imei=352094123456789')).toBe(
-      '352094123456789',
-    );
-    expect(parseTrackerImeiFromScan('https://device.local/?serial=352094123456789&x=1')).toBe(
-      '352094123456789',
-    );
+    expect(parseTrackerImeiFromScan('https://device.local/?imei=352094123456789')).toBe('352094123456789');
+    expect(parseTrackerImeiFromScan('https://device.local/?serial=352094123456789&x=1')).toBe('352094123456789');
   });
 
   it('accepts demo simulator serials', () => {

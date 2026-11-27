@@ -5,13 +5,7 @@ import { formatDateTime } from '../lib/format';
 import type { JobTracking } from '../lib/tracking';
 import { JourneyMap } from './JourneyMap';
 
-export function PortalTrackingPanel({
-  jobId,
-  destination,
-}: {
-  jobId: string;
-  destination?: string;
-}) {
+export function PortalTrackingPanel({ jobId, destination }: { jobId: string; destination?: string }) {
   const { data: tracking } = useQuery({
     queryKey: ['portal-tracking', jobId],
     queryFn: () => api<JobTracking>(`/portal/jobs/${jobId}/tracking`),
@@ -53,12 +47,7 @@ export function PortalTrackingPanel({
                 : 'Location will appear once the vehicle is on the road.'}
         </p>
       </div>
-      <JourneyMap
-        map={tracking.map}
-        trail={tracking.trail}
-        markers={markers}
-        plannedRoutes={plannedRoute.length > 1 ? [plannedRoute] : []}
-      />
+      <JourneyMap map={tracking.map} trail={tracking.trail} markers={markers} plannedRoutes={plannedRoute.length > 1 ? [plannedRoute] : []} />
     </section>
   );
 }

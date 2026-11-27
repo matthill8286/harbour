@@ -21,15 +21,7 @@ export type PortalDocument = {
   createdAt: string;
 };
 
-export function PortalFiles({
-  jobId,
-  photos,
-  documents,
-}: {
-  jobId: string;
-  photos: PortalPhoto[];
-  documents: PortalDocument[];
-}) {
+export function PortalFiles({ jobId, photos, documents }: { jobId: string; photos: PortalPhoto[]; documents: PortalDocument[] }) {
   const [openPhotoId, setOpenPhotoId] = useState<string | null>(null);
   const openPhoto = photos.find((photo) => photo.id === openPhotoId) ?? null;
 
@@ -52,17 +44,8 @@ export function PortalFiles({
         ) : (
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
             {photos.map((photo) => (
-              <button
-                key={photo.id}
-                type="button"
-                className="overflow-hidden rounded-xl bg-sand text-left"
-                onClick={() => setOpenPhotoId(photo.id)}
-              >
-                <AuthenticatedImage
-                  path={`/portal/jobs/${jobId}/photos/${photo.id}`}
-                  alt={photo.filename}
-                  className="aspect-square w-full object-cover"
-                />
+              <button key={photo.id} type="button" className="overflow-hidden rounded-xl bg-sand text-left" onClick={() => setOpenPhotoId(photo.id)}>
+                <AuthenticatedImage path={`/portal/jobs/${jobId}/photos/${photo.id}`} alt={photo.filename} className="aspect-square w-full object-cover" />
                 <span className="block px-2 py-1.5 text-[11px] text-ink/60">{formatCategory(photo.category)}</span>
               </button>
             ))}
@@ -85,11 +68,7 @@ export function PortalFiles({
                     {formatCategory(doc.type)} · {formatBytes(doc.sizeBytes)} · {formatDateTime(doc.createdAt)}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={secondaryBtn}
-                  onClick={() => void downloadApiFile(`/portal/jobs/${jobId}/documents/${doc.id}`, doc.name)}
-                >
+                <button type="button" className={secondaryBtn} onClick={() => void downloadApiFile(`/portal/jobs/${jobId}/documents/${doc.id}`, doc.name)}>
                   Download
                 </button>
               </li>
@@ -106,10 +85,7 @@ export function PortalFiles({
           aria-label={openPhoto.filename}
           onClick={() => setOpenPhotoId(null)}
         >
-          <div
-            className="max-h-[90svh] w-full max-w-3xl overflow-hidden rounded-2xl bg-paper p-3"
-            onClick={(event) => event.stopPropagation()}
-          >
+          <div className="max-h-[90svh] w-full max-w-3xl overflow-hidden rounded-2xl bg-paper p-3" onClick={(event) => event.stopPropagation()}>
             <AuthenticatedImage
               path={`/portal/jobs/${jobId}/photos/${openPhoto.id}`}
               alt={openPhoto.filename}

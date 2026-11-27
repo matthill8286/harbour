@@ -45,34 +45,31 @@ export function PortalPage() {
         <EmptyState title="No import in progress" description="When a job is opened for you, it will appear here." />
       ) : (
         (data ?? []).map((job) => (
-            <Link
-              key={job.id}
-              to={`/portal/${job.id}`}
-              className="block rounded-2xl bg-paper p-5 transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgb(11_31_51_/_0.08)]"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">
-                    {job.vehicle.make} {job.vehicle.model}
-                  </p>
-                  <p className="text-sm text-ink/60">
-                    {job.vehicle.ukRegistration}
-                    {job.expectedDeliveryDate && !isDestinationReached(job.status)
-                      ? ` · expected ${formatDate(job.expectedDeliveryDate)}`
-                      : ''}
-                  </p>
-                  <p className="mt-1 text-xs text-ink/45">
-                    {job.photoCount} {job.photoCount === 1 ? 'photo' : 'photos'} · {job.documentCount}{' '}
-                    {job.documentCount === 1 ? 'document' : 'documents'}
-                  </p>
-                </div>
-                <StatusBadge status={job.status} />
+          <Link
+            key={job.id}
+            to={`/portal/${job.id}`}
+            className="block rounded-2xl bg-paper p-5 transition hover:-translate-y-0.5 hover:shadow-[0_12px_30px_rgb(11_31_51_/_0.08)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-semibold">
+                  {job.vehicle.make} {job.vehicle.model}
+                </p>
+                <p className="text-sm text-ink/60">
+                  {job.vehicle.ukRegistration}
+                  {job.expectedDeliveryDate && !isDestinationReached(job.status) ? ` · expected ${formatDate(job.expectedDeliveryDate)}` : ''}
+                </p>
+                <p className="mt-1 text-xs text-ink/45">
+                  {job.photoCount} {job.photoCount === 1 ? 'photo' : 'photos'} · {job.documentCount} {job.documentCount === 1 ? 'document' : 'documents'}
+                </p>
               </div>
-              <div className="mt-4">
-                <JourneyStepper status={job.status} variant="customer" embedded />
-              </div>
-            </Link>
-          ))
+              <StatusBadge status={job.status} />
+            </div>
+            <div className="mt-4">
+              <JourneyStepper status={job.status} variant="customer" embedded />
+            </div>
+          </Link>
+        ))
       )}
     </div>
   );

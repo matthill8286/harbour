@@ -48,7 +48,11 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForHttp(url, label, ok = (res) => res.ok || res.status < 500) {
+async function waitForHttp(
+  url,
+  label,
+  ok = (res) => res.ok || res.status < 500,
+) {
   for (let i = 0; i < 90; i += 1) {
     try {
       const response = await fetch(url);
@@ -326,23 +330,44 @@ async function record() {
     await sleep(3200);
 
     await page.goto(`${webUrl}/login`, { waitUntil: 'networkidle' });
-    await caption(page, 'Step 1', 'The importer signs in to their Harbour workspace');
+    await caption(
+      page,
+      'Step 1',
+      'The importer signs in to their Harbour workspace',
+    );
     await sleep(900);
     await clearAndType(page.getByLabel('Email'), OWNER.email);
     await clearAndType(page.getByLabel('Password'), OWNER.password, 28);
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.waitForURL((url) => url.pathname === '/');
     await page.getByRole('heading', { name: 'Board' }).waitFor();
-    await caption(page, 'Workspace', 'A new tenant starts empty — jobs, customers and GPS stay inside this company');
+    await caption(
+      page,
+      'Workspace',
+      'A new tenant starts empty — jobs, customers and GPS stay inside this company',
+    );
     await sleep(2000);
 
-    await caption(page, 'Step 2', 'Add the company: brand, legal name, timezone and currency');
+    await caption(
+      page,
+      'Step 2',
+      'Add the company: brand, legal name, timezone and currency',
+    );
     await rail(page).getByRole('link', { name: 'Workspace' }).click();
     await page.getByRole('heading', { name: 'Workspace' }).waitFor();
     await sleep(600);
-    await clearAndType(page.getByLabel('Workspace name'), 'Cyprus Auto Logistics');
-    await clearAndType(page.getByLabel('Legal name'), 'Cyprus Auto Logistics Ltd');
-    await clearAndType(page.getByLabel('Internal name'), 'Cyprus Auto Logistics');
+    await clearAndType(
+      page.getByLabel('Workspace name'),
+      'Cyprus Auto Logistics',
+    );
+    await clearAndType(
+      page.getByLabel('Legal name'),
+      'Cyprus Auto Logistics Ltd',
+    );
+    await clearAndType(
+      page.getByLabel('Internal name'),
+      'Cyprus Auto Logistics',
+    );
     await page.getByLabel('Timezone').selectOption('Europe/Nicosia');
     await page.getByLabel('Currency').selectOption('EUR');
     await page.getByLabel('Country').selectOption('CY');
@@ -350,7 +375,11 @@ async function record() {
     await page.getByText('Workspace saved').waitFor();
     await sleep(1400);
 
-    await caption(page, 'Step 3', 'Invite Kyriakos as staff on the company desk');
+    await caption(
+      page,
+      'Step 3',
+      'Invite Kyriakos as staff on the company desk',
+    );
     await page.getByRole('heading', { name: 'Team' }).scrollIntoViewIfNeeded();
     await clearAndType(page.getByLabel('Name', { exact: true }), STAFF.name);
     await clearAndType(page.getByLabel('Email'), STAFF.email);
@@ -360,23 +389,40 @@ async function record() {
     await inviteBox.waitFor();
     const inviteUrl = (await inviteBox.textContent())?.trim();
     if (!inviteUrl) throw new Error('Invite URL was not shown');
-    const kyriakosRow = shell(page).locator('li').filter({ hasText: STAFF.email });
+    const kyriakosRow = shell(page)
+      .locator('li')
+      .filter({ hasText: STAFF.email });
     await kyriakosRow.waitFor();
     await kyriakosRow.scrollIntoViewIfNeeded();
     await sleep(1800);
 
-    await caption(page, 'Step 4', 'Kyriakos accepts the invite and joins the desk');
+    await caption(
+      page,
+      'Step 4',
+      'Kyriakos accepts the invite and joins the desk',
+    );
     await page.getByRole('button', { name: 'Sign out' }).click();
     await page.waitForURL(/\/login/);
     await page.goto(inviteUrl, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: /Welcome, Kyriakos/ }).waitFor();
     await sleep(700);
-    await clearAndType(page.getByLabel('Password', { exact: true }), STAFF.password, 28);
+    await clearAndType(
+      page.getByLabel('Password', { exact: true }),
+      STAFF.password,
+      28,
+    );
     await clearAndType(page.getByLabel('Confirm password'), STAFF.password, 28);
     await page.getByRole('button', { name: 'Join team' }).click();
     await page.waitForURL((url) => url.pathname === '/');
-    await shell(page).locator('header').getByText(STAFF.name, { exact: true }).waitFor();
-    await caption(page, 'Desk', 'Kyriakos is on the company workspace and can run import operations');
+    await shell(page)
+      .locator('header')
+      .getByText(STAFF.name, { exact: true })
+      .waitFor();
+    await caption(
+      page,
+      'Desk',
+      'Kyriakos is on the company workspace and can run import operations',
+    );
     await sleep(1800);
 
     await caption(page, 'Step 5', 'Add the customer who owns the vehicle');
@@ -390,28 +436,49 @@ async function record() {
     await page.getByRole('link', { name: 'Elena Constantinou' }).waitFor();
     await sleep(1600);
 
-    await caption(page, 'Step 6', 'Register a GPS tracker for this organisation');
+    await caption(
+      page,
+      'Step 6',
+      'Register a GPS tracker for this organisation',
+    );
     await rail(page).getByRole('link', { name: 'Trackers' }).click();
     await page.getByRole('heading', { name: 'Trackers' }).waitFor();
     await clearAndType(page.getByPlaceholder('IMEI'), TRACKER, 55);
     await page.locator('select').selectOption('generic');
     await page.getByRole('button', { name: 'Register unit' }).click();
     await shell(page).getByText(TRACKER, { exact: true }).waitFor();
-    await shell(page).getByText(/Demo simulator/i).first().waitFor();
+    await shell(page)
+      .getByText(/Demo simulator/i)
+      .first()
+      .waitFor();
     await sleep(1600);
 
-    await caption(page, 'Step 7', 'Create the import job for Elena’s BMW M3 · RJ14 XOO');
+    await caption(
+      page,
+      'Step 7',
+      'Create the import job for Elena’s BMW M3 · RJ14 XOO',
+    );
     await page.getByRole('link', { name: 'New job' }).click();
     await page.getByRole('heading', { name: 'New import job' }).waitFor();
-    await page.getByLabel('Existing customer').selectOption({ label: 'Elena Constantinou' });
+    await page
+      .getByLabel('Existing customer')
+      .selectOption({ label: 'Elena Constantinou' });
     await sleep(400);
     await page.getByRole('button', { name: 'Continue' }).click();
     await page.getByRole('heading', { name: 'Vehicle' }).waitFor();
     await clearAndType(page.getByPlaceholder('KN19 XPL'), PLATE, 70);
     await page.getByRole('button', { name: 'Look up vehicle' }).click();
     await page.getByRole('heading', { name: 'Confirm job' }).waitFor();
-    await page.getByRole('heading', { name: 'Confirm job' }).locator('..').getByText('BMW M3').waitFor();
-    await page.getByRole('heading', { name: 'Confirm job' }).locator('..').getByText('RJ14 XOO').waitFor();
+    await page
+      .getByRole('heading', { name: 'Confirm job' })
+      .locator('..')
+      .getByText('BMW M3')
+      .waitFor();
+    await page
+      .getByRole('heading', { name: 'Confirm job' })
+      .locator('..')
+      .getByText('RJ14 XOO')
+      .waitFor();
     await page.getByLabel('Expected delivery').fill('2026-10-20');
     await sleep(1000);
     await page.getByRole('button', { name: 'Create import job' }).click();
@@ -420,16 +487,27 @@ async function record() {
     await shell(page).getByText('RJ14 XOO').first().waitFor();
     await sleep(1400);
 
-    await caption(page, 'Step 8', 'Assign the tracker to the M3 and move the job onto the corridor');
+    await caption(
+      page,
+      'Step 8',
+      'Assign the tracker to the M3 and move the job onto the corridor',
+    );
     await page.getByRole('tab', { name: 'Tracking' }).click();
     await page.getByRole('heading', { name: 'Live GPS' }).waitFor();
-    const trackerSelect = page.locator('select').filter({ has: page.locator('option', { hasText: TRACKER }) });
+    const trackerSelect = page
+      .locator('select')
+      .filter({ has: page.locator('option', { hasText: TRACKER }) });
     await trackerSelect.scrollIntoViewIfNeeded();
-    const trackerValue = await trackerSelect.locator('option').filter({ hasText: TRACKER }).getAttribute('value');
+    const trackerValue = await trackerSelect
+      .locator('option')
+      .filter({ hasText: TRACKER })
+      .getAttribute('value');
     if (!trackerValue) throw new Error('Tracker option missing');
     await trackerSelect.selectOption(trackerValue);
     await page.getByRole('button', { name: 'Assign', exact: true }).click();
-    await shell(page).getByText(new RegExp(`Tracker\\s+${TRACKER}`)).waitFor();
+    await shell(page)
+      .getByText(new RegExp(`Tracker\\s+${TRACKER}`))
+      .waitFor();
     await sleep(900);
 
     for (const status of [
@@ -439,26 +517,44 @@ async function record() {
       'In transit (UK)',
     ]) {
       await page.getByRole('button', { name: status, exact: true }).click();
-      await page.locator('.job-chrome-header').getByText(status, { exact: true }).waitFor();
+      await page
+        .locator('.job-chrome-header')
+        .getByText(status, { exact: true })
+        .waitFor();
       await sleep(650);
     }
 
-    await caption(page, 'Step 9', 'Simulate GPS: the M3 pings along the UK → Cyprus corridor');
+    await caption(
+      page,
+      'Step 9',
+      'Simulate GPS: the M3 pings along the UK → Cyprus corridor',
+    );
     await page.locator('.leaflet-container').scrollIntoViewIfNeeded();
     await page.getByRole('button', { name: 'Advance GPS' }).waitFor();
     for (let i = 0; i < 12; i += 1) {
-      await page.getByRole('button', { name: 'Advance GPS' }).evaluate((button) => button.click());
+      await page
+        .getByRole('button', { name: 'Advance GPS' })
+        .evaluate((button) => button.click());
       await page.getByRole('button', { name: 'Advance GPS' }).waitFor();
       await sleep(750);
     }
     await page.locator('.leaflet-container').waitFor();
     await sleep(1800);
 
-    await caption(page, 'Step 10', 'The live fleet map now shows RJ14 XOO moving');
+    await caption(
+      page,
+      'Step 10',
+      'The live fleet map now shows RJ14 XOO moving',
+    );
     await page.getByRole('link', { name: 'Open on fleet map' }).click();
     await page.waitForURL(/\/tracking/);
-    await shell(page).getByText(/BMW M3/).first().waitFor();
-    const m3Row = page.locator('.fleet-sidebar-item').filter({ hasText: 'BMW M3' });
+    await shell(page)
+      .getByText(/BMW M3/)
+      .first()
+      .waitFor();
+    const m3Row = page
+      .locator('.fleet-sidebar-item')
+      .filter({ hasText: 'BMW M3' });
     if (await m3Row.count()) {
       await m3Row.first().click();
     }
@@ -468,7 +564,10 @@ async function record() {
     await page.setContent(END_HTML, { waitUntil: 'domcontentloaded' });
     await sleep(3600);
   } catch (error) {
-    await page.screenshot({ path: join(outDir, 'harbour-company-workflow-failure.png'), fullPage: true });
+    await page.screenshot({
+      path: join(outDir, 'harbour-company-workflow-failure.png'),
+      fullPage: true,
+    });
     throw error;
   } finally {
     const video = page.video();

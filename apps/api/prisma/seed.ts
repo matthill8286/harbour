@@ -59,7 +59,10 @@ async function upsertMember(input: {
   });
   await prisma.organisationMembership.upsert({
     where: {
-      organisationId_userId: { organisationId: input.organisationId, userId: user.id },
+      organisationId_userId: {
+        organisationId: input.organisationId,
+        userId: user.id,
+      },
     },
     update: {
       role: input.role,
@@ -79,7 +82,11 @@ async function upsertMember(input: {
 
 async function seedOrganisationPlatform(
   organisationId: string,
-  input: { brandName: string; plan: 'STARTER' | 'BUSINESS'; status: 'TRIAL' | 'ACTIVE' },
+  input: {
+    brandName: string;
+    plan: 'STARTER' | 'BUSINESS';
+    status: 'TRIAL' | 'ACTIVE';
+  },
 ) {
   await prisma.organisationSettings.upsert({
     where: { organisationId },
@@ -537,18 +544,40 @@ async function main() {
 
   const bmwJob = await prisma.importJob.findUnique({
     where: {
-      organisationId_reference: { organisationId: organisation.id, reference: 'CY-2026-00421' },
+      organisationId_reference: {
+        organisationId: organisation.id,
+        reference: 'CY-2026-00421',
+      },
     },
   });
   const mariaJob = await prisma.importJob.findUnique({
     where: {
-      organisationId_reference: { organisationId: organisation.id, reference: 'CY-2026-00388' },
+      organisationId_reference: {
+        organisationId: organisation.id,
+        reference: 'CY-2026-00388',
+      },
     },
   });
-  if (bmwJob) await seedPortalFiles(organisation.id, bmwJob.id, admin.id, 'bmw', 'KN19 XPL collection');
-  if (mariaJob) await seedPortalFiles(organisation.id, mariaJob.id, admin.id, 'rr', 'LF21 TRK collection');
+  if (bmwJob)
+    await seedPortalFiles(
+      organisation.id,
+      bmwJob.id,
+      admin.id,
+      'bmw',
+      'KN19 XPL collection',
+    );
+  if (mariaJob)
+    await seedPortalFiles(
+      organisation.id,
+      mariaJob.id,
+      admin.id,
+      'rr',
+      'LF21 TRK collection',
+    );
 
-  const jobCount = await prisma.importJob.count({ where: { organisationId: organisation.id } });
+  const jobCount = await prisma.importJob.count({
+    where: { organisationId: organisation.id },
+  });
   const periodStart = new Date(Date.UTC(2026, 7, 1));
   await prisma.usageRecord.upsert({
     where: {
@@ -590,7 +619,9 @@ async function main() {
   console.log('  Staff:    staff@demo-imports.local / ChangeMe!Staff1');
   console.log('  Viewer:   viewer@demo-imports.local / ChangeMe!Viewer1');
   console.log('  Customer: customer@example.com / ChangeMe!Customer1');
-  console.log('  Second tenant owner: owner@cyprus-auto.local / ChangeMe!Admin1');
+  console.log(
+    '  Second tenant owner: owner@cyprus-auto.local / ChangeMe!Admin1',
+  );
 }
 
 const SEED_PNG = Buffer.from(
@@ -625,15 +656,24 @@ async function seedPortalFiles(
   const photoKey = `${organisationId}/jobs/${importJobId}/photos/seed-${slug}-collection.png`;
   const docKey = `${organisationId}/jobs/${importJobId}/documents/seed-${slug}-collection.pdf`;
   const root = process.env.STORAGE_LOCAL_DIR ?? './uploads';
-  await mkdir(join(root, organisationId, 'jobs', importJobId, 'photos'), { recursive: true });
-  await mkdir(join(root, organisationId, 'jobs', importJobId, 'documents'), { recursive: true });
+  await mkdir(join(root, organisationId, 'jobs', importJobId, 'photos'), {
+    recursive: true,
+  });
+  await mkdir(join(root, organisationId, 'jobs', importJobId, 'documents'), {
+    recursive: true,
+  });
   const pdf = seedPdf(label);
   await writeFile(join(root, photoKey), SEED_PNG);
   await writeFile(join(root, docKey), pdf);
 
   await prisma.photo.upsert({
     where: { id: `seed-photo-${slug}` },
-    update: { importJobId, organisationId, customerVisible: true, storageKey: photoKey },
+    update: {
+      importJobId,
+      organisationId,
+      customerVisible: true,
+      storageKey: photoKey,
+    },
     create: {
       id: `seed-photo-${slug}`,
       organisationId,
@@ -650,7 +690,13 @@ async function seedPortalFiles(
 
   await prisma.document.upsert({
     where: { id: `seed-doc-${slug}` },
-    update: { importJobId, organisationId, customerVisible: true, storageKey: docKey, sizeBytes: pdf.length },
+    update: {
+      importJobId,
+      organisationId,
+      customerVisible: true,
+      storageKey: docKey,
+      sizeBytes: pdf.length,
+    },
     create: {
       id: `seed-doc-${slug}`,
       organisationId,
@@ -666,7 +712,11 @@ async function seedPortalFiles(
   });
 }
 
-async function seedJobTimeline(organisationId: string, importJobId: string, changedById: string) {
+async function seedJobTimeline(
+  organisationId: string,
+  importJobId: string,
+  changedById: string,
+) {
   await prisma.jobStatusHistory.deleteMany({ where: { importJobId } });
   await prisma.jobStatusHistory.createMany({
     data: [
@@ -765,7 +815,9 @@ async function seedJourneyTrail(
   const route = densifyRoute(ROUTE_UK_BG_GR_CENTRAL, 4);
   const travelled = route.slice(0, 41);
   const started = new Date('2026-08-23T09:32:00Z').getTime();
-  const lastRecordedAt = new Date(started + (travelled.length - 1) * 3.5 * 60 * 60 * 1000);
+  const lastRecordedAt = new Date(
+    started + (travelled.length - 1) * 3.5 * 60 * 60 * 1000,
+  );
   await prisma.locationEvent.createMany({
     data: travelled.map((point, index) => {
       const previous = travelled[Math.max(0, index - 1)];

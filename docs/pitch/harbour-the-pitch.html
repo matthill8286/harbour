@@ -21,10 +21,16 @@
         --slide-w: 13.333in;
         --slide-h: 7.5in;
       }
-      * { box-sizing: border-box; }
-      html, body { margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+      }
+      html,
       body {
-        font-family: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
         color: var(--ink);
         background: var(--mist);
       }
@@ -40,18 +46,38 @@
         display: flex;
         flex-direction: column;
       }
-      .slide:last-child { page-break-after: auto; break-after: auto; }
-      .slide.ink { background: var(--ink); color: var(--paper); }
-      h1, h2, .display {
-        font-family: "Fraunces", Georgia, serif;
+      .slide:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      .slide.ink {
+        background: var(--ink);
+        color: var(--paper);
+      }
+      h1,
+      h2,
+      .display {
+        font-family: 'Fraunces', Georgia, serif;
         font-weight: 500;
         letter-spacing: -0.03em;
         margin: 0;
       }
-      h1 { font-size: 48px; line-height: 1.08; max-width: 11.4in; }
-      .ink h1 { font-size: 46px; }
-      h2 { font-size: 36px; line-height: 1.12; max-width: 11.2in; }
-      p { margin: 0; }
+      h1 {
+        font-size: 48px;
+        line-height: 1.08;
+        max-width: 11.4in;
+      }
+      .ink h1 {
+        font-size: 46px;
+      }
+      h2 {
+        font-size: 36px;
+        line-height: 1.12;
+        max-width: 11.2in;
+      }
+      p {
+        margin: 0;
+      }
       .lede {
         margin-top: 20px;
         font-size: 22px;
@@ -59,7 +85,9 @@
         max-width: 10.4in;
         color: var(--muted);
       }
-      .ink .lede { color: rgba(255, 250, 242, 0.78); }
+      .ink .lede {
+        color: rgba(255, 250, 242, 0.78);
+      }
       .kicker {
         font-size: 13px;
         font-weight: 700;
@@ -68,7 +96,9 @@
         color: var(--harbour);
         margin-bottom: 18px;
       }
-      .ink .kicker { color: var(--sand); }
+      .ink .kicker {
+        color: var(--sand);
+      }
       .foot {
         position: absolute;
         left: 0.75in;
@@ -79,25 +109,41 @@
         font-size: 12px;
         color: var(--muted);
       }
-      .ink .foot { color: rgba(255, 250, 242, 0.4); }
-      .lines { margin-top: 32px; }
+      .ink .foot {
+        color: rgba(255, 250, 242, 0.4);
+      }
+      .lines {
+        margin-top: 32px;
+      }
       .line {
         font-size: 22px;
         line-height: 1.35;
         padding: 16px 0;
         border-top: 1px solid rgba(11, 31, 51, 0.12);
       }
-      .ink .line { border-top-color: rgba(255, 250, 242, 0.14); }
-      .line strong { color: var(--harbour); }
-      .ink .line strong { color: var(--sand); }
+      .ink .line {
+        border-top-color: rgba(255, 250, 242, 0.14);
+      }
+      .line strong {
+        color: var(--harbour);
+      }
+      .ink .line strong {
+        color: var(--sand);
+      }
       .two {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 28px;
         margin-top: 28px;
       }
-      .block { padding: 22px 24px; background: var(--sand); border-radius: 8px; }
-      .ink .block { background: rgba(255, 250, 242, 0.08); }
+      .block {
+        padding: 22px 24px;
+        background: var(--sand);
+        border-radius: 8px;
+      }
+      .ink .block {
+        background: rgba(255, 250, 242, 0.08);
+      }
       .block h3 {
         margin: 0 0 10px;
         font-size: 13px;
@@ -105,34 +151,56 @@
         text-transform: uppercase;
         color: var(--harbour);
       }
-      .ink .block h3 { color: var(--sand); }
-      .block p { font-size: 20px; line-height: 1.4; }
+      .ink .block h3 {
+        color: var(--sand);
+      }
+      .block p {
+        font-size: 20px;
+        line-height: 1.4;
+      }
       .big {
-        font-family: "Fraunces", Georgia, serif;
+        font-family: 'Fraunces', Georgia, serif;
         font-size: 72px;
         line-height: 1;
         color: var(--sand);
         margin: 8px 0 12px;
       }
       @media screen {
-        body { padding: 28px 0 48px; }
-        .slide { margin: 0 auto 28px; box-shadow: 0 12px 40px rgba(11, 31, 51, 0.18); }
+        body {
+          padding: 28px 0 48px;
+        }
+        .slide {
+          margin: 0 auto 28px;
+          box-shadow: 0 12px 40px rgba(11, 31, 51, 0.18);
+        }
       }
       @media print {
-        body { background: none; }
-        .slide { box-shadow: none; }
-        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body {
+          background: none;
+        }
+        .slide {
+          box-shadow: none;
+        }
+        * {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
       }
-      @page { size: 13.333in 7.5in; margin: 0; }
+      @page {
+        size: 13.333in 7.5in;
+        margin: 0;
+      }
     </style>
   </head>
   <body>
     <section class="slide ink">
       <p class="kicker">Harbour</p>
-      <h1>The owner already paid for the car. They are tracking it on WhatsApp.</h1>
+      <h1>
+        The owner already paid for the car. They are tracking it on WhatsApp.
+      </h1>
       <p class="lede">
-        Harbour is the company that fixes that. One job. One car. The people
-        who import it see everything. The owner sees a clean story — never the
+        Harbour is the company that fixes that. One job. One car. The people who
+        import it see everything. The owner sees a clean story — never the
         costs, never the tracker number.
       </p>
       <div class="foot">
@@ -145,14 +213,18 @@
       <p class="kicker">The gap</p>
       <h2>A car someone is precious about should not live in three apps.</h2>
       <p class="lede">
-        High-value cars. Rare cars. Cars the owner cannot sleep on. They sit
-        on a ship or in a yard for weeks. The desk is busy. The owner is not.
+        High-value cars. Rare cars. Cars the owner cannot sleep on. They sit on
+        a ship or in a yard for weeks. The desk is busy. The owner is not.
       </p>
       <div class="lines">
         <div class="line">The <strong>job list</strong> is a spreadsheet.</div>
         <div class="line">The <strong>owner</strong> is a WhatsApp chat.</div>
-        <div class="line">The <strong>tracker</strong> is a login they are not allowed to open.</div>
-        <div class="line">When it goes quiet, the whole day becomes phone calls.</div>
+        <div class="line">
+          The <strong>tracker</strong> is a login they are not allowed to open.
+        </div>
+        <div class="line">
+          When it goes quiet, the whole day becomes phone calls.
+        </div>
       </div>
       <div class="foot">
         <span>Harbour</span>
@@ -166,11 +238,17 @@
       <div class="two">
         <div class="block">
           <h3>The desk</h3>
-          <p>The full job: papers, costs, the next stop, the tracker, what is late this morning.</p>
+          <p>
+            The full job: papers, costs, the next stop, the tracker, what is
+            late this morning.
+          </p>
         </div>
         <div class="block">
           <h3>The owner</h3>
-          <p>A simple page in the desk’s brand. Where the car is. What’s next. Never the money. Never someone else’s car.</p>
+          <p>
+            A simple page in the desk’s brand. Where the car is. What’s next.
+            Never the money. Never someone else’s car.
+          </p>
         </div>
       </div>
       <p class="lede">
@@ -189,11 +267,17 @@
       <div class="two">
         <div class="block">
           <h3>Who pays</h3>
-          <p>The import desk. They buy software the way they buy anything else they need to run the day.</p>
+          <p>
+            The import desk. They buy software the way they buy anything else
+            they need to run the day.
+          </p>
         </div>
         <div class="block">
           <h3>Who does not</h3>
-          <p>You. You are not a customer on a trial. You are first money into the company.</p>
+          <p>
+            You. You are not a customer on a trial. You are first money into the
+            company.
+          </p>
         </div>
       </div>
       <p class="lede">
@@ -209,12 +293,12 @@
     <section class="slide ink">
       <p class="kicker">The ask</p>
       <p class="big">€3,000</p>
-      <h1 style="font-size: 34px;">I want you in as the first investor.</h1>
+      <h1 style="font-size: 34px">I want you in as the first investor.</h1>
       <p class="lede">
-        That cheque builds the product: the job, the owner page, the map.
-        Exact terms we put in writing. I want your name on that paper.
+        That cheque builds the product: the job, the owner page, the map. Exact
+        terms we put in writing. I want your name on that paper.
       </p>
-      <div class="two" style="margin-top: 28px;">
+      <div class="two" style="margin-top: 28px">
         <div class="block">
           <h3>What you are buying</h3>
           <p>First money in. A seat at the start of Harbour.</p>

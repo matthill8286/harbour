@@ -60,9 +60,7 @@ export function InvitePage() {
     <div className="min-h-svh bg-ink text-paper">
       <div className="mx-auto grid min-h-svh max-w-5xl md:grid-cols-2">
         <section className="hidden flex-col justify-between p-10 md:flex">
-          <p className="text-xs uppercase tracking-[0.28em] text-mist">
-            {isStaffInvite ? 'Team access' : 'Customer portal'}
-          </p>
+          <p className="text-xs uppercase tracking-[0.28em] text-mist">{isStaffInvite ? 'Team access' : 'Customer portal'}</p>
           <div>
             <h1 className="display text-5xl leading-tight">Harbour</h1>
             <p className="mt-4 max-w-sm text-mist">
@@ -81,9 +79,7 @@ export function InvitePage() {
             {preview.isError ? (
               <div className="space-y-3">
                 <h2 className="display text-3xl">Invite unavailable</h2>
-                <ErrorBanner
-                  message={preview.error instanceof ApiError ? preview.error.message : 'This invite is not valid.'}
-                />
+                <ErrorBanner message={preview.error instanceof ApiError ? preview.error.message : 'This invite is not valid.'} />
                 <Link to="/login" className="text-sm font-semibold text-harbour">
                   Go to sign in
                 </Link>
@@ -91,9 +87,7 @@ export function InvitePage() {
             ) : null}
             {preview.data ? (
               <form onSubmit={onSubmit} className="space-y-4">
-                <p className="text-xs uppercase tracking-widest text-harbour">
-                  {preview.data.organisationBrandName ?? preview.data.organisationName}
-                </p>
+                <p className="text-xs uppercase tracking-widest text-harbour">{preview.data.organisationBrandName ?? preview.data.organisationName}</p>
                 <h2 className="display text-3xl">Welcome, {preview.data.firstName}</h2>
                 <p className="text-sm text-ink/60">
                   {isStaffInvite
@@ -128,13 +122,7 @@ export function InvitePage() {
                 </label>
                 {error ? <ErrorBanner message={error} /> : null}
                 <button type="submit" disabled={pending || password.length < 10} className={`${primaryBtn} w-full py-3`}>
-                  {pending
-                    ? isStaffInvite
-                      ? 'Opening desk…'
-                      : 'Opening portal…'
-                    : isStaffInvite
-                      ? 'Join team'
-                      : 'Activate portal'}
+                  {pending ? (isStaffInvite ? 'Opening desk…' : 'Opening portal…') : isStaffInvite ? 'Join team' : 'Activate portal'}
                 </button>
               </form>
             ) : null}

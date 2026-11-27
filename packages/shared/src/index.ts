@@ -1,11 +1,26 @@
-export const USER_ROLES = ['OWNER', 'ADMIN', 'STAFF', 'VIEWER', 'CUSTOMER'] as const;
+export const USER_ROLES = [
+  'OWNER',
+  'ADMIN',
+  'STAFF',
+  'VIEWER',
+  'CUSTOMER',
+] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 /** Internal desk roles that can mutate operational records. */
-export const STAFF_ROLES = ['OWNER', 'ADMIN', 'STAFF'] as const satisfies readonly UserRole[];
+export const STAFF_ROLES = [
+  'OWNER',
+  'ADMIN',
+  'STAFF',
+] as const satisfies readonly UserRole[];
 
 /** Internal desk roles including read-only viewers. */
-export const STAFF_READ_ROLES = ['OWNER', 'ADMIN', 'STAFF', 'VIEWER'] as const satisfies readonly UserRole[];
+export const STAFF_READ_ROLES = [
+  'OWNER',
+  'ADMIN',
+  'STAFF',
+  'VIEWER',
+] as const satisfies readonly UserRole[];
 
 export function isStaffRole(role: UserRole): boolean {
   return role !== 'CUSTOMER';
@@ -39,16 +54,31 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   CUSTOMER: 'Customer',
 };
 
-export const ORGANISATION_STATUSES = ['ACTIVE', 'SUSPENDED', 'DELETED'] as const;
+export const ORGANISATION_STATUSES = [
+  'ACTIVE',
+  'SUSPENDED',
+  'DELETED',
+] as const;
 export type OrganisationStatus = (typeof ORGANISATION_STATUSES)[number];
 
 export const MEMBERSHIP_STATUSES = ['ACTIVE', 'INVITED', 'DISABLED'] as const;
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[number];
 
-export const SUBSCRIPTION_PLANS = ['STARTER', 'BUSINESS', 'PROFESSIONAL', 'ENTERPRISE'] as const;
+export const SUBSCRIPTION_PLANS = [
+  'STARTER',
+  'BUSINESS',
+  'PROFESSIONAL',
+  'ENTERPRISE',
+] as const;
 export type SubscriptionPlan = (typeof SUBSCRIPTION_PLANS)[number];
 
-export const SUBSCRIPTION_STATUSES = ['TRIAL', 'ACTIVE', 'PAST_DUE', 'SUSPENDED', 'CANCELLED'] as const;
+export const SUBSCRIPTION_STATUSES = [
+  'TRIAL',
+  'ACTIVE',
+  'PAST_DUE',
+  'SUSPENDED',
+  'CANCELLED',
+] as const;
 export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
 
 export const FEATURE_FLAGS = [
@@ -89,7 +119,13 @@ export const DEFAULT_WORKFLOW_STATUSES: ReadonlyArray<{
   stage: JobStage;
 }> = [
   { code: 'NEW', label: 'New', sortOrder: 10, isTerminal: false, stage: 'uk' },
-  { code: 'CONFIRMED', label: 'Confirmed', sortOrder: 20, isTerminal: false, stage: 'uk' },
+  {
+    code: 'CONFIRMED',
+    label: 'Confirmed',
+    sortOrder: 20,
+    isTerminal: false,
+    stage: 'uk',
+  },
   {
     code: 'READY_FOR_COLLECTION',
     label: 'Ready for collection',
@@ -97,7 +133,13 @@ export const DEFAULT_WORKFLOW_STATUSES: ReadonlyArray<{
     isTerminal: false,
     stage: 'uk',
   },
-  { code: 'COLLECTED', label: 'Collected', sortOrder: 40, isTerminal: false, stage: 'uk' },
+  {
+    code: 'COLLECTED',
+    label: 'Collected',
+    sortOrder: 40,
+    isTerminal: false,
+    stage: 'uk',
+  },
   {
     code: 'IN_TRANSIT_UK',
     label: 'In transit (UK)',
@@ -119,7 +161,13 @@ export const DEFAULT_WORKFLOW_STATUSES: ReadonlyArray<{
     isTerminal: false,
     stage: 'registration',
   },
-  { code: 'REGISTERED', label: 'Registered', sortOrder: 80, isTerminal: false, stage: 'registration' },
+  {
+    code: 'REGISTERED',
+    label: 'Registered',
+    sortOrder: 80,
+    isTerminal: false,
+    stage: 'registration',
+  },
   {
     code: 'IN_TRANSIT_TO_GREECE',
     label: 'In transit to Greece',
@@ -127,7 +175,13 @@ export const DEFAULT_WORKFLOW_STATUSES: ReadonlyArray<{
     isTerminal: false,
     stage: 'greece',
   },
-  { code: 'AT_GREECE', label: 'At Greece', sortOrder: 100, isTerminal: false, stage: 'greece' },
+  {
+    code: 'AT_GREECE',
+    label: 'At Greece',
+    sortOrder: 100,
+    isTerminal: false,
+    stage: 'greece',
+  },
   {
     code: 'SHIPPING_TO_CYPRUS',
     label: 'Shipping to Cyprus',
@@ -149,8 +203,20 @@ export const DEFAULT_WORKFLOW_STATUSES: ReadonlyArray<{
     isTerminal: false,
     stage: 'cyprus',
   },
-  { code: 'COMPLETED', label: 'Completed', sortOrder: 140, isTerminal: true, stage: 'completed' },
-  { code: 'CANCELLED', label: 'Cancelled', sortOrder: 150, isTerminal: true, stage: 'cancelled' },
+  {
+    code: 'COMPLETED',
+    label: 'Completed',
+    sortOrder: 140,
+    isTerminal: true,
+    stage: 'completed',
+  },
+  {
+    code: 'CANCELLED',
+    label: 'Cancelled',
+    sortOrder: 150,
+    isTerminal: true,
+    stage: 'cancelled',
+  },
 ];
 
 export const JOB_STAGES = [
@@ -187,7 +253,10 @@ export function getJobStage(status: JobStatus): JobStage {
 }
 
 export function getStatusLabel(status: JobStatus): string {
-  return DEFAULT_WORKFLOW_STATUSES.find((item) => item.code === status)?.label ?? status;
+  return (
+    DEFAULT_WORKFLOW_STATUSES.find((item) => item.code === status)?.label ??
+    status
+  );
 }
 
 export type CorridorJourneyStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
@@ -195,17 +264,25 @@ export type CorridorJourneyStatus = 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED';
 const statusIndex = (status: JobStatus) => JOB_STATUSES.indexOf(status);
 
 /** UK → registration country → Greece → Cyprus legs shown to customers. */
-export function journeyStatusesForJob(status: JobStatus): CorridorJourneyStatus[] {
+export function journeyStatusesForJob(
+  status: JobStatus,
+): CorridorJourneyStatus[] {
   if (status === 'CANCELLED') {
     return ['PLANNED', 'PLANNED', 'PLANNED'];
   }
   const index = statusIndex(status);
-  if (index < statusIndex('COLLECTED')) return ['PLANNED', 'PLANNED', 'PLANNED'];
-  if (index < statusIndex('ARRIVED_REGISTRATION_COUNTRY')) return ['IN_PROGRESS', 'PLANNED', 'PLANNED'];
-  if (index < statusIndex('IN_TRANSIT_TO_GREECE')) return ['COMPLETED', 'PLANNED', 'PLANNED'];
-  if (index < statusIndex('AT_GREECE')) return ['COMPLETED', 'IN_PROGRESS', 'PLANNED'];
-  if (index < statusIndex('SHIPPING_TO_CYPRUS')) return ['COMPLETED', 'COMPLETED', 'PLANNED'];
-  if (index < statusIndex('ARRIVED_CYPRUS')) return ['COMPLETED', 'COMPLETED', 'IN_PROGRESS'];
+  if (index < statusIndex('COLLECTED'))
+    return ['PLANNED', 'PLANNED', 'PLANNED'];
+  if (index < statusIndex('ARRIVED_REGISTRATION_COUNTRY'))
+    return ['IN_PROGRESS', 'PLANNED', 'PLANNED'];
+  if (index < statusIndex('IN_TRANSIT_TO_GREECE'))
+    return ['COMPLETED', 'PLANNED', 'PLANNED'];
+  if (index < statusIndex('AT_GREECE'))
+    return ['COMPLETED', 'IN_PROGRESS', 'PLANNED'];
+  if (index < statusIndex('SHIPPING_TO_CYPRUS'))
+    return ['COMPLETED', 'COMPLETED', 'PLANNED'];
+  if (index < statusIndex('ARRIVED_CYPRUS'))
+    return ['COMPLETED', 'COMPLETED', 'IN_PROGRESS'];
   return ['COMPLETED', 'COMPLETED', 'COMPLETED'];
 }
 
@@ -247,7 +324,12 @@ export const STATUS_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
   CANCELLED: [],
 };
 
-export const TASK_STATUSES = ['TODO', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+export const TASK_STATUSES = [
+  'TODO',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export const TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH'] as const;
@@ -283,9 +365,15 @@ export type MoneyLineKind = 'cost' | 'charge';
  * next reader nothing. The API and the Money tab both use this, so the rule is
  * the same in both places.
  */
-export function moneyLineProblem(line: { category: string; description?: string | null; amount: number }): string | null {
-  if (!Number.isFinite(line.amount) || line.amount < 0) return 'Enter an amount of 0 or more.';
-  if (line.category === 'OTHER' && !(line.description ?? '').trim()) return 'Say what this is. A description is needed when the category is Other.';
+export function moneyLineProblem(line: {
+  category: string;
+  description?: string | null;
+  amount: number;
+}): string | null {
+  if (!Number.isFinite(line.amount) || line.amount < 0)
+    return 'Enter an amount of 0 or more.';
+  if (line.category === 'OTHER' && !(line.description ?? '').trim())
+    return 'Say what this is. A description is needed when the category is Other.';
   return null;
 }
 
@@ -321,13 +409,28 @@ export type NoteVisibility = (typeof NOTE_VISIBILITIES)[number];
 export const JOURNEY_TYPES = ['ROAD', 'FERRY', 'OTHER'] as const;
 export type JourneyType = (typeof JOURNEY_TYPES)[number];
 
-export const JOURNEY_STATUSES = ['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const;
+export const JOURNEY_STATUSES = [
+  'PLANNED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+] as const;
 export type JourneyStatus = (typeof JOURNEY_STATUSES)[number];
 
-export const TRACKER_STATUSES = ['AVAILABLE', 'ASSIGNED', 'OFFLINE', 'RETIRED'] as const;
+export const TRACKER_STATUSES = [
+  'AVAILABLE',
+  'ASSIGNED',
+  'OFFLINE',
+  'RETIRED',
+] as const;
 export type TrackerStatus = (typeof TRACKER_STATUSES)[number];
 
-export const REGISTRATION_KINDS = ['UK', 'TEMPORARY', 'CYPRUS', 'OTHER'] as const;
+export const REGISTRATION_KINDS = [
+  'UK',
+  'TEMPORARY',
+  'CYPRUS',
+  'OTHER',
+] as const;
 export type RegistrationKind = (typeof REGISTRATION_KINDS)[number];
 
 export type PublicUser = {
@@ -455,21 +558,24 @@ export const ROUTE_TEMPLATE_DEFINITIONS: RouteTemplateDefinition[] = [
   {
     code: 'UK_BG_GR_CENTRAL',
     name: 'Central (Brussels · Vienna · Sofia)',
-    description: 'Classic corridor via Benelux and the Danube — default for most consignments.',
+    description:
+      'Classic corridor via Benelux and the Danube — default for most consignments.',
     waypoints: ROUTE_UK_BG_GR_CENTRAL,
     sortOrder: 10,
   },
   {
     code: 'UK_BG_GR_NORTHERN',
     name: 'Northern (Berlin · Prague · Sofia)',
-    description: 'Prefer when central Europe is congested or Channel delays favour the Hook.',
+    description:
+      'Prefer when central Europe is congested or Channel delays favour the Hook.',
     waypoints: ROUTE_UK_BG_GR_NORTHERN,
     sortOrder: 20,
   },
   {
     code: 'UK_BG_GR_SOUTHERN',
     name: 'Southern (Milan · Zagreb · Sofia)',
-    description: 'Prefer in better Alpine weather or when collecting further south in the UK.',
+    description:
+      'Prefer in better Alpine weather or when collecting further south in the UK.',
     waypoints: ROUTE_UK_BG_GR_SOUTHERN,
     sortOrder: 30,
   },
@@ -489,7 +595,8 @@ export function densifyRoute(points: GeoPoint[], stepsPerLeg = 4): GeoPoint[] {
       result.push({
         label: `${points[i].label} → ${next.label}`,
         latitude: points[i].latitude + (next.latitude - points[i].latitude) * t,
-        longitude: points[i].longitude + (next.longitude - points[i].longitude) * t,
+        longitude:
+          points[i].longitude + (next.longitude - points[i].longitude) * t,
       });
     }
   }
@@ -560,7 +667,8 @@ export function nearestRouteIndex(
   let bestDistance = Number.POSITIVE_INFINITY;
   points.forEach((point, index) => {
     const distance =
-      (point.latitude - current.latitude) ** 2 + (point.longitude - current.longitude) ** 2;
+      (point.latitude - current.latitude) ** 2 +
+      (point.longitude - current.longitude) ** 2;
     if (distance < bestDistance) {
       bestDistance = distance;
       best = index;

@@ -1,11 +1,11 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @theme {
   /* Harbour's palette from the redesign (Figma "Harbour" variables, Signal orange),
      so the pages not yet rebuilt on the design system match the ones that are.
      The design system's own tokens are in theme/harbour-tokens.css. */
-  --font-display: "Urbanist", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
-  --font-sans: "Urbanist", "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+  --font-display: 'Urbanist', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
+  --font-sans: 'Urbanist', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
   --color-ink: #0b1f33;
   --color-harbour: #b24424;
   --color-signal: #b24424;
@@ -99,11 +99,13 @@ button {
   height: 28px;
   border-radius: 999px;
   background: var(--color-harbour);
-  box-shadow: 0 0 0 3px #fffaf2, 0 8px 16px rgb(11 31 51 / 0.28);
+  box-shadow:
+    0 0 0 3px #fffaf2,
+    0 8px 16px rgb(11 31 51 / 0.28);
 }
 
 .harbour-vehicle-dot::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 5px;
   left: 11px;
@@ -115,7 +117,9 @@ button {
 
 .harbour-vehicle-dot.is-estimated {
   background: var(--color-paper);
-  box-shadow: 0 0 0 3px var(--color-harbour), 0 8px 16px rgb(11 31 51 / 0.28);
+  box-shadow:
+    0 0 0 3px var(--color-harbour),
+    0 8px 16px rgb(11 31 51 / 0.28);
 }
 
 .harbour-vehicle-dot.is-estimated::after {
@@ -124,7 +128,10 @@ button {
 
 .harbour-vehicle-dot.is-selected {
   background: var(--color-signal);
-  box-shadow: 0 0 0 4px #fffaf2, 0 0 0 7px rgb(224 161 0 / 0.55), 0 10px 18px rgb(11 31 51 / 0.32);
+  box-shadow:
+    0 0 0 4px #fffaf2,
+    0 0 0 7px rgb(224 161 0 / 0.55),
+    0 10px 18px rgb(11 31 51 / 0.32);
   transform: scale(1.12);
 }
 

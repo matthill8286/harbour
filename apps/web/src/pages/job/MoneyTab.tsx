@@ -28,7 +28,19 @@ function draftProblem(draft: Draft) {
 const lineName = (line: Line) => line.description || formatCategory(line.category);
 
 /** A form for a money line, used to add one and to edit one. */
-function LineFields({ kind, draft, onChange, tried, currency }: { kind: MoneyLineKind; draft: Draft; onChange: (patch: Partial<Draft>) => void; tried: boolean; currency: string }) {
+function LineFields({
+  kind,
+  draft,
+  onChange,
+  tried,
+  currency,
+}: {
+  kind: MoneyLineKind;
+  draft: Draft;
+  onChange: (patch: Partial<Draft>) => void;
+  tried: boolean;
+  currency: string;
+}) {
   const problem = tried ? draftProblem(draft) : null;
   const other = draft.category === 'OTHER';
   return (
@@ -73,12 +85,16 @@ export function MoneyTab({ job }: { job: JobDetail }) {
         <div>
           <dt>Internal cost</dt>
           <dd>{money(job.totals.totalCost, currency)}</dd>
-          <Text size="sm" tone="muted">Sum of the cost lines below</Text>
+          <Text size="sm" tone="muted">
+            Sum of the cost lines below
+          </Text>
         </div>
         <div>
           <dt>Customer charges</dt>
           <dd>{money(job.totals.totalCharge, currency)}</dd>
-          <Text size="sm" tone="muted">Sum of the charge lines below</Text>
+          <Text size="sm" tone="muted">
+            Sum of the charge lines below
+          </Text>
         </div>
         <div className="is-margin">
           <dt>
@@ -92,8 +108,30 @@ export function MoneyTab({ job }: { job: JobDetail }) {
       {empty && !canWrite ? <EmptyState heading="No costs or charges yet" lead="Lines appear here once the team adds them." framed /> : null}
 
       <div className="job-money-grid">
-        <MoneyCard kind="cost" title="Costs" lead="What this job costs the business" lines={job.costs} job={job} currency={currency} canWrite={canWrite} onEdit={setEditing} onDelete={setDeleting} onAdded={refresh} />
-        <MoneyCard kind="charge" title="Customer charges" lead="What the customer is invoiced" lines={job.charges} job={job} currency={currency} canWrite={canWrite} onEdit={setEditing} onDelete={setDeleting} onAdded={refresh} />
+        <MoneyCard
+          kind="cost"
+          title="Costs"
+          lead="What this job costs the business"
+          lines={job.costs}
+          job={job}
+          currency={currency}
+          canWrite={canWrite}
+          onEdit={setEditing}
+          onDelete={setDeleting}
+          onAdded={refresh}
+        />
+        <MoneyCard
+          kind="charge"
+          title="Customer charges"
+          lead="What the customer is invoiced"
+          lines={job.charges}
+          job={job}
+          currency={currency}
+          canWrite={canWrite}
+          onEdit={setEditing}
+          onDelete={setDeleting}
+          onAdded={refresh}
+        />
       </div>
 
       <Text size="sm" tone="muted">

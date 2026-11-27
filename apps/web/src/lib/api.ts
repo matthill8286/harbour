@@ -32,7 +32,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     let code: string | undefined;
     try {
       const body = (await response.json()) as { message?: string | string[]; code?: string };
-      message = Array.isArray(body.message) ? body.message.join(', ') : body.message ?? message;
+      message = Array.isArray(body.message) ? body.message.join(', ') : (body.message ?? message);
       code = body.code;
     } catch {
       /* ignore */

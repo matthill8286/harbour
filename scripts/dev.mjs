@@ -18,7 +18,9 @@ function start(name, args) {
       return;
     }
     if (code && code !== 0) {
-      console.error(`${name} exited with code ${code}. The other app will keep running.`);
+      console.error(
+        `${name} exited with code ${code}. The other app will keep running.`,
+      );
     }
   });
   return child;

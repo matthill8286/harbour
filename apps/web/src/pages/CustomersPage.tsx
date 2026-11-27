@@ -45,7 +45,8 @@ export function CustomersPage() {
   const [tried, setTried] = useState(false);
   const query = useQuery({ queryKey: ['customers'], queryFn: () => api<Customer[]>('/customers') });
   const create = useMutation({
-    mutationFn: () => api('/customers', { method: 'POST', body: JSON.stringify({ ...form, email: form.email.trim() || undefined, phone: form.phone.trim() || undefined }) }),
+    mutationFn: () =>
+      api('/customers', { method: 'POST', body: JSON.stringify({ ...form, email: form.email.trim() || undefined, phone: form.phone.trim() || undefined }) }),
     onSuccess: async () => {
       setForm(BLANK);
       setTried(false);
@@ -90,8 +91,22 @@ export function CustomersPage() {
               if (form.firstName.trim() && form.lastName.trim()) create.mutate();
             }}
           >
-            <TextInput label="First name" required autocomplete="off" value={form.firstName} error={tried && !form.firstName.trim() ? 'Enter a first name' : ''} onChange={set('firstName')} />
-            <TextInput label="Last name" required autocomplete="off" value={form.lastName} error={tried && !form.lastName.trim() ? 'Enter a last name' : ''} onChange={set('lastName')} />
+            <TextInput
+              label="First name"
+              required
+              autocomplete="off"
+              value={form.firstName}
+              error={tried && !form.firstName.trim() ? 'Enter a first name' : ''}
+              onChange={set('firstName')}
+            />
+            <TextInput
+              label="Last name"
+              required
+              autocomplete="off"
+              value={form.lastName}
+              error={tried && !form.lastName.trim() ? 'Enter a last name' : ''}
+              onChange={set('lastName')}
+            />
             <TextInput label="Email" type="email" autocomplete="off" placeholder="name@example.com" value={form.email} onChange={set('email')} />
             <TextInput label="Phone" type="tel" autocomplete="off" placeholder="+357 …" value={form.phone} onChange={set('phone')} />
             <Button type="submit" busy={create.isPending} busyLabel="Adding the customer">
