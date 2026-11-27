@@ -17,6 +17,7 @@ import { TrackingPage } from './pages/TrackingPage';
 import { TrackersPage } from './pages/TrackersPage';
 import { OrganisationPage } from './pages/OrganisationPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { MorePage } from './pages/MorePage';
 import { TwoFactorPage } from './pages/TwoFactorPage';
 import { SecuritySetupPage } from './pages/SecuritySetupPage';
 import { SecurityPage } from './pages/SecurityPage';
@@ -152,6 +153,14 @@ export default function App() {
           element={
             <Guard allow={customer}>
               <PortalJobPage />
+            </Guard>
+          }
+        />
+        <Route
+          path="/more"
+          element={
+            <Guard allow={staff}>
+              <MorePage />
             </Guard>
           }
         />
