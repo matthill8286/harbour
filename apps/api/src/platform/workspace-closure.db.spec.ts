@@ -395,6 +395,78 @@ describeWithDatabase('exporting and deleting a whole workspace', () => {
     SLOW,
   );
 
+  /** Waits until a session is blocked on a lock while running `fragment`. */
+  async function blockedOn(fragment: string) {
+    const pattern = `%${fragment}%`;
+    for (let tries = 0; tries < 100; tries += 1) {
+      const [{ waiting }] = await prisma.$queryRaw<{ waiting: number }[]>`
+        SELECT count(*)::int AS waiting FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND wait_event_type = 'Lock'
+          AND query ILIKE ${pattern}`;
+      if (waiting > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(`Nothing waited on a lock while running ${fragment}`);
+  }
+
+  it(
+    'deletes a workspace and backfills usage at the same time without a deadlock',
+    async () => {
+      const leaving = await workspace();
+      const ended = new Date(Date.now() - DAY).toISOString().slice(0, 10);
+      await operator(
+        'close',
+        leaving.slug,
+        '--by',
+        operatorEmail,
+        '--contract-end',
+        ended,
+        '--reason',
+        'Contract ended by the client',
+      );
+      await prisma.workspaceClosure.update({
+        where: { organisationId: leaving.id },
+        data: { deleteAfter: new Date(Date.now() - 1000) },
+      });
+      const usage = app.get(UsageService);
+
+      // The order that deadlocked: the deletion reaches the organisation's
+      // row first, then the backfill takes its table lock and needs that row
+      // to count the workspace's job. A held row lock lines them up so.
+      let deletion: Promise<string> | undefined;
+      let backfill: Promise<number> | undefined;
+      await prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "Organisation" WHERE "id" = ${leaving.id} FOR UPDATE`;
+          deletion = operator(
+            'delete-closed',
+            leaving.slug,
+            '--by',
+            operatorEmail,
+            '--confirm',
+          );
+          await blockedOn('DELETE FROM "public"."Organisation"');
+          backfill = usage.backfillImportJobs();
+          await blockedOn('"UsageRecord"');
+        },
+        { timeout: 20_000 },
+      );
+
+      await expect(deletion).resolves.toContain('are deleted');
+      await expect(backfill).resolves.toEqual(expect.any(Number));
+      expect(
+        await prisma.organisation.count({ where: { id: leaving.id } }),
+      ).toBe(0);
+      expect(
+        await prisma.usageRecord.count({
+          where: { organisationId: leaving.id },
+        }),
+      ).toBe(0);
+    },
+    SLOW,
+  );
+
   it('refuses a closure without an operator, a reason or a real date', async () => {
     const ws = await workspace();
     await expect(
