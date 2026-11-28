@@ -4,6 +4,7 @@
  * and once the notice has passed the operator deletes the workspace's data.
  * Like the rest of the operator's commands, nothing here has an HTTP route.
  */
+import { Logger } from '@nestjs/common';
 import type { Prisma, PrismaClient } from '@prisma/client';
 import { eraseAccountIfOnlyOurs } from '../privacy/apply-erasure';
 import type { WorkspaceDeletionEntry } from '../privacy/erasure-journal';
@@ -305,11 +306,40 @@ export type WorkspaceDeletionDeps = {
   journal: (entry: WorkspaceDeletionEntry) => Promise<void>;
   /** Deletes the workspace's folder of files. */
   removeFiles: (organisationId: string) => Promise<void>;
+  /** The account service's licences, when Harbour checks them. */
+  licences?: LicenceRelease;
 };
+
+export type LicenceRelease = {
+  /** The id of the licence that covers the workspace, or null when none does. */
+  find: (organisationId: string) => Promise<string | null>;
+  /** Ends the licence because its workspace was deleted. */
+  release: (licenceId: string, organisationId: string) => Promise<void>;
+};
+
+/**
+ * What happened to the workspace's licence at the account service. `id` is
+ * null when no licence covers it, or when it could not be looked up. `error`
+ * says why it was not released.
+ */
+export type LicenceOutcome = {
+  id: string | null;
+  released: boolean;
+  error: string | null;
+};
+
+const logger = new Logger('WorkspaceClosure');
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 /**
  * Deletes a workspace whose notice period has passed. Without `confirm` it only
  * says what would go. The operator's log keeps a record with ids only.
+ *
+ * When licences are checked, the licence that covers the workspace is looked
+ * up before the deletion and released at the account service after it. A
+ * failed release does not undo the deletion: it is logged, and the result
+ * names the licence so the operator can release it with `release-licence`.
  */
 export async function deleteClosedWorkspace(
   prisma: PrismaClient,
@@ -339,7 +369,21 @@ export async function deleteClosedWorkspace(
       summary: await deletionSummary(tx, organisation.id),
     };
   });
-  if (!change.confirm) return { ...plan, deleted: false };
+  if (!change.confirm) return { ...plan, deleted: false, licence: null };
+
+  // Looked up first, because the account service finds it by the workspace.
+  let licence: LicenceOutcome | null = null;
+  if (deps.licences) {
+    try {
+      licence = {
+        id: await deps.licences.find(plan.organisation.id),
+        released: false,
+        error: null,
+      };
+    } catch (error) {
+      licence = { id: null, released: false, error: message(error) };
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     // Checked again inside the deletion, in case it was cancelled meanwhile.
@@ -369,8 +413,22 @@ export async function deleteClosedWorkspace(
       files: [],
     });
   }, DELETION_TRANSACTION);
+
+  if (deps.licences && licence?.id) {
+    try {
+      await deps.licences.release(licence.id, plan.organisation.id);
+      licence.released = true;
+    } catch (error) {
+      licence.error = message(error);
+    }
+  }
+  if (licence?.error) {
+    logger.warn(
+      `Workspace ${plan.organisation.id} is deleted, and its licence ${licence.id ?? '(unknown)'} was not released at the account service: ${licence.error}`,
+    );
+  }
   await deps.removeFiles(plan.organisation.id);
-  return { ...plan, deleted: true };
+  return { ...plan, deleted: true, licence };
 }
 
 /** In the operator's log, and in the workspace's own without the reason. */

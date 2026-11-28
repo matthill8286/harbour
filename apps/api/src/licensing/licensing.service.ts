@@ -150,6 +150,33 @@ export class LicensingService {
     return answer.licence;
   }
 
+  /**
+   * Tells the account service that the workspace a licence covers was deleted.
+   * The licence ends there at once and stops naming the workspace. The same
+   * call again changes nothing. Throws when the account service does not
+   * confirm it, with what it answered.
+   */
+  async release(id: string, organisationId: string): Promise<Licence> {
+    this.cache.delete(organisationId);
+    let answer: Awaited<ReturnType<LicensingService['call']>>;
+    try {
+      answer = await this.call(
+        `/internal/licences/${encodeURIComponent(id)}/release`,
+        { tenant: organisationId },
+      );
+    } catch (error) {
+      throw new Error(
+        `The account service could not be reached: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    if (answer.status !== 200 || !answer.licence) {
+      throw new Error(
+        `The account service answered ${answer.status}${answer.code ? ` (${answer.code})` : ''}.`,
+      );
+    }
+    return answer.licence;
+  }
+
   /** The licence's own ceiling for a plan limit, or null when it sets none or licences are not checked. */
   async limit(
     organisationId: string,
@@ -171,8 +198,13 @@ export class LicensingService {
     });
     const json = (await response.json().catch(() => ({}))) as {
       licence?: Licence;
+      code?: string;
     };
-    return { status: response.status, licence: json.licence ?? null };
+    return {
+      status: response.status,
+      licence: json.licence ?? null,
+      code: typeof json.code === 'string' ? json.code : null,
+    };
   }
 
   /** The licence, null for 404, or a thrown error for anything that is not an answer. */
