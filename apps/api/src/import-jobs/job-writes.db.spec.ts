@@ -235,21 +235,23 @@ describeWithDatabase('job writes against PostgreSQL', () => {
     const [first, second] = w.route.stages;
     const target = second.statuses[0].code;
     // Makes the last step fail inside the database, after the jobs have moved.
+    // The trigger refuses only this stage. Other database specs run at the same
+    // time against the same database, and they must still be able to remove
+    // their own stages while it is in place.
+    const name = `refuse_${randomUUID().replaceAll('-', '')}`;
     await prisma.$executeRawUnsafe(
-      `CREATE FUNCTION refuse_stage_delete() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$ LANGUAGE plpgsql`,
+      `CREATE FUNCTION ${name}() RETURNS trigger AS $$ BEGIN RAISE EXCEPTION 'refused'; END $$ LANGUAGE plpgsql`,
     );
     await prisma.$executeRawUnsafe(
-      `CREATE TRIGGER refuse_stage_delete BEFORE DELETE ON "RouteStage" FOR EACH ROW EXECUTE FUNCTION refuse_stage_delete()`,
+      `CREATE TRIGGER ${name} BEFORE DELETE ON "RouteStage" FOR EACH ROW WHEN (OLD."id" = '${first.id}') EXECUTE FUNCTION ${name}()`,
     );
     try {
       await expect(
         workflows.removeStage(w.user, w.route.id, first.id, target),
       ).rejects.toThrow('refused');
     } finally {
-      await prisma.$executeRawUnsafe(
-        `DROP TRIGGER refuse_stage_delete ON "RouteStage"`,
-      );
-      await prisma.$executeRawUnsafe(`DROP FUNCTION refuse_stage_delete`);
+      await prisma.$executeRawUnsafe(`DROP TRIGGER ${name} ON "RouteStage"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION ${name}`);
     }
     await expect(
       prisma.importJob.findUnique({ where: { id: job.id } }),
