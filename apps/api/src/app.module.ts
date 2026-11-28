@@ -18,6 +18,7 @@ import { TenancyModule } from './tenancy/tenancy.module';
 import { LicensingModule } from './licensing/licensing.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { PrivacyModule } from './privacy/privacy.module';
+import { PlatformModule } from './platform/platform.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -44,6 +45,7 @@ import { HealthController } from './health.controller';
     RouteTemplatesModule,
     WorkflowModule,
     PrivacyModule,
+    PlatformModule,
   ],
   controllers: [HealthController],
 })

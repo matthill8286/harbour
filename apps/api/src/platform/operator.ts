@@ -12,7 +12,9 @@
  *
  * `close` records the end of a workspace's contract. The workspace keeps working
  * through the notice period (WORKSPACE_DELETION_NOTICE_DAYS, 30 by default), so
- * its Admins can export everything. `delete-closed` then deletes its data and
+ * its Admins can export everything. The api emails its active Admins when it
+ * is closed, WORKSPACE_DELETION_REMINDER_DAYS (7 by default) before the
+ * deletion, and if the closure is cancelled. `delete-closed` then deletes its data and
  * files. Without --confirm it only says what would go.
  *
  * `--by` records who did it. It is not a sign-in: only someone who can already

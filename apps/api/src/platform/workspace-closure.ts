@@ -41,6 +41,27 @@ export function deletionNoticeDays(
   return days;
 }
 
+/**
+ * Days before the deletion that the Admins are reminded, unless
+ * WORKSPACE_DELETION_REMINDER_DAYS says otherwise.
+ */
+export const DEFAULT_DELETION_REMINDER_DAYS = 7;
+
+export function deletionReminderDays(
+  value = process.env.WORKSPACE_DELETION_REMINDER_DAYS,
+): number {
+  if (value === undefined || value.trim() === '') {
+    return DEFAULT_DELETION_REMINDER_DAYS;
+  }
+  const days = Number(value);
+  if (!Number.isInteger(days) || days < 1) {
+    throw new OperatorError(
+      'WORKSPACE_DELETION_REMINDER_DAYS must be a whole number of days, 1 or more.',
+    );
+  }
+  return days;
+}
+
 /** A date such as 2027-01-31, read as the end of that day in UTC. */
 export function parseContractEnd(value: string): Date {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
@@ -62,11 +83,15 @@ type Schedule = {
   reason: string;
   contractEndsAt: Date;
   noticeDays: number;
+  /** Days before the deletion to remind the Admins. */
+  reminderDays: number;
 };
 
 /**
  * Records that the workspace's contract ends, and when its data may be deleted.
  * It changes nothing else: the workspace keeps working until it is deleted.
+ * It also queues the emails to the Admins: one now, and a reminder before the
+ * deletion unless that time has already come. The api sends them.
  */
 export function scheduleClosure(
   prisma: PrismaClient,
@@ -98,6 +123,34 @@ export function scheduleClosure(
         scheduledAt: now,
       },
     });
+    // Anything left is from an earlier closure that was cancelled.
+    await tx.closureEmail.deleteMany({
+      where: { organisationId: organisation.id },
+    });
+    const dates = { contractEndsAt: change.contractEndsAt, deleteAfter };
+    const remindAt = new Date(
+      deleteAfter.getTime() - change.reminderDays * DAY,
+    );
+    await tx.closureEmail.createMany({
+      data: [
+        {
+          organisationId: organisation.id,
+          kind: 'SCHEDULED',
+          dueAt: now,
+          ...dates,
+        },
+        ...(remindAt > now
+          ? [
+              {
+                organisationId: organisation.id,
+                kind: 'REMINDER' as const,
+                dueAt: remindAt,
+                ...dates,
+              },
+            ]
+          : []),
+      ],
+    });
     await record(
       tx,
       'WORKSPACE_CLOSURE_SCHEDULED',
@@ -109,23 +162,61 @@ export function scheduleClosure(
         deleteAfter: deleteAfter.toISOString(),
       },
     );
-    return { organisation, deleteAfter };
+    return {
+      organisation,
+      deleteAfter,
+      remindAt: remindAt > now ? remindAt : null,
+    };
   });
 }
 
+/**
+ * Cancels a scheduled closure. Emails about it that have not started to go are
+ * dropped. If one may have reached an Admin, they are told it is cancelled.
+ */
 export function cancelClosure(
   prisma: PrismaClient,
   change: { slug: string; operatorEmail: string; reason: string },
+  now = new Date(),
 ) {
   const reason = requireReason(change.reason);
   return prisma.$transaction(async (tx) => {
     const operator = await requireOperator(tx, change.operatorEmail);
     const organisation = await requireWorkspace(tx, change.slug);
+    const closure = await tx.workspaceClosure.findUnique({
+      where: { organisationId: organisation.id },
+    });
     const { count } = await tx.workspaceClosure.deleteMany({
       where: { organisationId: organisation.id },
     });
-    if (count !== 1) {
+    if (!closure || count !== 1) {
       throw new OperatorError(`${change.slug} is not due for deletion.`);
+    }
+    // A row the api has taken to send is kept by this condition, even when it
+    // took it a moment ago, so it is counted below.
+    await tx.closureEmail.deleteMany({
+      where: {
+        organisationId: organisation.id,
+        claimedAt: null,
+        sentToUserIds: { isEmpty: true },
+      },
+    });
+    const { count: told } = await tx.closureEmail.deleteMany({
+      where: {
+        organisationId: organisation.id,
+        kind: { in: ['SCHEDULED', 'REMINDER'] },
+      },
+    });
+    if (told > 0) {
+      await tx.closureEmail.create({
+        data: {
+          organisationId: organisation.id,
+          kind: 'CANCELLED',
+          contractEndsAt: closure.contractEndsAt,
+          deleteAfter: closure.deleteAfter,
+          dueAt: now,
+        },
+      });
     }
     await record(
       tx,
@@ -134,7 +225,7 @@ export function cancelClosure(
       organisation.id,
       reason,
     );
-    return organisation;
+    return { organisation, adminsTold: told > 0 };
   });
 }
 
