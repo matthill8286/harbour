@@ -30,6 +30,7 @@ const organisationInclude = {
   settings: true,
   subscription: true,
   features: true,
+  closure: { select: { contractEndsAt: true, deleteAfter: true } },
 } as const;
 
 const memberSelect = {
@@ -95,7 +96,9 @@ export class OrganisationsService {
     if (!organisation) {
       throw new NotFoundException('Organisation not found');
     }
-    return presentOrganisation(organisation);
+    const view = presentOrganisation(organisation);
+    // The end of the contract is the business's own matter, not its customers'.
+    return user.role === 'CUSTOMER' ? { ...view, closure: null } : view;
   }
 
   async update(user: AuthUser, dto: UpdateOrganisationDto) {

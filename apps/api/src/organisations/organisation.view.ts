@@ -10,6 +10,8 @@ export function presentOrganisation(org: {
   settings: { brandName: string | null; primaryContact: string | null } | null;
   subscription: { plan: string; status: string; billingCycle: string } | null;
   features: Array<{ flag: string; enabled: boolean }>;
+  /** Set when the contract has ended and the data waits to be deleted. */
+  closure?: { contractEndsAt: Date; deleteAfter: Date } | null;
 }) {
   return {
     id: org.id,
@@ -27,6 +29,12 @@ export function presentOrganisation(org: {
           plan: org.subscription.plan,
           status: org.subscription.status,
           billingCycle: org.subscription.billingCycle,
+        }
+      : null,
+    closure: org.closure
+      ? {
+          contractEndsAt: org.closure.contractEndsAt,
+          deleteAfter: org.closure.deleteAfter,
         }
       : null,
     features: Object.fromEntries(

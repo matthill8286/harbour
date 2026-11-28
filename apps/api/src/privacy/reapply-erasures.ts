@@ -5,12 +5,17 @@
  * look unwanted.
  */
 import type { PrismaService } from '../prisma/prisma.service';
+import {
+  DELETION_TRANSACTION_OPTIONS,
+  deleteWorkspaceRows,
+} from '../platform/workspace-closure';
 import { applyErasure } from './apply-erasure';
 import { buildErasurePlan } from './erasure-plan';
 import type {
   ErasureEntry,
   JournalEntry,
   ReviewRemovalEntry,
+  WorkspaceDeletionEntry,
 } from './erasure-journal';
 import {
   ERASURE_TRANSACTION,
@@ -33,6 +38,14 @@ export async function reapplyErasures(
 ): Promise<ReapplyResult[]> {
   const results: ReapplyResult[] = [];
   for (const entry of entries) {
+    if (entry.type === 'workspace-deletion') {
+      const outcome = await repeatDeletion(prisma, entry, confirm);
+      const filesNotRemoved = confirm
+        ? await erasures.removeWorkspaceFiles(entry.organisationId)
+        : 0;
+      results.push({ entry, outcome, filesNotRemoved });
+      continue;
+    }
     const outcome =
       entry.type === 'erasure'
         ? await repeatErasure(prisma, erasures, entry, confirm)
@@ -141,5 +154,31 @@ async function repeatRemoval(
     return removeRecord(tx, entry.organisationId, entry.kind, entry.recordId);
   }, ERASURE_TRANSACTION);
   await erasures.removeFiles(entry.organisationId, files);
+  return 'applied';
+}
+
+/** A workspace a restore brought back is deleted again, with its accounts. */
+async function repeatDeletion(
+  prisma: PrismaService,
+  entry: WorkspaceDeletionEntry,
+  confirm: boolean,
+): Promise<ReapplyResult['outcome']> {
+  const exists = await prisma.organisation.findUnique({
+    where: { id: entry.organisationId },
+    select: { id: true },
+  });
+  if (!exists) return 'already';
+  if (!confirm) return 'would-apply';
+  await prisma.$transaction(async (tx) => {
+    await deleteWorkspaceRows(tx, entry.organisationId, new Date(entry.at));
+    await tx.platformAuditLog.create({
+      data: {
+        action: 'WORKSPACE_DELETION_REAPPLIED',
+        operatorId: entry.performedById,
+        targetType: 'Organisation',
+        targetId: entry.organisationId,
+      },
+    });
+  }, DELETION_TRANSACTION_OPTIONS);
   return 'applied';
 }

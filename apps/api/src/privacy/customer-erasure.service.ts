@@ -214,6 +214,20 @@ export class CustomerErasureService {
   }
 
   /** Deletes files and every copy of them. Returns how many could not go. */
+  /** Every file of a deleted workspace. Returns 1 if they could not all go. */
+  async removeWorkspaceFiles(organisationId: string) {
+    try {
+      await this.storage.removeWorkspace(organisationId);
+      return 0;
+    } catch (error) {
+      this.logger.error(
+        `Could not delete the files of workspace ${organisationId}`,
+        error as Error,
+      );
+      return 1;
+    }
+  }
+
   async removeFiles(organisationId: string, files: RemovedFile[]) {
     let failed = 0;
     for (const file of files) {

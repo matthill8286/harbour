@@ -181,6 +181,19 @@ export class StorageService {
     );
   }
 
+  /**
+   * Deletes every file a workspace has, by removing its folder. Used only when
+   * the whole workspace is deleted at the end of its contract.
+   */
+  async removeWorkspace(organisationId: string): Promise<void> {
+    if (!/^[A-Za-z0-9_-]+$/.test(organisationId)) {
+      throw new Error('Not a workspace id.');
+    }
+    await this.inTurn(() =>
+      rm(join(this.root, organisationId), { recursive: true, force: true }),
+    );
+  }
+
   private pathOf(key: string, organisationId?: string): string {
     if (!isSafeObjectKey(key, organisationId)) {
       throw new NotFoundException('File not found');

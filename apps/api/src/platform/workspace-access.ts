@@ -180,7 +180,7 @@ async function record(
   });
 }
 
-function requireReason(reason: string) {
+export function requireReason(reason: string) {
   const trimmed = reason.trim();
   if (
     trimmed.length < MIN_REASON_LENGTH ||
@@ -215,7 +215,10 @@ async function requireStrongAccount(
 }
 
 /** Checked again on every use, so a revoked or weakened account can do nothing. */
-async function requireOperator(tx: Prisma.TransactionClient, email: string) {
+export async function requireOperator(
+  tx: Prisma.TransactionClient,
+  email: string,
+) {
   const account = await requireStrongAccount(tx, email);
   const role = await tx.platformAdmin.findUnique({
     where: { userId: account.id },
@@ -226,7 +229,10 @@ async function requireOperator(tx: Prisma.TransactionClient, email: string) {
   return account;
 }
 
-async function requireWorkspace(tx: Prisma.TransactionClient, slug: string) {
+export async function requireWorkspace(
+  tx: Prisma.TransactionClient,
+  slug: string,
+) {
   const organisation = await tx.organisation.findUnique({
     where: { slug },
     select: { id: true, slug: true, name: true },

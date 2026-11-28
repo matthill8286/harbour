@@ -19,6 +19,7 @@ import { LoadingScreen } from '../components/ui';
 import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
 import { GpsSettings } from './account/GpsSettings';
 import { AgreementsCard } from '../components/Agreements';
+import { WorkspaceExport, type WorkspaceClosure } from './account/WorkspaceExport';
 import './account/Account.css';
 
 type OrganisationView = {
@@ -37,6 +38,7 @@ type OrganisationView = {
     billingCycle: string;
   } | null;
   features: Record<string, boolean>;
+  closure: WorkspaceClosure;
 };
 
 type Member = {
@@ -446,6 +448,7 @@ export function OrganisationPage() {
           <Team />
           <GpsSettings />
           <AgreementsCard />
+          <WorkspaceExport slug={org.slug} closure={org.closure} />
         </>
       )}
     </div>

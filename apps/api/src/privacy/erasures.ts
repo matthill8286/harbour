@@ -32,7 +32,9 @@ async function main() {
   if (command === 'list') {
     for (const entry of entries) {
       console.log(
-        `${entry.at} ${entry.type} workspace=${entry.organisationId} customer=${entry.customerId}`,
+        `${entry.at} ${entry.type} workspace=${entry.organisationId}${
+          'customerId' in entry ? ` customer=${entry.customerId}` : ''
+        }`,
       );
     }
     return;
@@ -51,7 +53,11 @@ async function main() {
     });
     for (const { entry, outcome, filesNotRemoved } of results) {
       console.log(
-        `${outcome} ${entry.type} customer=${entry.customerId}${
+        `${outcome} ${entry.type} ${
+          'customerId' in entry
+            ? `customer=${entry.customerId}`
+            : `workspace=${entry.organisationId}`
+        }${
           filesNotRemoved
             ? ` (${filesNotRemoved} files could not be deleted)`
             : ''

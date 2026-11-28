@@ -181,6 +181,7 @@ model Organisation {
   suspensions      WorkspaceSuspension[]
   erasures         CustomerErasure[]
   termsAcceptances TermsAcceptance[]
+  closure          WorkspaceClosure?
 }
 
 model OrganisationSettings {
@@ -246,6 +247,20 @@ model WorkspaceSuspension {
 
 /// What was done with the platform operator role: grants, revocations,
 /// suspensions and restores. It belongs to no workspace.
+/// A workspace whose contract has ended. Its data is deleted once the notice
+/// period has passed, by the operator's `delete-closed` command. Until then the
+/// workspace works as before, so its Admins can export everything.
+model WorkspaceClosure {
+  organisationId String       @id
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  contractEndsAt DateTime
+  /// The earliest time the data may be deleted: the contract end plus the notice.
+  deleteAfter    DateTime
+  reason         String
+  scheduledById  String
+  scheduledAt    DateTime     @default(now())
+}
+
 model PlatformAuditLog {
   id         String   @id @default(cuid())
   action     String
