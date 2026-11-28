@@ -276,6 +276,13 @@ export async function deleteWorkspaceRows(
   organisationId: string,
   now: Date,
 ) {
+  // The cascade from the organisation needs this lock on UsageRecord. Taking
+  // it before anything is deleted means a usage backfill that holds its table
+  // lock makes the deletion wait at the start. Otherwise the deletion could
+  // hold the organisation's row while the backfill holds the table, and
+  // PostgreSQL would abort one of them as a deadlock. This mode does not
+  // conflict with live metering in other workspaces.
+  await tx.$executeRaw`LOCK TABLE "UsageRecord" IN ROW EXCLUSIVE MODE`;
   const members = await tx.organisationMembership.findMany({
     where: { organisationId },
     select: { userId: true },
