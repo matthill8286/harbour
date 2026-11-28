@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/current-user.decorator';
 import type { AuthUser } from '../auth/auth.types';
 import { PortalService } from './portal.service';
 import { UpdateOwnDetailsDto } from './portal.dto';
+import { AllowWhenReadOnly } from '../auth/allow-when-read-only.decorator';
 
 @Controller('portal')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -27,6 +28,7 @@ export class PortalController {
   }
 
   @Patch('me')
+  @AllowWhenReadOnly()
   updateMe(@CurrentUser() user: AuthUser, @Body() dto: UpdateOwnDetailsDto) {
     return this.portal.updateMe(user, dto);
   }

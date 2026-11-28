@@ -178,6 +178,7 @@ model Organisation {
   staffInvites     StaffInvite[]
   statusHistory    JobStatusHistory[]
   registrations    VehicleRegistration[]
+  suspensions      WorkspaceSuspension[]
 }
 
 model OrganisationSettings {
@@ -219,6 +220,37 @@ model PlatformAdmin {
   createdAt DateTime @default(now())
 }
 
+/// One suspension of a workspace by a platform operator, kept after it ends.
+/// The operator is stored by id only, so the record outlives their account.
+model WorkspaceSuspension {
+  id               String       @id @default(cuid())
+  organisationId   String
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  reason           String
+  suspendedById    String
+  suspendedAt      DateTime     @default(now())
+  restoreReason    String?
+  restoredById     String?
+  restoredAt       DateTime?
+
+  @@index([organisationId, restoredAt])
+}
+
+/// What was done with the platform operator role: grants, revocations,
+/// suspensions and restores. It belongs to no workspace.
+model PlatformAuditLog {
+  id         String   @id @default(cuid())
+  action     String
+  /// The operator who did it. Empty for a grant or revocation run on the server.
+  operatorId String?
+  targetType String
+  targetId   String
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model Subscription {
   id             String             @id @default(cuid())
   organisationId String             @unique
@@ -229,6 +261,9 @@ model Subscription {
   billingCycle   BillingCycle       @default(MONTHLY)
   startedAt      DateTime           @default(now())
   renewalAt      DateTime?
+  /// The end of the notice period of a lapsed plan. From then the workspace can
+  /// be read and exported, but not changed. Empty means no restriction.
+  readOnlyFrom   DateTime?
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 }

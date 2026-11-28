@@ -17,6 +17,7 @@ import { OrganisationsService } from './organisations.service';
 import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
 import { LimitInviteSending } from '../rate-limit/rate-limit.guard';
+import { AllowWhenReadOnly } from '../auth/allow-when-read-only.decorator';
 
 @Controller('organisation')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -51,6 +52,7 @@ export class OrganisationsController {
 
   @Patch('members/:id')
   @Roles('ADMIN')
+  @AllowWhenReadOnly()
   updateMember(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

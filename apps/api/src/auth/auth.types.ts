@@ -13,4 +13,6 @@ export type AuthUser = {
   role: UserRole;
   customerId: string | null;
   twoFactorEnabled: boolean;
+  /** Set when a lapsed plan's notice period has ended. */
+  workspaceReadOnly?: boolean;
 };

@@ -6,6 +6,8 @@ import type { Page } from '../lib/pages';
 import { useSession } from '../lib/session';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { SignOutDialog } from './account/SignOutDialog';
+import { SwitchWorkspaceDialog } from './account/SwitchWorkspaceDialog';
+import { useOrganisations } from '../lib/organisations';
 import './account/Account.css';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -17,6 +19,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function MorePage() {
   const { user, canManage, workspace, roleLabel } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const [switching, setSwitching] = useState(false);
+  const canSwitch = (useOrganisations().data?.length ?? 0) > 1;
   // Only the total is needed, so ask for the smallest page.
   const customers = useQuery({
     queryKey: ['customers', 'total'],
@@ -76,6 +80,14 @@ export function MorePage() {
         </div>
       </Card>
 
+      {canSwitch ? (
+        <Card>
+          <Button variant="ghost" iconBefore="grid" full onClick={() => setSwitching(true)}>
+            Switch workspace
+          </Button>
+        </Card>
+      ) : null}
+
       <Card>
         <Button variant="ghost" iconBefore="log-out" full className="more-sign-out" onClick={() => setSigningOut(true)}>
           Sign out
@@ -83,6 +95,7 @@ export function MorePage() {
       </Card>
 
       {signingOut ? <SignOutDialog onClose={() => setSigningOut(false)} /> : null}
+      {switching ? <SwitchWorkspaceDialog onClose={() => setSwitching(false)} /> : null}
     </div>
   );
 }

@@ -13,7 +13,8 @@ import { isStaffRole, ROLE_LABELS, type UserRole } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { pickActiveMembership } from '../tenancy/membership';
 import type { AuthUser } from './auth.types';
-import { buildAuthUser } from './auth-user';
+import { buildAuthUser, organisationBrandName } from './auth-user';
+import type { SwitchOrganisationDto } from './dto/switch-organisation.dto';
 import { LoginDto } from './dto/login.dto';
 import { AcceptInviteDto } from './dto/accept-invite.dto';
 import { hashInviteToken } from './invite-token';
@@ -175,11 +176,126 @@ export class AuthService {
     this.limiter.reset('passwordAccount', email);
     const membership = pickActiveMembership(user.memberships);
     if (!membership) {
+      // Said only after the right password, so it tells a stranger nothing.
+      const suspended = user.memberships.some(
+        (item) =>
+          item.status === 'ACTIVE' && item.organisation.status === 'SUSPENDED',
+      );
       throw new UnauthorizedException(
-        'No active organisation for this account',
+        suspended
+          ? 'This workspace is suspended. Contact Harbour support.'
+          : 'No active organisation for this account',
       );
     }
     return this.completeSignIn(user, membership);
+  }
+
+  /** The workspaces this person can use now, for the switcher. */
+  async listOrganisations(user: AuthUser) {
+    const memberships = await this.prisma.organisationMembership.findMany({
+      where: {
+        userId: user.id,
+        status: 'ACTIVE',
+        organisation: { status: 'ACTIVE' },
+      },
+      include: { organisation: { include: { settings: true } } },
+    });
+    return memberships
+      .map((item) => ({
+        membershipId: item.id,
+        name: organisationBrandName(item.organisation),
+        role: item.role,
+        current: item.id === user.membershipId,
+      }))
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name) ||
+          a.membershipId.localeCompare(b.membershipId),
+      );
+  }
+
+  /**
+   * Moves a person to another of their own workspaces with a new session. It is
+   * checked as a sign-in is: the membership must be active, a team role needs
+   * two-factor sign-in, and an account that has it on gives a fresh code, so a
+   * stolen session cannot be turned into one for another workspace. The new
+   * session ends when the old one would have, so switching never extends it.
+   */
+  async switchOrganisation(
+    user: AuthUser,
+    dto: SwitchOrganisationDto,
+    currentToken: string,
+  ) {
+    // The guard has already checked this token, so reading it is enough.
+    const { exp } = this.jwt.decode<{ exp: number }>(currentToken);
+    const account = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
+        memberships: {
+          include: { organisation: { include: { settings: true } } },
+        },
+      },
+    });
+    const target = account?.memberships.find(
+      (item) =>
+        item.id === dto.membershipId &&
+        item.status === 'ACTIVE' &&
+        item.organisation.status === 'ACTIVE',
+    );
+    if (!account || !target) {
+      throw new NotFoundException('That workspace is not available to you.');
+    }
+    if (target.id === user.membershipId) {
+      throw new BadRequestException('You are already in that workspace.');
+    }
+    if (isStaffRole(target.role) && !account.twoFactorEnabled) {
+      throw new BadRequestException({
+        message:
+          'Turn on two-factor sign-in before you switch to a team workspace.',
+        code: 'switch_two_factor_setup_required',
+      });
+    }
+    if (account.twoFactorEnabled) {
+      await this.proveSecondFactor(account.id, dto);
+    }
+    // Written before the session is made, so no switch goes unrecorded. It is in
+    // the new workspace's log only, and does not say where they came from.
+    await this.prisma.auditLog.create({
+      data: {
+        organisationId: target.organisationId,
+        actorId: account.id,
+        action: 'ORGANISATION_SWITCHED',
+        entityType: 'OrganisationMembership',
+        entityId: target.id,
+      },
+    });
+    return this.issueSession(account, target, exp);
+  }
+
+  private async proveSecondFactor(
+    userId: string,
+    input: { code?: string; backupCode?: string },
+  ) {
+    if (!input.code && !input.backupCode) {
+      throw new BadRequestException({
+        message: 'Enter a code from your authenticator app, or a backup code.',
+        code: 'switch_two_factor_required',
+      });
+    }
+    this.limiter.consume('twoFactorAccount', userId);
+    try {
+      await this.twoFactor.verifySignIn(userId, {
+        code: input.code,
+        backupCode: input.backupCode,
+      });
+    } catch (error) {
+      // Not a 401: the web app reads that as the current session having ended.
+      if (error instanceof UnauthorizedException) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+    this.limiter.reset('twoFactorAccount', userId);
   }
 
   /** Second step for accounts with two-factor on: a valid code turns the challenge into a session. */
@@ -545,6 +661,7 @@ export class AuthService {
       twoFactorEnabled?: boolean;
     },
     membership: SessionMembership,
+    expiresAt?: number,
   ) {
     const authUser = buildAuthUser({
       id: user.id,
@@ -553,10 +670,15 @@ export class AuthService {
       twoFactorEnabled: user.twoFactorEnabled,
       membership,
     });
-    const accessToken = await this.jwt.signAsync({
-      sub: user.id,
-      membershipId: membership.id,
-    });
+    const payload = { sub: user.id, membershipId: membership.id };
+    const accessToken = await this.jwt.signAsync(
+      payload,
+      expiresAt === undefined
+        ? {}
+        : {
+            expiresIn: Math.max(1, expiresAt - Math.floor(Date.now() / 1000)),
+          },
+    );
     return { accessToken, user: authUser };
   }
 

@@ -19,9 +19,11 @@ import {
   VerifyCodeDto,
 } from './two-factor.dto';
 import { TwoFactorService } from './two-factor.service';
+import { AllowWhenReadOnly } from '../allow-when-read-only.decorator';
 import { RateLimit } from '../../rate-limit/rate-limit.guard';
 
 @Controller('auth/two-factor')
+@AllowWhenReadOnly()
 export class TwoFactorController {
   constructor(
     private readonly twoFactor: TwoFactorService,

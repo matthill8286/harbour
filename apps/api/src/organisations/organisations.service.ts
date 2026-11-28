@@ -22,6 +22,7 @@ import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
 import { createInviteToken, inviteExpiresAt } from '../auth/invite-token';
 import { staffMembershipWasAccepted } from '../auth/accepted-membership';
+import { assertWithinPlan, countStaffSeats } from '../tenancy/plan-policy';
 
 const organisationInclude = {
   settings: true,
@@ -196,6 +197,13 @@ export class OrganisationsService {
           },
           select: memberSelect,
         });
+        // Someone already invited holds their place. Checked after the write,
+        // so a refusal rolls it back.
+        if (existing?.status !== 'INVITED') {
+          await assertWithinPlan(tx, user.organisationId, 'activeStaff', () =>
+            countStaffSeats(tx, user.organisationId),
+          );
+        }
 
         // The inviter may correct the name only while the account is nobody's yet:
         // no password, and no link to any other organisation.
@@ -357,6 +365,11 @@ export class OrganisationsService {
       },
       select: memberSelect,
     });
+    if (dto.status === 'ACTIVE' && member.status === 'DISABLED') {
+      await assertWithinPlan(tx, user.organisationId, 'activeStaff', () =>
+        countStaffSeats(tx, user.organisationId),
+      );
+    }
     if (dto.status === 'DISABLED') {
       // A link sent earlier must not undo this.
       await tx.staffInvite.updateMany({
@@ -450,11 +463,15 @@ export class OrganisationsService {
     invite: { to: string; role: UserRole; token: string },
   ): Promise<{ emailSent: boolean; inviteUrl?: string }> {
     const inviteUrl = `${this.webOrigin()}/invite/${invite.token}`;
-    const emailSent = await this.notifications.sendStaffInvite(invite.to, {
-      brandName: user.organisationBrandName,
-      roleLabel: ROLE_LABELS[invite.role],
-      inviteUrl,
-    });
+    const emailSent = await this.notifications.sendStaffInvite(
+      invite.to,
+      {
+        brandName: user.organisationBrandName,
+        roleLabel: ROLE_LABELS[invite.role],
+        inviteUrl,
+      },
+      user.organisationId,
+    );
     return {
       emailSent,
       ...(this.email.localDelivery() ? { inviteUrl } : {}),

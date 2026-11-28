@@ -144,12 +144,12 @@ describe('NotificationsService', () => {
       inviteUrl: 'http://localhost:5173/invite/tok',
     };
     await expect(
-      service.sendStaffInvite('sam@example.com', invite),
+      service.sendStaffInvite('sam@example.com', invite, 'org-1'),
     ).resolves.toBe(true);
     expect(send.mock.calls[0][0].text).toContain(invite.inviteUrl);
     send.mockRejectedValueOnce(new Error('provider down'));
     await expect(
-      service.sendStaffInvite('sam@example.com', invite),
+      service.sendStaffInvite('sam@example.com', invite, 'org-1'),
     ).resolves.toBe(false);
   });
 

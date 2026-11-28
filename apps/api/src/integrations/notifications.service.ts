@@ -12,6 +12,7 @@ import {
   type StaffInviteEmail,
 } from './account-email';
 import { RateLimiter } from '../rate-limit/rate-limiter';
+import { workspaceIsActive } from '../tenancy/workspace-status';
 
 /** Customer notifications one workspace may send in a day. */
 export const WORKSPACE_DAILY_NOTIFICATIONS = 60;
@@ -80,9 +81,17 @@ export class NotificationsService implements OnApplicationShutdown {
     }
   }
 
-  async sendStaffInvite(to: string, invite: StaffInviteEmail) {
+  async sendStaffInvite(
+    to: string,
+    invite: StaffInviteEmail,
+    organisationId: string,
+  ) {
     try {
-      await this.email.deliver({ to, ...composeStaffInviteEmail(invite) });
+      await this.email.deliver({
+        to,
+        ...composeStaffInviteEmail(invite),
+        stillAllowed: this.whileActive(organisationId),
+      });
       return true;
     } catch (error) {
       this.logger.warn(`Failed STAFF_INVITE: ${detailOf(error)}`);
@@ -170,6 +179,7 @@ export class NotificationsService implements OnApplicationShutdown {
       subject: composed.subject,
       text: composed.text,
       html: composed.html,
+      stillAllowed: this.whileActive(event.organisationId),
     });
     this.logger.log(
       `${event.type} via=${result.provider} customer=${event.customerId}${
@@ -177,6 +187,10 @@ export class NotificationsService implements OnApplicationShutdown {
       }`,
     );
     return true;
+  }
+
+  private whileActive(organisationId: string) {
+    return () => workspaceIsActive(this.prisma, organisationId);
   }
 
   private webOrigin() {

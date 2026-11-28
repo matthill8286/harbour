@@ -32,6 +32,11 @@ export type OutboundEmail = {
   subject: string;
   text: string;
   html: string;
+  /**
+   * Asked before every attempt, later retries included. Mail sent for a
+   * workspace uses it, so nothing goes out once the workspace is suspended.
+   */
+  stillAllowed?: () => Promise<boolean>;
 };
 
 export type EmailProvider = 'log' | 'resend' | 'brevo';
@@ -159,6 +164,9 @@ export class EmailTransport {
     const idempotencyKey = randomUUID();
     let counted = false;
     return async () => {
+      if (email.stillAllowed && !(await email.stillAllowed())) {
+        throw new EmailSendError('This workspace cannot send email now', false);
+      }
       const provider = this.provider();
       if (provider === 'log') {
         this.logEmail(email);

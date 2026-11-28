@@ -1,0 +1,622 @@
+column AuditLog.action text notnull=t default=- identity= generated= collation=default
+column AuditLog.actorId text notnull=f default=- identity= generated= collation=default
+column AuditLog.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column AuditLog.entityId text notnull=f default=- identity= generated= collation=default
+column AuditLog.entityType text notnull=t default=- identity= generated= collation=default
+column AuditLog.id text notnull=t default=- identity= generated= collation=default
+column AuditLog.metadata jsonb notnull=f default=- identity= generated= collation=-
+column AuditLog.organisationId text notnull=t default=- identity= generated= collation=default
+column Cost.amount numeric(12,2) notnull=t default=- identity= generated= collation=-
+column Cost.category "CostCategory" notnull=t default=- identity= generated= collation=-
+column Cost.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Cost.currency text notnull=t default='EUR'::text identity= generated= collation=default
+column Cost.description text notnull=t default=- identity= generated= collation=default
+column Cost.id text notnull=t default=- identity= generated= collation=default
+column Cost.importJobId text notnull=t default=- identity= generated= collation=default
+column Cost.incurredOn timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Cost.invoiceReference text notnull=f default=- identity= generated= collation=default
+column Cost.organisationId text notnull=t default=- identity= generated= collation=default
+column Cost.supplier text notnull=f default=- identity= generated= collation=default
+column Customer.address text notnull=f default=- identity= generated= collation=default
+column Customer.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Customer.email text notnull=f default=- identity= generated= collation=default
+column Customer.firstName text notnull=t default=- identity= generated= collation=default
+column Customer.id text notnull=t default=- identity= generated= collation=default
+column Customer.lastName text notnull=t default=- identity= generated= collation=default
+column Customer.notes text notnull=f default=- identity= generated= collation=default
+column Customer.organisationId text notnull=t default=- identity= generated= collation=default
+column Customer.phone text notnull=f default=- identity= generated= collation=default
+column Customer.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column CustomerCharge.amount numeric(12,2) notnull=t default=- identity= generated= collation=-
+column CustomerCharge.category "ChargeCategory" notnull=t default=- identity= generated= collation=-
+column CustomerCharge.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column CustomerCharge.currency text notnull=t default='EUR'::text identity= generated= collation=default
+column CustomerCharge.description text notnull=t default=- identity= generated= collation=default
+column CustomerCharge.id text notnull=t default=- identity= generated= collation=default
+column CustomerCharge.importJobId text notnull=t default=- identity= generated= collation=default
+column CustomerCharge.incurredOn timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column CustomerCharge.organisationId text notnull=t default=- identity= generated= collation=default
+column Document.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Document.customerVisible boolean notnull=t default=false identity= generated= collation=-
+column Document.id text notnull=t default=- identity= generated= collation=default
+column Document.importJobId text notnull=t default=- identity= generated= collation=default
+column Document.mimeType text notnull=t default=- identity= generated= collation=default
+column Document.name text notnull=t default=- identity= generated= collation=default
+column Document.organisationId text notnull=t default=- identity= generated= collation=default
+column Document.sizeBytes integer notnull=t default=- identity= generated= collation=-
+column Document.storageKey text notnull=t default=- identity= generated= collation=default
+column Document.type "DocumentType" notnull=t default='OTHER'::"DocumentType" identity= generated= collation=-
+column Document.uploadedById text notnull=f default=- identity= generated= collation=default
+column ImportJob.completedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column ImportJob.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column ImportJob.customerId text notnull=t default=- identity= generated= collation=default
+column ImportJob.destinationCountry text notnull=t default='CY'::text identity= generated= collation=default
+column ImportJob.expectedDeliveryDate timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column ImportJob.id text notnull=t default=- identity= generated= collation=default
+column ImportJob.organisationId text notnull=t default=- identity= generated= collation=default
+column ImportJob.originCountry text notnull=t default='GB'::text identity= generated= collation=default
+column ImportJob.reference text notnull=t default=- identity= generated= collation=default
+column ImportJob.registrationCountry text notnull=f default=- identity= generated= collation=default
+column ImportJob.routeId text notnull=f default=- identity= generated= collation=default
+column ImportJob.routeTemplateId text notnull=f default=- identity= generated= collation=default
+column ImportJob.startedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column ImportJob.status text notnull=t default='NEW'::text identity= generated= collation=default
+column ImportJob.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column ImportJob.vehicleId text notnull=t default=- identity= generated= collation=default
+column JobStatusHistory.changedById text notnull=f default=- identity= generated= collation=default
+column JobStatusHistory.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column JobStatusHistory.fromStatus text notnull=f default=- identity= generated= collation=default
+column JobStatusHistory.id text notnull=t default=- identity= generated= collation=default
+column JobStatusHistory.importJobId text notnull=t default=- identity= generated= collation=default
+column JobStatusHistory.note text notnull=f default=- identity= generated= collation=default
+column JobStatusHistory.organisationId text notnull=t default=- identity= generated= collation=default
+column JobStatusHistory.toStatus text notnull=t default=- identity= generated= collation=default
+column Journey.completedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Journey.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Journey.destination text notnull=t default=- identity= generated= collation=default
+column Journey.id text notnull=t default=- identity= generated= collation=default
+column Journey.importJobId text notnull=t default=- identity= generated= collation=default
+column Journey.organisationId text notnull=t default=- identity= generated= collation=default
+column Journey.origin text notnull=t default=- identity= generated= collation=default
+column Journey.startedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Journey.status "JourneyStatus" notnull=t default='PLANNED'::"JourneyStatus" identity= generated= collation=-
+column Journey.type "JourneyType" notnull=t default='ROAD'::"JourneyType" identity= generated= collation=-
+column Journey.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column LocationEvent.accuracy numeric(8,2) notnull=f default=- identity= generated= collation=-
+column LocationEvent.heading numeric(6,2) notnull=f default=- identity= generated= collation=-
+column LocationEvent.id text notnull=t default=- identity= generated= collation=default
+column LocationEvent.importJobId text notnull=f default=- identity= generated= collation=default
+column LocationEvent.isDuplicate boolean notnull=t default=false identity= generated= collation=-
+column LocationEvent.latitude numeric(10,7) notnull=t default=- identity= generated= collation=-
+column LocationEvent.longitude numeric(10,7) notnull=t default=- identity= generated= collation=-
+column LocationEvent.organisationId text notnull=t default=- identity= generated= collation=default
+column LocationEvent.receivedAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column LocationEvent.recordedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column LocationEvent.speed numeric(8,2) notnull=f default=- identity= generated= collation=-
+column LocationEvent.trackerId text notnull=f default=- identity= generated= collation=default
+column LocationEvent.vehicleId text notnull=f default=- identity= generated= collation=default
+column Note.authorId text notnull=t default=- identity= generated= collation=default
+column Note.body text notnull=t default=- identity= generated= collation=default
+column Note.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Note.customerId text notnull=f default=- identity= generated= collation=default
+column Note.id text notnull=t default=- identity= generated= collation=default
+column Note.importJobId text notnull=f default=- identity= generated= collation=default
+column Note.organisationId text notnull=t default=- identity= generated= collation=default
+column Note.taskId text notnull=f default=- identity= generated= collation=default
+column Note.vehicleId text notnull=f default=- identity= generated= collation=default
+column Note.visibility "NoteVisibility" notnull=t default='INTERNAL'::"NoteVisibility" identity= generated= collation=-
+column Organisation.country text notnull=t default='CY'::text identity= generated= collation=default
+column Organisation.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Organisation.currency text notnull=t default='EUR'::text identity= generated= collation=default
+column Organisation.id text notnull=t default=- identity= generated= collation=default
+column Organisation.legalName text notnull=f default=- identity= generated= collation=default
+column Organisation.logo text notnull=f default=- identity= generated= collation=default
+column Organisation.name text notnull=t default=- identity= generated= collation=default
+column Organisation.slug text notnull=t default=- identity= generated= collation=default
+column Organisation.status "OrganisationStatus" notnull=t default='ACTIVE'::"OrganisationStatus" identity= generated= collation=-
+column Organisation.timezone text notnull=t default='Europe/Nicosia'::text identity= generated= collation=default
+column Organisation.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column OrganisationFeature.enabled boolean notnull=t default=false identity= generated= collation=-
+column OrganisationFeature.flag text notnull=t default=- identity= generated= collation=default
+column OrganisationFeature.id text notnull=t default=- identity= generated= collation=default
+column OrganisationFeature.organisationId text notnull=t default=- identity= generated= collation=default
+column OrganisationMembership.acceptedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column OrganisationMembership.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column OrganisationMembership.customerId text notnull=f default=- identity= generated= collation=default
+column OrganisationMembership.id text notnull=t default=- identity= generated= collation=default
+column OrganisationMembership.organisationId text notnull=t default=- identity= generated= collation=default
+column OrganisationMembership.role "UserRole" notnull=t default=- identity= generated= collation=-
+column OrganisationMembership.status "MembershipStatus" notnull=t default='ACTIVE'::"MembershipStatus" identity= generated= collation=-
+column OrganisationMembership.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column OrganisationMembership.userId text notnull=t default=- identity= generated= collation=default
+column OrganisationSettings.brandName text notnull=f default=- identity= generated= collation=default
+column OrganisationSettings.customerPortalSettings jsonb notnull=f default=- identity= generated= collation=-
+column OrganisationSettings.notificationSettings jsonb notnull=f default=- identity= generated= collation=-
+column OrganisationSettings.organisationId text notnull=t default=- identity= generated= collation=default
+column OrganisationSettings.primaryContact text notnull=f default=- identity= generated= collation=default
+column OrganisationSettings.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column PasswordReset.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column PasswordReset.expiresAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column PasswordReset.id text notnull=t default=- identity= generated= collation=default
+column PasswordReset.tokenHash text notnull=t default=- identity= generated= collation=default
+column PasswordReset.usedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column PasswordReset.userId text notnull=t default=- identity= generated= collation=default
+column Photo.category "PhotoCategory" notnull=t default='OTHER'::"PhotoCategory" identity= generated= collation=-
+column Photo.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Photo.customerVisible boolean notnull=t default=false identity= generated= collation=-
+column Photo.filename text notnull=t default=- identity= generated= collation=default
+column Photo.id text notnull=t default=- identity= generated= collation=default
+column Photo.importJobId text notnull=t default=- identity= generated= collation=default
+column Photo.mimeType text notnull=t default=- identity= generated= collation=default
+column Photo.organisationId text notnull=t default=- identity= generated= collation=default
+column Photo.sizeBytes integer notnull=t default=- identity= generated= collation=-
+column Photo.storageKey text notnull=t default=- identity= generated= collation=default
+column Photo.uploadedById text notnull=f default=- identity= generated= collation=default
+column PlatformAdmin.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column PlatformAdmin.id text notnull=t default=- identity= generated= collation=default
+column PlatformAdmin.userId text notnull=t default=- identity= generated= collation=default
+column PlatformAuditLog.action text notnull=t default=- identity= generated= collation=default
+column PlatformAuditLog.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column PlatformAuditLog.id text notnull=t default=- identity= generated= collation=default
+column PlatformAuditLog.operatorId text notnull=f default=- identity= generated= collation=default
+column PlatformAuditLog.reason text notnull=f default=- identity= generated= collation=default
+column PlatformAuditLog.targetId text notnull=t default=- identity= generated= collation=default
+column PlatformAuditLog.targetType text notnull=t default=- identity= generated= collation=default
+column PortalInvite.acceptedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column PortalInvite.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column PortalInvite.createdById text notnull=f default=- identity= generated= collation=default
+column PortalInvite.customerId text notnull=t default=- identity= generated= collation=default
+column PortalInvite.expiresAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column PortalInvite.id text notnull=t default=- identity= generated= collation=default
+column PortalInvite.organisationId text notnull=t default=- identity= generated= collation=default
+column PortalInvite.tokenHash text notnull=t default=- identity= generated= collation=default
+column PortalInvite.userId text notnull=t default=- identity= generated= collation=default
+column Route.active boolean notnull=t default=false identity= generated= collation=-
+column Route.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Route.destinationCountry text notnull=t default=- identity= generated= collation=default
+column Route.id text notnull=t default=- identity= generated= collation=default
+column Route.isDefault boolean notnull=t default=false identity= generated= collation=-
+column Route.name text notnull=t default=- identity= generated= collation=default
+column Route.organisationId text notnull=t default=- identity= generated= collation=default
+column Route.originCountry text notnull=t default=- identity= generated= collation=default
+column Route.shortLabel text notnull=t default=- identity= generated= collation=default
+column Route.sortOrder integer notnull=t default=0 identity= generated= collation=-
+column Route.systemKey text notnull=f default=- identity= generated= collation=default
+column Route.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column RouteStage.customerName text notnull=t default=- identity= generated= collation=default
+column RouteStage.customerVisible boolean notnull=t default=true identity= generated= collation=-
+column RouteStage.id text notnull=t default=- identity= generated= collation=default
+column RouteStage.name text notnull=t default=- identity= generated= collation=default
+column RouteStage.routeId text notnull=t default=- identity= generated= collation=default
+column RouteStage.sortOrder integer notnull=t default=- identity= generated= collation=-
+column RouteStatus.code text notnull=t default=- identity= generated= collation=default
+column RouteStatus.id text notnull=t default=- identity= generated= collation=default
+column RouteStatus.label text notnull=t default=- identity= generated= collation=default
+column RouteStatus.routeId text notnull=t default=- identity= generated= collation=default
+column RouteStatus.sortOrder integer notnull=t default=- identity= generated= collation=-
+column RouteStatus.stageId text notnull=t default=- identity= generated= collation=default
+column RouteTemplate.active boolean notnull=t default=true identity= generated= collation=-
+column RouteTemplate.code text notnull=t default=- identity= generated= collation=default
+column RouteTemplate.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column RouteTemplate.description text notnull=f default=- identity= generated= collation=default
+column RouteTemplate.id text notnull=t default=- identity= generated= collation=default
+column RouteTemplate.name text notnull=t default=- identity= generated= collation=default
+column RouteTemplate.organisationId text notnull=f default=- identity= generated= collation=default
+column RouteTemplate.sortOrder integer notnull=t default=0 identity= generated= collation=-
+column RouteTemplate.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column RouteTemplate.waypoints jsonb notnull=t default=- identity= generated= collation=-
+column SignupRequest.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column SignupRequest.email text notnull=t default=- identity= generated= collation=default
+column SignupRequest.expiresAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column SignupRequest.id text notnull=t default=- identity= generated= collation=default
+column SignupRequest.name text notnull=t default=- identity= generated= collation=default
+column SignupRequest.organisationName text notnull=t default=- identity= generated= collation=default
+column SignupRequest.tokenHash text notnull=t default=- identity= generated= collation=default
+column SignupRequest.usedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column StaffInvite.acceptedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column StaffInvite.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column StaffInvite.createdById text notnull=f default=- identity= generated= collation=default
+column StaffInvite.expiresAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column StaffInvite.id text notnull=t default=- identity= generated= collation=default
+column StaffInvite.organisationId text notnull=t default=- identity= generated= collation=default
+column StaffInvite.role "UserRole" notnull=t default=- identity= generated= collation=-
+column StaffInvite.tokenHash text notnull=t default=- identity= generated= collation=default
+column StaffInvite.userId text notnull=t default=- identity= generated= collation=default
+column Subscription.billingCycle "BillingCycle" notnull=t default='MONTHLY'::"BillingCycle" identity= generated= collation=-
+column Subscription.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Subscription.id text notnull=t default=- identity= generated= collation=default
+column Subscription.monthlyPrice numeric(12,2) notnull=f default=- identity= generated= collation=-
+column Subscription.organisationId text notnull=t default=- identity= generated= collation=default
+column Subscription.plan "SubscriptionPlan" notnull=t default='STARTER'::"SubscriptionPlan" identity= generated= collation=-
+column Subscription.readOnlyFrom timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Subscription.renewalAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Subscription.startedAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Subscription.status "SubscriptionStatus" notnull=t default='TRIAL'::"SubscriptionStatus" identity= generated= collation=-
+column Subscription.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column SupportAccessGrant.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column SupportAccessGrant.endsAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column SupportAccessGrant.grantedToUserId text notnull=t default=- identity= generated= collation=default
+column SupportAccessGrant.id text notnull=t default=- identity= generated= collation=default
+column SupportAccessGrant.organisationId text notnull=t default=- identity= generated= collation=default
+column SupportAccessGrant.reason text notnull=t default=- identity= generated= collation=default
+column SupportAccessGrant.revokedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column SupportAccessGrant.startsAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Task.assignedToId text notnull=f default=- identity= generated= collation=default
+column Task.completedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Task.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Task.description text notnull=f default=- identity= generated= collation=default
+column Task.dueDate timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Task.id text notnull=t default=- identity= generated= collation=default
+column Task.importJobId text notnull=t default=- identity= generated= collation=default
+column Task.organisationId text notnull=t default=- identity= generated= collation=default
+column Task.priority "TaskPriority" notnull=t default='MEDIUM'::"TaskPriority" identity= generated= collation=-
+column Task.status "TaskStatus" notnull=t default='TODO'::"TaskStatus" identity= generated= collation=-
+column Task.title text notnull=t default=- identity= generated= collation=default
+column Task.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column Tracker.batteryLevel integer notnull=f default=- identity= generated= collation=-
+column Tracker.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Tracker.id text notnull=t default=- identity= generated= collation=default
+column Tracker.imeiConflictAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Tracker.lastSeenAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Tracker.organisationId text notnull=t default=- identity= generated= collation=default
+column Tracker.ownershipConfirmedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column Tracker.provider text notnull=t default='flespi'::text identity= generated= collation=default
+column Tracker.serialNumber text notnull=t default=- identity= generated= collation=default
+column Tracker.status "TrackerStatus" notnull=t default='AVAILABLE'::"TrackerStatus" identity= generated= collation=-
+column Tracker.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column TrackerAssignment.assignedAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column TrackerAssignment.id text notnull=t default=- identity= generated= collation=default
+column TrackerAssignment.importJobId text notnull=f default=- identity= generated= collation=default
+column TrackerAssignment.organisationId text notnull=t default=- identity= generated= collation=default
+column TrackerAssignment.removedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column TrackerAssignment.trackerId text notnull=t default=- identity= generated= collation=default
+column TrackerAssignment.vehicleId text notnull=t default=- identity= generated= collation=default
+column TwoFactor.backupCodes text notnull=t default=- identity= generated= collation=default
+column TwoFactor.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column TwoFactor.failedVerificationCount integer notnull=t default=0 identity= generated= collation=-
+column TwoFactor.id text notnull=t default=- identity= generated= collation=default
+column TwoFactor.lastUsedStep integer notnull=f default=- identity= generated= collation=-
+column TwoFactor.lockedUntil timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column TwoFactor.secret text notnull=t default=- identity= generated= collation=default
+column TwoFactor.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column TwoFactor.userId text notnull=t default=- identity= generated= collation=default
+column TwoFactor.verified boolean notnull=t default=false identity= generated= collation=-
+column UsageRecord.id text notnull=t default=- identity= generated= collation=default
+column UsageRecord.metric "UsageMetric" notnull=t default=- identity= generated= collation=-
+column UsageRecord.organisationId text notnull=t default=- identity= generated= collation=default
+column UsageRecord.periodStart timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column UsageRecord.quantity integer notnull=t default=0 identity= generated= collation=-
+column User.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column User.email text notnull=t default=- identity= generated= collation=default
+column User.id text notnull=t default=- identity= generated= collation=default
+column User.name text notnull=t default=- identity= generated= collation=default
+column User.passwordChangedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column User.passwordCheckFailedCount integer notnull=t default=0 identity= generated= collation=-
+column User.passwordCheckLockedUntil timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column User.passwordHash text notnull=f default=- identity= generated= collation=default
+column User.sessionsRevokedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column User.twoFactorEnabled boolean notnull=t default=false identity= generated= collation=-
+column User.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column Vehicle.bodyType text notnull=f default=- identity= generated= collation=default
+column Vehicle.colour text notnull=f default=- identity= generated= collation=default
+column Vehicle.countryOfRegistration text notnull=f default=- identity= generated= collation=default
+column Vehicle.createdAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column Vehicle.cyprusRegistration text notnull=f default=- identity= generated= collation=default
+column Vehicle.engineSize text notnull=f default=- identity= generated= collation=default
+column Vehicle.fuelType text notnull=f default=- identity= generated= collation=default
+column Vehicle.id text notnull=t default=- identity= generated= collation=default
+column Vehicle.make text notnull=f default=- identity= generated= collation=default
+column Vehicle.mileage integer notnull=f default=- identity= generated= collation=-
+column Vehicle.model text notnull=f default=- identity= generated= collation=default
+column Vehicle.organisationId text notnull=t default=- identity= generated= collation=default
+column Vehicle.temporaryRegistration text notnull=f default=- identity= generated= collation=default
+column Vehicle.ukRegistration text notnull=f default=- identity= generated= collation=default
+column Vehicle.updatedAt timestamp(3) without time zone notnull=t default=- identity= generated= collation=-
+column Vehicle.variant text notnull=f default=- identity= generated= collation=default
+column Vehicle.vin text notnull=f default=- identity= generated= collation=default
+column Vehicle.year integer notnull=f default=- identity= generated= collation=-
+column VehicleRegistration.country text notnull=f default=- identity= generated= collation=default
+column VehicleRegistration.endedAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column VehicleRegistration.id text notnull=t default=- identity= generated= collation=default
+column VehicleRegistration.issuedAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column VehicleRegistration.kind "RegistrationKind" notnull=t default=- identity= generated= collation=-
+column VehicleRegistration.number text notnull=t default=- identity= generated= collation=default
+column VehicleRegistration.organisationId text notnull=t default=- identity= generated= collation=default
+column VehicleRegistration.vehicleId text notnull=t default=- identity= generated= collation=default
+column WorkflowStatus.code text notnull=t default=- identity= generated= collation=default
+column WorkflowStatus.id text notnull=t default=- identity= generated= collation=default
+column WorkflowStatus.isTerminal boolean notnull=t default=false identity= generated= collation=-
+column WorkflowStatus.label text notnull=t default=- identity= generated= collation=default
+column WorkflowStatus.organisationId text notnull=t default=- identity= generated= collation=default
+column WorkflowStatus.sortOrder integer notnull=t default=- identity= generated= collation=-
+column WorkspaceSuspension.id text notnull=t default=- identity= generated= collation=default
+column WorkspaceSuspension.organisationId text notnull=t default=- identity= generated= collation=default
+column WorkspaceSuspension.reason text notnull=t default=- identity= generated= collation=default
+column WorkspaceSuspension.restoreReason text notnull=f default=- identity= generated= collation=default
+column WorkspaceSuspension.restoredAt timestamp(3) without time zone notnull=f default=- identity= generated= collation=-
+column WorkspaceSuspension.restoredById text notnull=f default=- identity= generated= collation=default
+column WorkspaceSuspension.suspendedAt timestamp(3) without time zone notnull=t default=CURRENT_TIMESTAMP identity= generated= collation=-
+column WorkspaceSuspension.suspendedById text notnull=t default=- identity= generated= collation=default
+constraint AuditLog.AuditLog_actorId_fkey validated=t FOREIGN KEY ("actorId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint AuditLog.AuditLog_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint AuditLog.AuditLog_pkey validated=t PRIMARY KEY (id)
+constraint Cost.Cost_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Cost.Cost_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Cost.Cost_pkey validated=t PRIMARY KEY (id)
+constraint Customer.Customer_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Customer.Customer_pkey validated=t PRIMARY KEY (id)
+constraint CustomerCharge.CustomerCharge_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint CustomerCharge.CustomerCharge_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint CustomerCharge.CustomerCharge_pkey validated=t PRIMARY KEY (id)
+constraint Document.Document_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Document.Document_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Document.Document_pkey validated=t PRIMARY KEY (id)
+constraint Document.Document_uploadedById_fkey validated=t FOREIGN KEY ("uploadedById") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint ImportJob.ImportJob_customerId_fkey validated=t FOREIGN KEY ("customerId") REFERENCES "Customer"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+constraint ImportJob.ImportJob_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint ImportJob.ImportJob_pkey validated=t PRIMARY KEY (id)
+constraint ImportJob.ImportJob_routeId_fkey validated=t FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+constraint ImportJob.ImportJob_routeTemplateId_fkey validated=t FOREIGN KEY ("routeTemplateId") REFERENCES "RouteTemplate"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint ImportJob.ImportJob_vehicleId_fkey validated=t FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+constraint JobStatusHistory.JobStatusHistory_changedById_fkey validated=t FOREIGN KEY ("changedById") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint JobStatusHistory.JobStatusHistory_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint JobStatusHistory.JobStatusHistory_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint JobStatusHistory.JobStatusHistory_pkey validated=t PRIMARY KEY (id)
+constraint Journey.Journey_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Journey.Journey_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Journey.Journey_pkey validated=t PRIMARY KEY (id)
+constraint LocationEvent.LocationEvent_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint LocationEvent.LocationEvent_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint LocationEvent.LocationEvent_pkey validated=t PRIMARY KEY (id)
+constraint LocationEvent.LocationEvent_trackerId_fkey validated=t FOREIGN KEY ("trackerId") REFERENCES "Tracker"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint LocationEvent.LocationEvent_vehicleId_fkey validated=t FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint Note.Note_authorId_fkey validated=t FOREIGN KEY ("authorId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE RESTRICT
+constraint Note.Note_customerId_fkey validated=t FOREIGN KEY ("customerId") REFERENCES "Customer"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Note.Note_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Note.Note_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Note.Note_pkey validated=t PRIMARY KEY (id)
+constraint Note.Note_taskId_fkey validated=t FOREIGN KEY ("taskId") REFERENCES "Task"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Note.Note_vehicleId_fkey validated=t FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Organisation.Organisation_pkey validated=t PRIMARY KEY (id)
+constraint OrganisationFeature.OrganisationFeature_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint OrganisationFeature.OrganisationFeature_pkey validated=t PRIMARY KEY (id)
+constraint OrganisationMembership.OrganisationMembership_customerId_fkey validated=t FOREIGN KEY ("customerId") REFERENCES "Customer"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint OrganisationMembership.OrganisationMembership_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint OrganisationMembership.OrganisationMembership_pkey validated=t PRIMARY KEY (id)
+constraint OrganisationMembership.OrganisationMembership_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint OrganisationSettings.OrganisationSettings_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint OrganisationSettings.OrganisationSettings_pkey validated=t PRIMARY KEY ("organisationId")
+constraint PasswordReset.PasswordReset_pkey validated=t PRIMARY KEY (id)
+constraint PasswordReset.PasswordReset_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Photo.Photo_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Photo.Photo_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Photo.Photo_pkey validated=t PRIMARY KEY (id)
+constraint Photo.Photo_uploadedById_fkey validated=t FOREIGN KEY ("uploadedById") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint PlatformAdmin.PlatformAdmin_pkey validated=t PRIMARY KEY (id)
+constraint PlatformAdmin.PlatformAdmin_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint PlatformAuditLog.PlatformAuditLog_pkey validated=t PRIMARY KEY (id)
+constraint PortalInvite.PortalInvite_createdById_fkey validated=t FOREIGN KEY ("createdById") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint PortalInvite.PortalInvite_customerId_fkey validated=t FOREIGN KEY ("customerId") REFERENCES "Customer"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint PortalInvite.PortalInvite_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint PortalInvite.PortalInvite_pkey validated=t PRIMARY KEY (id)
+constraint PortalInvite.PortalInvite_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Route.Route_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Route.Route_pkey validated=t PRIMARY KEY (id)
+constraint RouteStage.RouteStage_pkey validated=t PRIMARY KEY (id)
+constraint RouteStage.RouteStage_routeId_fkey validated=t FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint RouteStatus.RouteStatus_pkey validated=t PRIMARY KEY (id)
+constraint RouteStatus.RouteStatus_routeId_fkey validated=t FOREIGN KEY ("routeId") REFERENCES "Route"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint RouteStatus.RouteStatus_stageId_fkey validated=t FOREIGN KEY ("stageId") REFERENCES "RouteStage"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint RouteTemplate.RouteTemplate_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint RouteTemplate.RouteTemplate_pkey validated=t PRIMARY KEY (id)
+constraint SignupRequest.SignupRequest_pkey validated=t PRIMARY KEY (id)
+constraint StaffInvite.StaffInvite_createdById_fkey validated=t FOREIGN KEY ("createdById") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint StaffInvite.StaffInvite_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint StaffInvite.StaffInvite_pkey validated=t PRIMARY KEY (id)
+constraint StaffInvite.StaffInvite_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Subscription.Subscription_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Subscription.Subscription_pkey validated=t PRIMARY KEY (id)
+constraint SupportAccessGrant.SupportAccessGrant_grantedToUserId_fkey validated=t FOREIGN KEY ("grantedToUserId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint SupportAccessGrant.SupportAccessGrant_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint SupportAccessGrant.SupportAccessGrant_pkey validated=t PRIMARY KEY (id)
+constraint Task.Task_assignedToId_fkey validated=t FOREIGN KEY ("assignedToId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint Task.Task_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Task.Task_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Task.Task_pkey validated=t PRIMARY KEY (id)
+constraint Tracker.Tracker_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Tracker.Tracker_pkey validated=t PRIMARY KEY (id)
+constraint TrackerAssignment.TrackerAssignment_importJobId_fkey validated=t FOREIGN KEY ("importJobId") REFERENCES "ImportJob"(id) ON UPDATE CASCADE ON DELETE SET NULL
+constraint TrackerAssignment.TrackerAssignment_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint TrackerAssignment.TrackerAssignment_pkey validated=t PRIMARY KEY (id)
+constraint TrackerAssignment.TrackerAssignment_trackerId_fkey validated=t FOREIGN KEY ("trackerId") REFERENCES "Tracker"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint TrackerAssignment.TrackerAssignment_vehicleId_fkey validated=t FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint TwoFactor.TwoFactor_pkey validated=t PRIMARY KEY (id)
+constraint TwoFactor.TwoFactor_userId_fkey validated=t FOREIGN KEY ("userId") REFERENCES "User"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint UsageRecord.UsageRecord_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint UsageRecord.UsageRecord_pkey validated=t PRIMARY KEY (id)
+constraint User.User_pkey validated=t PRIMARY KEY (id)
+constraint Vehicle.Vehicle_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint Vehicle.Vehicle_pkey validated=t PRIMARY KEY (id)
+constraint VehicleRegistration.VehicleRegistration_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint VehicleRegistration.VehicleRegistration_pkey validated=t PRIMARY KEY (id)
+constraint VehicleRegistration.VehicleRegistration_vehicleId_fkey validated=t FOREIGN KEY ("vehicleId") REFERENCES "Vehicle"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint WorkflowStatus.WorkflowStatus_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint WorkflowStatus.WorkflowStatus_pkey validated=t PRIMARY KEY (id)
+constraint WorkspaceSuspension.WorkspaceSuspension_organisationId_fkey validated=t FOREIGN KEY ("organisationId") REFERENCES "Organisation"(id) ON UPDATE CASCADE ON DELETE CASCADE
+constraint WorkspaceSuspension.WorkspaceSuspension_pkey validated=t PRIMARY KEY (id)
+enum BillingCycle (MONTHLY, YEARLY)
+enum ChargeCategory (TRANSPORT, IMPORT_SERVICE, REGISTRATION_SERVICE, OTHER)
+enum CostCategory (TRANSPORT, REGISTRATION, IMPORT, DOCUMENTATION, REPAIRS, STORAGE, ADMINISTRATIVE, OTHER)
+enum DocumentType (V5C, PURCHASE_INVOICE, TRANSPORT, IMPORT, REGISTRATION, CUSTOMS, CUSTOMER, INSPECTION, OTHER)
+enum JourneyStatus (PLANNED, IN_PROGRESS, COMPLETED, CANCELLED)
+enum JourneyType (ROAD, FERRY, OTHER)
+enum MembershipStatus (ACTIVE, INVITED, DISABLED)
+enum NoteVisibility (INTERNAL, CUSTOMER)
+enum OrganisationStatus (ACTIVE, SUSPENDED, DELETED)
+enum PhotoCategory (BEFORE_COLLECTION, COLLECTION, DAMAGE, MILEAGE, VIN, REGISTRATION, ARRIVAL, FINAL, OTHER)
+enum RegistrationKind (UK, TEMPORARY, CYPRUS, OTHER)
+enum SubscriptionPlan (STARTER, BUSINESS, PROFESSIONAL, ENTERPRISE)
+enum SubscriptionStatus (TRIAL, ACTIVE, PAST_DUE, SUSPENDED, CANCELLED)
+enum TaskPriority (LOW, MEDIUM, HIGH)
+enum TaskStatus (TODO, IN_PROGRESS, COMPLETED, CANCELLED)
+enum TrackerStatus (AVAILABLE, ASSIGNED, OFFLINE, RETIRED)
+enum UsageMetric (IMPORT_JOBS)
+enum UserRole (ADMIN, STAFF, CUSTOMER)
+index AuditLog valid=t CREATE INDEX "AuditLog_entityType_entityId_idx" ON "AuditLog" USING btree ("entityType", "entityId")
+index AuditLog valid=t CREATE INDEX "AuditLog_organisationId_createdAt_idx" ON "AuditLog" USING btree ("organisationId", "createdAt")
+index AuditLog valid=t CREATE UNIQUE INDEX "AuditLog_pkey" ON "AuditLog" USING btree (id)
+index Cost valid=t CREATE INDEX "Cost_importJobId_idx" ON "Cost" USING btree ("importJobId")
+index Cost valid=t CREATE INDEX "Cost_organisationId_idx" ON "Cost" USING btree ("organisationId")
+index Cost valid=t CREATE UNIQUE INDEX "Cost_pkey" ON "Cost" USING btree (id)
+index Customer valid=t CREATE INDEX "Customer_organisationId_email_idx" ON "Customer" USING btree ("organisationId", email)
+index Customer valid=t CREATE INDEX "Customer_organisationId_idx" ON "Customer" USING btree ("organisationId")
+index Customer valid=t CREATE UNIQUE INDEX "Customer_pkey" ON "Customer" USING btree (id)
+index CustomerCharge valid=t CREATE INDEX "CustomerCharge_importJobId_idx" ON "CustomerCharge" USING btree ("importJobId")
+index CustomerCharge valid=t CREATE INDEX "CustomerCharge_organisationId_idx" ON "CustomerCharge" USING btree ("organisationId")
+index CustomerCharge valid=t CREATE UNIQUE INDEX "CustomerCharge_pkey" ON "CustomerCharge" USING btree (id)
+index Document valid=t CREATE INDEX "Document_importJobId_idx" ON "Document" USING btree ("importJobId")
+index Document valid=t CREATE INDEX "Document_organisationId_importJobId_idx" ON "Document" USING btree ("organisationId", "importJobId")
+index Document valid=t CREATE UNIQUE INDEX "Document_pkey" ON "Document" USING btree (id)
+index ImportJob valid=t CREATE INDEX "ImportJob_customerId_idx" ON "ImportJob" USING btree ("customerId")
+index ImportJob valid=t CREATE INDEX "ImportJob_organisationId_createdAt_idx" ON "ImportJob" USING btree ("organisationId", "createdAt")
+index ImportJob valid=t CREATE INDEX "ImportJob_organisationId_customerId_idx" ON "ImportJob" USING btree ("organisationId", "customerId")
+index ImportJob valid=t CREATE INDEX "ImportJob_organisationId_status_idx" ON "ImportJob" USING btree ("organisationId", status)
+index ImportJob valid=t CREATE INDEX "ImportJob_organisationId_vehicleId_idx" ON "ImportJob" USING btree ("organisationId", "vehicleId")
+index ImportJob valid=t CREATE INDEX "ImportJob_routeId_status_idx" ON "ImportJob" USING btree ("routeId", status)
+index ImportJob valid=t CREATE INDEX "ImportJob_routeTemplateId_idx" ON "ImportJob" USING btree ("routeTemplateId")
+index ImportJob valid=t CREATE INDEX "ImportJob_vehicleId_idx" ON "ImportJob" USING btree ("vehicleId")
+index ImportJob valid=t CREATE UNIQUE INDEX "ImportJob_organisationId_reference_key" ON "ImportJob" USING btree ("organisationId", reference)
+index ImportJob valid=t CREATE UNIQUE INDEX "ImportJob_pkey" ON "ImportJob" USING btree (id)
+index JobStatusHistory valid=t CREATE INDEX "JobStatusHistory_importJobId_createdAt_idx" ON "JobStatusHistory" USING btree ("importJobId", "createdAt")
+index JobStatusHistory valid=t CREATE INDEX "JobStatusHistory_organisationId_idx" ON "JobStatusHistory" USING btree ("organisationId")
+index JobStatusHistory valid=t CREATE UNIQUE INDEX "JobStatusHistory_pkey" ON "JobStatusHistory" USING btree (id)
+index Journey valid=t CREATE INDEX "Journey_importJobId_idx" ON "Journey" USING btree ("importJobId")
+index Journey valid=t CREATE INDEX "Journey_organisationId_idx" ON "Journey" USING btree ("organisationId")
+index Journey valid=t CREATE UNIQUE INDEX "Journey_pkey" ON "Journey" USING btree (id)
+index LocationEvent valid=t CREATE INDEX "LocationEvent_importJobId_recordedAt_idx" ON "LocationEvent" USING btree ("importJobId", "recordedAt")
+index LocationEvent valid=t CREATE INDEX "LocationEvent_organisationId_importJobId_idx" ON "LocationEvent" USING btree ("organisationId", "importJobId")
+index LocationEvent valid=t CREATE INDEX "LocationEvent_organisationId_recordedAt_idx" ON "LocationEvent" USING btree ("organisationId", "recordedAt")
+index LocationEvent valid=t CREATE INDEX "LocationEvent_vehicleId_recordedAt_idx" ON "LocationEvent" USING btree ("vehicleId", "recordedAt")
+index LocationEvent valid=t CREATE UNIQUE INDEX "LocationEvent_pkey" ON "LocationEvent" USING btree (id)
+index LocationEvent valid=t CREATE UNIQUE INDEX "LocationEvent_trackerId_recordedAt_key" ON "LocationEvent" USING btree ("trackerId", "recordedAt") WHERE (("trackerId" IS NOT NULL) AND (NOT "isDuplicate"))
+index Note valid=t CREATE INDEX "Note_customerId_idx" ON "Note" USING btree ("customerId")
+index Note valid=t CREATE INDEX "Note_importJobId_idx" ON "Note" USING btree ("importJobId")
+index Note valid=t CREATE INDEX "Note_organisationId_idx" ON "Note" USING btree ("organisationId")
+index Note valid=t CREATE INDEX "Note_taskId_idx" ON "Note" USING btree ("taskId")
+index Note valid=t CREATE INDEX "Note_vehicleId_idx" ON "Note" USING btree ("vehicleId")
+index Note valid=t CREATE UNIQUE INDEX "Note_pkey" ON "Note" USING btree (id)
+index Organisation valid=t CREATE UNIQUE INDEX "Organisation_pkey" ON "Organisation" USING btree (id)
+index Organisation valid=t CREATE UNIQUE INDEX "Organisation_slug_key" ON "Organisation" USING btree (slug)
+index OrganisationFeature valid=t CREATE UNIQUE INDEX "OrganisationFeature_organisationId_flag_key" ON "OrganisationFeature" USING btree ("organisationId", flag)
+index OrganisationFeature valid=t CREATE UNIQUE INDEX "OrganisationFeature_pkey" ON "OrganisationFeature" USING btree (id)
+index OrganisationMembership valid=t CREATE INDEX "OrganisationMembership_customerId_idx" ON "OrganisationMembership" USING btree ("customerId")
+index OrganisationMembership valid=t CREATE INDEX "OrganisationMembership_organisationId_role_idx" ON "OrganisationMembership" USING btree ("organisationId", role)
+index OrganisationMembership valid=t CREATE INDEX "OrganisationMembership_userId_idx" ON "OrganisationMembership" USING btree ("userId")
+index OrganisationMembership valid=t CREATE UNIQUE INDEX "OrganisationMembership_organisationId_userId_key" ON "OrganisationMembership" USING btree ("organisationId", "userId")
+index OrganisationMembership valid=t CREATE UNIQUE INDEX "OrganisationMembership_pkey" ON "OrganisationMembership" USING btree (id)
+index OrganisationSettings valid=t CREATE UNIQUE INDEX "OrganisationSettings_pkey" ON "OrganisationSettings" USING btree ("organisationId")
+index PasswordReset valid=t CREATE INDEX "PasswordReset_userId_createdAt_idx" ON "PasswordReset" USING btree ("userId", "createdAt")
+index PasswordReset valid=t CREATE UNIQUE INDEX "PasswordReset_pkey" ON "PasswordReset" USING btree (id)
+index PasswordReset valid=t CREATE UNIQUE INDEX "PasswordReset_tokenHash_key" ON "PasswordReset" USING btree ("tokenHash")
+index Photo valid=t CREATE INDEX "Photo_importJobId_idx" ON "Photo" USING btree ("importJobId")
+index Photo valid=t CREATE INDEX "Photo_organisationId_importJobId_idx" ON "Photo" USING btree ("organisationId", "importJobId")
+index Photo valid=t CREATE UNIQUE INDEX "Photo_pkey" ON "Photo" USING btree (id)
+index PlatformAdmin valid=t CREATE UNIQUE INDEX "PlatformAdmin_pkey" ON "PlatformAdmin" USING btree (id)
+index PlatformAdmin valid=t CREATE UNIQUE INDEX "PlatformAdmin_userId_key" ON "PlatformAdmin" USING btree ("userId")
+index PlatformAuditLog valid=t CREATE INDEX "PlatformAuditLog_createdAt_idx" ON "PlatformAuditLog" USING btree ("createdAt")
+index PlatformAuditLog valid=t CREATE UNIQUE INDEX "PlatformAuditLog_pkey" ON "PlatformAuditLog" USING btree (id)
+index PortalInvite valid=t CREATE INDEX "PortalInvite_customerId_createdAt_idx" ON "PortalInvite" USING btree ("customerId", "createdAt")
+index PortalInvite valid=t CREATE INDEX "PortalInvite_organisationId_idx" ON "PortalInvite" USING btree ("organisationId")
+index PortalInvite valid=t CREATE INDEX "PortalInvite_userId_idx" ON "PortalInvite" USING btree ("userId")
+index PortalInvite valid=t CREATE UNIQUE INDEX "PortalInvite_pkey" ON "PortalInvite" USING btree (id)
+index PortalInvite valid=t CREATE UNIQUE INDEX "PortalInvite_tokenHash_key" ON "PortalInvite" USING btree ("tokenHash")
+index Route valid=t CREATE INDEX "Route_organisationId_sortOrder_idx" ON "Route" USING btree ("organisationId", "sortOrder")
+index Route valid=t CREATE UNIQUE INDEX "Route_pkey" ON "Route" USING btree (id)
+index RouteStage valid=t CREATE INDEX "RouteStage_routeId_sortOrder_idx" ON "RouteStage" USING btree ("routeId", "sortOrder")
+index RouteStage valid=t CREATE UNIQUE INDEX "RouteStage_pkey" ON "RouteStage" USING btree (id)
+index RouteStatus valid=t CREATE INDEX "RouteStatus_stageId_sortOrder_idx" ON "RouteStatus" USING btree ("stageId", "sortOrder")
+index RouteStatus valid=t CREATE UNIQUE INDEX "RouteStatus_pkey" ON "RouteStatus" USING btree (id)
+index RouteStatus valid=t CREATE UNIQUE INDEX "RouteStatus_routeId_code_key" ON "RouteStatus" USING btree ("routeId", code)
+index RouteTemplate valid=t CREATE INDEX "RouteTemplate_organisationId_active_sortOrder_idx" ON "RouteTemplate" USING btree ("organisationId", active, "sortOrder")
+index RouteTemplate valid=t CREATE UNIQUE INDEX "RouteTemplate_code_key" ON "RouteTemplate" USING btree (code)
+index RouteTemplate valid=t CREATE UNIQUE INDEX "RouteTemplate_pkey" ON "RouteTemplate" USING btree (id)
+index SignupRequest valid=t CREATE INDEX "SignupRequest_email_idx" ON "SignupRequest" USING btree (email)
+index SignupRequest valid=t CREATE INDEX "SignupRequest_expiresAt_idx" ON "SignupRequest" USING btree ("expiresAt")
+index SignupRequest valid=t CREATE UNIQUE INDEX "SignupRequest_pkey" ON "SignupRequest" USING btree (id)
+index SignupRequest valid=t CREATE UNIQUE INDEX "SignupRequest_tokenHash_key" ON "SignupRequest" USING btree ("tokenHash")
+index StaffInvite valid=t CREATE INDEX "StaffInvite_organisationId_idx" ON "StaffInvite" USING btree ("organisationId")
+index StaffInvite valid=t CREATE INDEX "StaffInvite_userId_idx" ON "StaffInvite" USING btree ("userId")
+index StaffInvite valid=t CREATE UNIQUE INDEX "StaffInvite_pkey" ON "StaffInvite" USING btree (id)
+index StaffInvite valid=t CREATE UNIQUE INDEX "StaffInvite_tokenHash_key" ON "StaffInvite" USING btree ("tokenHash")
+index Subscription valid=t CREATE UNIQUE INDEX "Subscription_organisationId_key" ON "Subscription" USING btree ("organisationId")
+index Subscription valid=t CREATE UNIQUE INDEX "Subscription_pkey" ON "Subscription" USING btree (id)
+index SupportAccessGrant valid=t CREATE INDEX "SupportAccessGrant_grantedToUserId_idx" ON "SupportAccessGrant" USING btree ("grantedToUserId")
+index SupportAccessGrant valid=t CREATE INDEX "SupportAccessGrant_organisationId_endsAt_idx" ON "SupportAccessGrant" USING btree ("organisationId", "endsAt")
+index SupportAccessGrant valid=t CREATE UNIQUE INDEX "SupportAccessGrant_pkey" ON "SupportAccessGrant" USING btree (id)
+index Task valid=t CREATE INDEX "Task_importJobId_idx" ON "Task" USING btree ("importJobId")
+index Task valid=t CREATE INDEX "Task_organisationId_status_dueDate_idx" ON "Task" USING btree ("organisationId", status, "dueDate")
+index Task valid=t CREATE UNIQUE INDEX "Task_pkey" ON "Task" USING btree (id)
+index Tracker valid=t CREATE UNIQUE INDEX "Tracker_organisationId_serialNumber_key" ON "Tracker" USING btree ("organisationId", "serialNumber")
+index Tracker valid=t CREATE UNIQUE INDEX "Tracker_pkey" ON "Tracker" USING btree (id)
+index Tracker valid=t CREATE UNIQUE INDEX "Tracker_realImei_key" ON "Tracker" USING btree (lower(regexp_replace("serialNumber", '[[:space:]-]+'::text, ''::text, 'g'::text))) WHERE ((lower(btrim(provider)) <> ALL (ARRAY['generic'::text, 'sim'::text, 'demo'::text])) AND ("imeiConflictAt" IS NULL))
+index TrackerAssignment valid=t CREATE INDEX "TrackerAssignment_importJobId_idx" ON "TrackerAssignment" USING btree ("importJobId")
+index TrackerAssignment valid=t CREATE INDEX "TrackerAssignment_organisationId_idx" ON "TrackerAssignment" USING btree ("organisationId")
+index TrackerAssignment valid=t CREATE INDEX "TrackerAssignment_trackerId_idx" ON "TrackerAssignment" USING btree ("trackerId")
+index TrackerAssignment valid=t CREATE INDEX "TrackerAssignment_vehicleId_idx" ON "TrackerAssignment" USING btree ("vehicleId")
+index TrackerAssignment valid=t CREATE UNIQUE INDEX "TrackerAssignment_pkey" ON "TrackerAssignment" USING btree (id)
+index TwoFactor valid=t CREATE UNIQUE INDEX "TwoFactor_pkey" ON "TwoFactor" USING btree (id)
+index TwoFactor valid=t CREATE UNIQUE INDEX "TwoFactor_userId_key" ON "TwoFactor" USING btree ("userId")
+index UsageRecord valid=t CREATE INDEX "UsageRecord_organisationId_metric_idx" ON "UsageRecord" USING btree ("organisationId", metric)
+index UsageRecord valid=t CREATE UNIQUE INDEX "UsageRecord_organisationId_metric_periodStart_key" ON "UsageRecord" USING btree ("organisationId", metric, "periodStart")
+index UsageRecord valid=t CREATE UNIQUE INDEX "UsageRecord_pkey" ON "UsageRecord" USING btree (id)
+index User valid=t CREATE UNIQUE INDEX "User_email_key" ON "User" USING btree (email)
+index User valid=t CREATE UNIQUE INDEX "User_pkey" ON "User" USING btree (id)
+index Vehicle valid=t CREATE INDEX "Vehicle_cyprusRegistration_idx" ON "Vehicle" USING btree ("cyprusRegistration")
+index Vehicle valid=t CREATE INDEX "Vehicle_organisationId_idx" ON "Vehicle" USING btree ("organisationId")
+index Vehicle valid=t CREATE INDEX "Vehicle_ukRegistration_idx" ON "Vehicle" USING btree ("ukRegistration")
+index Vehicle valid=t CREATE INDEX "Vehicle_vin_idx" ON "Vehicle" USING btree (vin)
+index Vehicle valid=t CREATE UNIQUE INDEX "Vehicle_pkey" ON "Vehicle" USING btree (id)
+index VehicleRegistration valid=t CREATE INDEX "VehicleRegistration_organisationId_idx" ON "VehicleRegistration" USING btree ("organisationId")
+index VehicleRegistration valid=t CREATE INDEX "VehicleRegistration_vehicleId_idx" ON "VehicleRegistration" USING btree ("vehicleId")
+index VehicleRegistration valid=t CREATE UNIQUE INDEX "VehicleRegistration_pkey" ON "VehicleRegistration" USING btree (id)
+index WorkflowStatus valid=t CREATE UNIQUE INDEX "WorkflowStatus_organisationId_code_key" ON "WorkflowStatus" USING btree ("organisationId", code)
+index WorkflowStatus valid=t CREATE UNIQUE INDEX "WorkflowStatus_pkey" ON "WorkflowStatus" USING btree (id)
+index WorkspaceSuspension valid=t CREATE INDEX "WorkspaceSuspension_organisationId_restoredAt_idx" ON "WorkspaceSuspension" USING btree ("organisationId", "restoredAt")
+index WorkspaceSuspension valid=t CREATE UNIQUE INDEX "WorkspaceSuspension_pkey" ON "WorkspaceSuspension" USING btree (id)
+relation AuditLog kind=r rowsecurity=f
+relation Cost kind=r rowsecurity=f
+relation Customer kind=r rowsecurity=f
+relation CustomerCharge kind=r rowsecurity=f
+relation Document kind=r rowsecurity=f
+relation ImportJob kind=r rowsecurity=f
+relation JobStatusHistory kind=r rowsecurity=f
+relation Journey kind=r rowsecurity=f
+relation LocationEvent kind=r rowsecurity=f
+relation Note kind=r rowsecurity=f
+relation Organisation kind=r rowsecurity=f
+relation OrganisationFeature kind=r rowsecurity=f
+relation OrganisationMembership kind=r rowsecurity=f
+relation OrganisationSettings kind=r rowsecurity=f
+relation PasswordReset kind=r rowsecurity=f
+relation Photo kind=r rowsecurity=f
+relation PlatformAdmin kind=r rowsecurity=f
+relation PlatformAuditLog kind=r rowsecurity=f
+relation PortalInvite kind=r rowsecurity=f
+relation Route kind=r rowsecurity=f
+relation RouteStage kind=r rowsecurity=f
+relation RouteStatus kind=r rowsecurity=f
+relation RouteTemplate kind=r rowsecurity=f
+relation SignupRequest kind=r rowsecurity=f
+relation StaffInvite kind=r rowsecurity=f
+relation Subscription kind=r rowsecurity=f
+relation SupportAccessGrant kind=r rowsecurity=f
+relation Task kind=r rowsecurity=f
+relation Tracker kind=r rowsecurity=f
+relation TrackerAssignment kind=r rowsecurity=f
+relation TwoFactor kind=r rowsecurity=f
+relation UsageRecord kind=r rowsecurity=f
+relation User kind=r rowsecurity=f
+relation Vehicle kind=r rowsecurity=f
+relation VehicleRegistration kind=r rowsecurity=f
+relation WorkflowStatus kind=r rowsecurity=f
+relation WorkspaceSuspension kind=r rowsecurity=f
