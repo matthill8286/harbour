@@ -847,7 +847,7 @@ describeWithDatabase('customer export and erasure', () => {
       await erase(a, c.customerId).then((r) => expect(r.status).toBe(200));
       const journal = app.get(ErasureJournal, { strict: false });
       const mine = (await journal.read()).filter(
-        (entry) => entry.customerId === c.customerId,
+        (entry) => 'customerId' in entry && entry.customerId === c.customerId,
       );
       const erasures = app.get(CustomerErasureService, { strict: false });
       const run = async (confirm: boolean) =>
