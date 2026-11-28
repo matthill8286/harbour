@@ -24,8 +24,16 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    # Node moves to a new major version by hand: CI, .nvmrc and the Dockerfile change together.
+    ignore:
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: docker-compose
     directory: /
     schedule:
       interval: weekly
+    # A new PostgreSQL major cannot read the old data files, so it needs a planned upgrade.
+    ignore:
+      - dependency-name: postgis/postgis
+        update-types: ['version-update:semver-major']
