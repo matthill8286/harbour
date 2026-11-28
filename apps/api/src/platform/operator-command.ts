@@ -14,6 +14,7 @@ import {
   deletionReminderDays,
   parseContractEnd,
   scheduleClosure,
+  type LicenceOutcome,
   type WorkspaceDeletionDeps,
 } from './workspace-closure';
 
@@ -27,6 +28,7 @@ export const USAGE = [
   '  operator close <workspace-slug> --by <operator email> --contract-end <YYYY-MM-DD> --reason "<why>"',
   '  operator cancel-close <workspace-slug> --by <operator email> --reason "<why>"',
   '  operator delete-closed <workspace-slug> --by <operator email> [--confirm]',
+  '  operator release-licence <licence-id> --workspace <workspace id>',
 ].join('\n');
 
 /** Runs one command and says what it did. */
@@ -105,10 +107,35 @@ export async function runOperatorCommand(
       .map(([name, count]) => `${count} ${name}`)
       .join(', ');
     return result.deleted
-      ? `${target} and all its data are deleted: ${counts}.`
+      ? `${target} and all its data are deleted: ${counts}.${licenceLine(result.organisation.id, result.licence)}`
       : `Deleting ${target} would remove ${counts}, and all its files. Nothing was changed. Add --confirm to delete it.`;
   }
+  if (command === 'release-licence') {
+    const values = named(rest, ['--workspace']);
+    if (!deps?.licences) {
+      throw new OperatorError(
+        'Licences are not checked here: ACCOUNT_INTERNAL_URL and ACCOUNT_TOKEN are not set.',
+      );
+    }
+    await deps.licences.release(target, values.get('--workspace')!);
+    return `Licence ${target} is released at the account service.`;
+  }
   throw new OperatorError(USAGE);
+}
+
+/** What `delete-closed` says about the workspace's licence. */
+function licenceLine(organisationId: string, licence: LicenceOutcome | null) {
+  if (!licence) return '';
+  if (licence.released) {
+    return ` Its licence ${licence.id} is released at the account service.`;
+  }
+  if (licence.id) {
+    return ` Its licence ${licence.id} was not released at the account service: ${licence.error} Release it with: operator release-licence ${licence.id} --workspace ${organisationId}`;
+  }
+  if (licence.error) {
+    return ` Its licence could not be looked up at the account service: ${licence.error} Find the licence for workspace ${organisationId} there, then run: operator release-licence <licence-id> --workspace ${organisationId}`;
+  }
+  return ' No licence at the account service covers it.';
 }
 
 /** Exactly these flags, each with a value. */

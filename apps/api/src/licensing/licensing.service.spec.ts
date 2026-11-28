@@ -178,4 +178,39 @@ describe('the licensing service', () => {
       status: 409,
     });
   });
+
+  it('releases a deleted workspace, and forgets its licence', async () => {
+    const s = setup();
+    await s.service.forWorkspace(ORG);
+    s.answer(() =>
+      json(
+        body('expired', { tenant: null, releasedAt: '2027-01-01T00:00:00Z' }),
+      ),
+    );
+    expect(await s.service.release(LICENCE, ORG)).toMatchObject({
+      status: 'expired',
+      tenant: null,
+    });
+    expect(s.calls[1].url).toBe(
+      `http://account:5090/internal/licences/${LICENCE}/release`,
+    );
+    expect(s.calls[1].init.method).toBe('POST');
+    expect(s.calls[1].init.body).toBe(JSON.stringify({ tenant: ORG }));
+    // The cached licence is gone, so the next check asks again.
+    s.answer(() => json({ code: 'no_licence' }, 404));
+    expect(await s.service.forWorkspace(ORG)).toBeNull();
+    expect(s.calls).toHaveLength(3);
+  });
+
+  it('says why a release failed', async () => {
+    const s = setup();
+    s.answer(() => json({ code: 'tenant_not_bound' }, 409));
+    await expect(s.service.release(LICENCE, ORG)).rejects.toThrow(
+      'The account service answered 409 (tenant_not_bound).',
+    );
+    s.down();
+    await expect(s.service.release(LICENCE, ORG)).rejects.toThrow(
+      'The account service could not be reached: connection refused',
+    );
+  });
 });

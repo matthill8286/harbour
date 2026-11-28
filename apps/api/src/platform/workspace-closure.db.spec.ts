@@ -467,6 +467,157 @@ describeWithDatabase('exporting and deleting a whole workspace', () => {
     SLOW,
   );
 
+  /** A workspace whose notice has passed, ready for `delete-closed --confirm`. */
+  async function dueForDeletion() {
+    const leaving = await workspace();
+    const ended = new Date(Date.now() - DAY).toISOString().slice(0, 10);
+    await operator(
+      'close',
+      leaving.slug,
+      '--by',
+      operatorEmail,
+      '--contract-end',
+      ended,
+      '--reason',
+      'Contract ended by the client',
+    );
+    await prisma.workspaceClosure.update({
+      where: { organisationId: leaving.id },
+      data: { deleteAfter: new Date(Date.now() - 1000) },
+    });
+    return leaving;
+  }
+
+  const LICENCE = '2f1c9a34-5b6d-4e7f-8a90-b1c2d3e4f506';
+
+  it(
+    'releases the deleted workspace licence at the account service',
+    async () => {
+      const leaving = await dueForDeletion();
+      const calls: string[] = [];
+      const licences = {
+        find: (organisationId: string) => {
+          calls.push(`find ${organisationId}`);
+          return Promise.resolve(LICENCE);
+        },
+        release: async (licenceId: string, organisationId: string) => {
+          // The workspace is already gone when its licence is released.
+          const left = await prisma.organisation.count({
+            where: { id: organisationId },
+          });
+          calls.push(`release ${licenceId} ${organisationId} ${left}`);
+        },
+      };
+      const said = await runOperatorCommand(
+        prisma,
+        ['delete-closed', leaving.slug, '--by', operatorEmail, '--confirm'],
+        { ...deps(), licences },
+      );
+      expect(said).toContain('are deleted');
+      expect(said).toContain(
+        `Its licence ${LICENCE} is released at the account service.`,
+      );
+      expect(calls).toEqual([
+        `find ${leaving.id}`,
+        `release ${LICENCE} ${leaving.id} 0`,
+      ]);
+    },
+    SLOW,
+  );
+
+  it(
+    'keeps the deletion when the licence cannot be released, and names the licence',
+    async () => {
+      const leaving = await dueForDeletion();
+      const licences = {
+        find: () => Promise.resolve(LICENCE),
+        release: () =>
+          Promise.reject(new Error('The account service answered 503.')),
+      };
+      const said = await runOperatorCommand(
+        prisma,
+        ['delete-closed', leaving.slug, '--by', operatorEmail, '--confirm'],
+        { ...deps(), licences },
+      );
+      expect(said).toContain('are deleted');
+      expect(said).toContain(
+        `Its licence ${LICENCE} was not released at the account service: The account service answered 503.`,
+      );
+      expect(said).toContain(
+        `operator release-licence ${LICENCE} --workspace ${leaving.id}`,
+      );
+      expect(
+        await prisma.organisation.count({ where: { id: leaving.id } }),
+      ).toBe(0);
+      expect(await readdir(uploads)).not.toContain(leaving.id);
+
+      // The operator retries it once the account service answers.
+      const released: string[] = [];
+      await expect(
+        runOperatorCommand(
+          prisma,
+          ['release-licence', LICENCE, '--workspace', leaving.id],
+          {
+            ...deps(),
+            licences: {
+              find: () => Promise.resolve(null),
+              release: (licenceId, organisationId) => {
+                released.push(`${licenceId} ${organisationId}`);
+                return Promise.resolve();
+              },
+            },
+          },
+        ),
+      ).resolves.toBe(`Licence ${LICENCE} is released at the account service.`);
+      expect(released).toEqual([`${LICENCE} ${leaving.id}`]);
+    },
+    SLOW,
+  );
+
+  it(
+    'deletes the workspace when its licence cannot be looked up, or none covers it',
+    async () => {
+      const unreachable = await dueForDeletion();
+      const release = jest.fn(() => Promise.resolve());
+      const down = await runOperatorCommand(
+        prisma,
+        ['delete-closed', unreachable.slug, '--by', operatorEmail, '--confirm'],
+        {
+          ...deps(),
+          licences: {
+            find: () => Promise.reject(new Error('connection refused')),
+            release,
+          },
+        },
+      );
+      expect(down).toContain('are deleted');
+      expect(down).toContain(
+        `Its licence could not be looked up at the account service: connection refused Find the licence for workspace ${unreachable.id} there`,
+      );
+
+      const unlicensed = await dueForDeletion();
+      const none = await runOperatorCommand(
+        prisma,
+        ['delete-closed', unlicensed.slug, '--by', operatorEmail, '--confirm'],
+        { ...deps(), licences: { find: () => Promise.resolve(null), release } },
+      );
+      expect(none).toContain('No licence at the account service covers it.');
+      expect(release).not.toHaveBeenCalled();
+      expect(
+        await prisma.organisation.count({
+          where: { id: { in: [unreachable.id, unlicensed.id] } },
+        }),
+      ).toBe(0);
+    },
+    SLOW,
+  );
+
+  it('cannot release a licence when licences are not checked', async () => {
+    await expect(
+      operator('release-licence', LICENCE, '--workspace', 'cmorg1'),
+    ).rejects.toThrow('Licences are not checked here');
+  });
+
   it('refuses a closure without an operator, a reason or a real date', async () => {
     const ws = await workspace();
     await expect(
