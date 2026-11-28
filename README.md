@@ -131,6 +131,54 @@ lapsed plan (`PAST_DUE`, `SUSPENDED` or `CANCELLED`) restricts nothing unless
 passed. The workspace can then be read and exported, but not changed. Nothing
 sets that date yet. Feature flags are stored and shown, but not enforced.
 
+## Customer data: export and erasure
+
+An Admin can do both from the customer record. The rules are cautious defaults,
+**not legal advice**. They are in `apps/api/src/privacy/erasure-rules.ts`.
+
+- **Export** is a ZIP with `data.json` and the customer's files. Staff are not
+  named. Pictures are the copies without metadata.
+- **Erase** shows a preview, then asks for the password and a two-factor code.
+  It is blocked while the customer has an open job. It cannot be undone.
+
+| What                                                                                 | What erasure does                                                  |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Name, contact details, internal notes on the record                                  | Removed. The empty record stays, for its jobs                      |
+| Notes, GPS positions, portal access and invites                                      | Deleted                                                            |
+| Task text, journey places, status notes, audit details                               | Replaced or cleared                                                |
+| The customer's own documents (`CUSTOMER`)                                            | Deleted, with every copy                                           |
+| Photos: before collection, collection, arrival, final                                | Deleted, with every copy                                           |
+| Documents: purchase invoice, customs, import, registration, transport                | Kept, renamed, hidden from sharing                                 |
+| Documents: V5C, inspection, other. Photos: damage, mileage, VIN, registration, other | Kept and flagged for review                                        |
+| Jobs, vehicles, VINs, registrations, costs, customer charges                         | Kept. A cost or charge whose text names the customer is flagged    |
+| Sign-in account                                                                      | Deleted only if nothing else uses it. Otherwise not changed at all |
+
+Nothing expires by itself. Kept files are not changed inside, so an invoice still
+shows what is printed on it.
+
+### After a database restore
+
+A restored dump can bring erased customers back. Each erasure is also written to
+`.erasure-journal/journal.jsonl` on the uploads volume. It holds ids and storage
+keys only.
+
+1. Before you restore anything, copy the journal somewhere safe. If you also
+   restore the uploads, use the **newest** journal you have, not the one from the
+   snapshot you are restoring.
+2. Restore the database, and keep the api stopped. If the dump is older than the
+   running release, apply its schema first.
+3. In the api image, with the uploads volume mounted, look and then apply:
+
+   ```sh
+   node dist/src/privacy/erasures.js apply --journal <newest journal>
+   node dist/src/privacy/erasures.js apply --journal <newest journal> --confirm
+   ```
+
+4. Start the api. Leave out `--journal` to use the one on the volume.
+
+If the server is lost, erasures made after the last offsite backup are only known
+if the journal was copied elsewhere.
+
 ## Customer email
 
 Status changes, customer-visible notes/files, and portal invites go through `NotificationsService`.

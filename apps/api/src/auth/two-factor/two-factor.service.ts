@@ -241,6 +241,29 @@ export class TwoFactorService {
     return { backupCodes };
   }
 
+  /**
+   * Both factors again, before something that cannot be undone. It needs
+   * two-factor to be on. A wrong answer is not a 401, which the web app would
+   * read as the session having ended.
+   */
+  async confirmIdentity(userId: string, password: string, input: SecondFactor) {
+    try {
+      const account = await this.requirePassword(userId, password);
+      const row = await this.prisma.twoFactor.findUnique({
+        where: { userId },
+      });
+      if (!account.twoFactorEnabled || !row?.verified) {
+        throw new BadRequestException('Turn on two-factor sign-in first.');
+      }
+      await this.requireCode(row, input);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
+  }
+
   /** Issued instead of an access token when the password is right but a code is still due. */
   async createChallenge(userId: string, membershipId: string) {
     const payload: ChallengePayload = {

@@ -160,3 +160,52 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Data and privacy */
+.privacy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 12px;
+}
+
+.privacy-erase {
+  color: var(--impakt-color-status-danger-text);
+}
+
+.privacy-dialog,
+.privacy-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.privacy-confirm {
+  margin-block-start: 8px;
+}
+
+.privacy-confirm > impakt-text-input {
+  margin: 0;
+}
+
+.privacy-list {
+  margin: 4px 0 0;
+  padding-inline-start: 20px;
+  list-style: disc;
+  font-size: 14px;
+}
+
+.privacy-review {
+  margin-block-start: 20px;
+}
+
+.privacy-review ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.privacy-review li {
+  padding-block: 10px;
+  border-block-start: 1px solid color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+}

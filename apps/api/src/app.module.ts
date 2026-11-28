@@ -16,6 +16,7 @@ import { WorkflowModule } from './workflow/workflow.module';
 import { RouteTemplatesModule } from './routes/route-templates.module';
 import { TenancyModule } from './tenancy/tenancy.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -40,6 +41,7 @@ import { HealthController } from './health.controller';
     OrganisationsModule,
     RouteTemplatesModule,
     WorkflowModule,
+    PrivacyModule,
   ],
   controllers: [HealthController],
 })

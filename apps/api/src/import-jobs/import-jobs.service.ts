@@ -222,6 +222,9 @@ export class ImportJobsService {
     if (!customer) {
       throw new NotFoundException('Customer not found');
     }
+    if (customer.erasedAt) {
+      throw new ConflictException('This customer has been erased.');
+    }
 
     if (dto.vehicleId) {
       const existing = await this.prisma.vehicle.findFirst({
@@ -286,6 +289,11 @@ export class ImportJobsService {
         },
         include: jobDetailInclude,
       });
+      // Read again now that the insert holds the customer's row: an erasure
+      // that finished meanwhile must not be given a new job.
+      if (created.customer.erasedAt) {
+        throw new ConflictException('This customer has been erased.');
+      }
       await this.usage.incrementImportJobs(
         user.organisationId,
         created.createdAt,

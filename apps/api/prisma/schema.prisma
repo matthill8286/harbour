@@ -179,6 +179,7 @@ model Organisation {
   statusHistory    JobStatusHistory[]
   registrations    VehicleRegistration[]
   suspensions      WorkspaceSuspension[]
+  erasures         CustomerErasure[]
 }
 
 model OrganisationSettings {
@@ -398,6 +399,9 @@ model Customer {
   phone          String?
   address        String?
   notes          String?
+  /// Set when the customer's personal data was erased. The row stays, empty,
+  /// for the jobs that may have to be kept.
+  erasedAt       DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -867,6 +871,42 @@ model StaffInvite {
 
   @@index([userId])
   @@index([organisationId])
+}
+
+/// One customer's erasure. It holds ids and counts, and no personal data. The
+/// customer is named by id only. The same erasure is also written to a journal
+/// outside the database, so it can be repeated after a restore.
+model CustomerErasure {
+  id             String       @id @default(cuid())
+  organisationId String
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  customerId     String
+  performedById  String
+  performedAt    DateTime     @default(now())
+  reappliedAt    DateTime?
+  summary        Json
+
+  reviewItems ErasureReviewItem[]
+
+  @@unique([organisationId, customerId])
+}
+
+/// A record kept at an erasure because it is not clear that it may go.
+model ErasureReviewItem {
+  id          String          @id @default(cuid())
+  erasureId   String
+  erasure     CustomerErasure @relation(fields: [erasureId], references: [id], onDelete: Cascade)
+  /// DOCUMENT, PHOTO, COST or CHARGE.
+  kind        String
+  recordId    String
+  importJobId String?
+  reason      String
+  /// Empty until an Admin decides: KEPT or REMOVED.
+  decision    String?
+  decidedById String?
+  decidedAt   DateTime?
+
+  @@unique([erasureId, kind, recordId])
 }
 
 model AuditLog {

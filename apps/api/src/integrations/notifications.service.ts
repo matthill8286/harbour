@@ -179,7 +179,11 @@ export class NotificationsService implements OnApplicationShutdown {
       subject: composed.subject,
       text: composed.text,
       html: composed.html,
-      stillAllowed: this.whileActive(event.organisationId),
+      stillAllowed: this.whileCustomerIsThere(
+        event.organisationId,
+        event.customerId,
+        customer.email,
+      ),
     });
     this.logger.log(
       `${event.type} via=${result.provider} customer=${event.customerId}${
@@ -191,6 +195,19 @@ export class NotificationsService implements OnApplicationShutdown {
 
   private whileActive(organisationId: string) {
     return () => workspaceIsActive(this.prisma, organisationId);
+  }
+
+  /** And not once the customer is erased or has another address. */
+  private whileCustomerIsThere(
+    organisationId: string,
+    customerId: string,
+    email: string,
+  ) {
+    return async () =>
+      (await workspaceIsActive(this.prisma, organisationId)) &&
+      (await this.prisma.customer.count({
+        where: { id: customerId, organisationId, email, erasedAt: null },
+      })) === 1;
   }
 
   private webOrigin() {
