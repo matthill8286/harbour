@@ -36,8 +36,27 @@ for _ in $(seq 1 60); do
   sleep 1
 done
 
-echo "migrate: db push"
-docker run --rm --network "$run" "${env_args[@]}" "impkt-harbour-migrate:$tag"
+migrate() { docker run --rm --network "$run" "$@"; }
+sql() { docker exec -i "$run-db" psql -X -q -v ON_ERROR_STOP=1 -U vip "$@"; }
+
+echo "migrate: an empty database, twice"
+migrate "${env_args[@]}" "impkt-harbour-migrate:$tag"
+migrate "${env_args[@]}" "impkt-harbour-migrate:$tag"
+
+# A database as releases before migrations left it: the baseline's tables, no history.
+echo "migrate: a database without history"
+sql -d vehicle_import -c 'CREATE DATABASE unrecorded'
+sql -d unrecorded < "$(ls -d apps/api/prisma/migrations/*_baseline)/migration.sql"
+old_args=(-e "DATABASE_URL=postgresql://vip:$password@db:5432/unrecorded?schema=public")
+sql -d unrecorded -c 'DROP INDEX "Tracker_realImei_key"'
+if migrate "${old_args[@]}" "impkt-harbour-migrate:$tag"; then
+  fail "migrate accepted a database that does not match the baseline."
+fi
+sql -d unrecorded -c "$(sed -n '/^CREATE UNIQUE INDEX "Tracker_realImei_key"/,/;$/p' \
+  apps/api/prisma/migrations/*_baseline/migration.sql)"
+migrate "${old_args[@]}" "impkt-harbour-migrate:$tag" node prisma/migrate.cjs check
+migrate "${old_args[@]}" "impkt-harbour-migrate:$tag"
+migrate "${old_args[@]}" "impkt-harbour-migrate:$tag"
 
 echo "migrate: demo seed"
 docker volume create "$run-uploads" >/dev/null

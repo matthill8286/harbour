@@ -1,19 +1,14 @@
 import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { imeiKeySql, realProviderSql } from '../integrations/gps-device';
 
 export const REAL_IMEI_INDEX = 'Tracker_realImei_key';
 export const PING_INDEX = 'LocationEvent_trackerId_recordedAt_key';
 
 /**
- * Makes the two unique indexes that `prisma db push` cannot add without
- * `--accept-data-loss`. Both are partial, so `db push` does not see them and
- * leaves them in place. It runs before the API listens, and a failure stops the
- * start: ingestion must not run without these rules.
- *
- * Nothing is deleted. Rows that break a rule are marked first, in the same
- * transaction, and then left out of the index.
+ * Checks for the two partial unique indexes that ingestion depends on. The
+ * migrations make them (prisma/migrations), because schema.prisma cannot
+ * describe them. It runs before the API listens, and a missing or invalid index
+ * stops the start: ingestion must not run without these rules.
  */
 @Injectable()
 export class GpsIndexesService implements OnApplicationBootstrap {
@@ -22,88 +17,35 @@ export class GpsIndexesService implements OnApplicationBootstrap {
   constructor(private readonly prisma: PrismaService) {}
 
   async onApplicationBootstrap() {
-    await this.ensure();
-  }
-
-  async ensure() {
-    const marked = await this.prisma.$transaction(
-      async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('gps-indexes'))`;
-        return {
-          claims: await this.uniqueRealImei(tx),
-          pings: await this.uniquePings(tx),
-        };
-      },
-      // Long enough to index a large ping table.
-      { maxWait: 60_000, timeout: 600_000 },
-    );
-    if (marked.pings) {
-      this.logger.warn(
-        `Marked ${marked.pings} duplicate GPS pings. They are kept and left out of trails.`,
-      );
-    }
+    await this.verify();
     const disputed = await this.prisma.tracker.count({
       where: { imeiConflictAt: { not: null } },
     });
     if (disputed) {
       this.logger.warn(
-        `${disputed} tracker registrations are in an IMEI dispute (${marked.claims} new). ` +
+        `${disputed} tracker registrations are in an IMEI dispute. ` +
           'They receive no positions. Confirm each owner with confirm-device-owner.',
       );
     }
-    return marked;
   }
 
-  /**
-   * Where a real IMEI is registered more than once, every claim is disputed.
-   * Being first is not proof of ownership, so none of them wins.
-   */
-  private async uniqueRealImei(tx: Prisma.TransactionClient) {
-    if (await this.exists(tx, REAL_IMEI_INDEX)) return 0;
-    await tx.$executeRaw`LOCK TABLE "Tracker" IN SHARE ROW EXCLUSIVE MODE`;
-    const marked = await tx.$executeRaw`
-      UPDATE "Tracker"
-      SET "imeiConflictAt" = now(), "ownershipConfirmedAt" = NULL
-      WHERE ${realProviderSql} AND "imeiConflictAt" IS NULL AND ${imeiKeySql} IN (
-        SELECT ${imeiKeySql} FROM "Tracker"
-        WHERE ${realProviderSql} AND "imeiConflictAt" IS NULL
-        GROUP BY 1 HAVING count(*) > 1
-      )`;
-    await tx.$executeRaw`
-      CREATE UNIQUE INDEX ${Prisma.raw(`"${REAL_IMEI_INDEX}"`)}
-      ON "Tracker" ((${imeiKeySql}))
-      WHERE ${realProviderSql} AND "imeiConflictAt" IS NULL`;
-    return marked;
-  }
-
-  /** Keeps one copy of each ping, preferring one that is on a job. */
-  private async uniquePings(tx: Prisma.TransactionClient) {
-    if (await this.exists(tx, PING_INDEX)) return 0;
-    await tx.$executeRaw`LOCK TABLE "LocationEvent" IN SHARE ROW EXCLUSIVE MODE`;
-    const marked = await tx.$executeRaw`
-      UPDATE "LocationEvent" SET "isDuplicate" = true
-      WHERE "id" IN (
-        SELECT "id" FROM (
-          SELECT "id", row_number() OVER (
-            PARTITION BY "trackerId", "recordedAt"
-            ORDER BY ("importJobId" IS NULL), "receivedAt", "id"
-          ) AS copy
-          FROM "LocationEvent"
-          WHERE "trackerId" IS NOT NULL AND NOT "isDuplicate"
-        ) AS pings
-        WHERE copy > 1
-      )`;
-    // This index also serves every lookup by tracker and time.
-    await tx.$executeRaw`
-      CREATE UNIQUE INDEX ${Prisma.raw(`"${PING_INDEX}"`)}
-      ON "LocationEvent" ("trackerId", "recordedAt")
-      WHERE "trackerId" IS NOT NULL AND NOT "isDuplicate"`;
-    return marked;
-  }
-
-  private async exists(tx: Prisma.TransactionClient, index: string) {
-    const [row] = await tx.$queryRaw<Array<{ found: boolean }>>`
-      SELECT to_regclass(${`"${index}"`}) IS NOT NULL AS found`;
-    return row.found;
+  async verify() {
+    const missing: string[] = [];
+    for (const name of [REAL_IMEI_INDEX, PING_INDEX]) {
+      const [row] = await this.prisma.$queryRaw<Array<{ found: boolean }>>`
+        SELECT EXISTS (
+          SELECT 1 FROM pg_index
+          WHERE indexrelid = to_regclass(${`"${name}"`})
+            AND indisunique AND indisvalid
+        ) AS found`;
+      if (!row.found) missing.push(name);
+    }
+    if (missing.length) {
+      const message =
+        `The database is missing ${missing.join(' and ')}. ` +
+        'Apply the migrations with `node prisma/migrate.cjs deploy`.';
+      this.logger.error(message);
+      throw new Error(message);
+    }
   }
 }

@@ -2,11 +2,8 @@
  * GPS ownership and ingestion against a real PostgreSQL database. Skipped unless
  * TEST_DATABASE_URL names a scratch database that already has the schema:
  *
- *   DATABASE_URL=<scratch url> pnpm exec prisma db push --skip-generate
+ *   DATABASE_URL=<scratch url> pnpm run db:deploy
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest gps.db
- *
- * It removes the two GPS indexes to set up rows that predate them, so run it
- * alone (`--runInBand` when running every database test).
  */
 import { randomUUID } from 'node:crypto';
 import { AuditService } from '../audit/audit.service';
@@ -16,11 +13,7 @@ import { GpsProviderService } from '../integrations/gps-provider.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { confirmDeviceOwner } from '../trackers/device-ownership';
 import { TrackersService } from '../trackers/trackers.service';
-import {
-  GpsIndexesService,
-  PING_INDEX,
-  REAL_IMEI_INDEX,
-} from './gps-indexes.service';
+import { GpsIndexesService, REAL_IMEI_INDEX } from './gps-indexes.service';
 import { TrackingService } from './tracking.service';
 
 const url = process.env.TEST_DATABASE_URL;
@@ -50,7 +43,7 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     tracking = new TrackingService(prisma, new GpsProviderService(), {
       getConfig: () => ({}),
     } as never);
-    await indexes.ensure();
+    await indexes.verify();
   });
 
   afterAll(async () => {
@@ -426,86 +419,55 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     });
   });
 
-  describe('starting up over rows that predate the rules', () => {
-    beforeAll(async () => {
-      await prisma.$executeRawUnsafe(`DROP INDEX "${REAL_IMEI_INDEX}"`);
-      await prisma.$executeRawUnsafe(`DROP INDEX "${PING_INDEX}"`);
+  describe('the rules the migrations make', () => {
+    it('refuses a second claim on a real IMEI, however it is typed', async () => {
+      const [a, b] = [await workspace(), await workspace()];
+      const serial = imei();
+      await prisma.tracker.create({
+        data: { organisationId: a.organisationId, serialNumber: serial },
+      });
+      await expect(
+        prisma.tracker.create({
+          data: {
+            organisationId: b.organisationId,
+            serialNumber: `${serial.slice(0, 2)} ${serial.slice(2)}`,
+            provider: 'teltonika',
+          },
+        }),
+      ).rejects.toMatchObject({ code: 'P2002' });
     });
 
-    it('disputes every duplicate claim, keeps every ping and can run again', async () => {
-      const serial = imei();
-      const claims = [];
-      for (const provider of ['flespi', 'teltonika']) {
-        const w = await workspace();
-        claims.push(
-          await prisma.tracker.create({
-            data: {
-              organisationId: w.organisationId,
-              serialNumber: serial,
-              provider,
-              ownershipConfirmedAt: new Date(0),
-            },
-          }),
-        );
-      }
+    it('keeps one copy of a tracker’s ping, unless it is marked a duplicate', async () => {
       const w = await workspace();
-      const target = await job(w);
       const unit = await prisma.tracker.create({
         data: { organisationId: w.organisationId, serialNumber: imei() },
       });
-      const at = new Date('2026-01-01T00:00:00Z');
-      const copy = (importJobId?: string) =>
+      const copy = (isDuplicate = false) =>
         prisma.locationEvent.create({
           data: {
             organisationId: w.organisationId,
             trackerId: unit.id,
-            importJobId,
             latitude: 35,
             longitude: 33,
-            recordedAt: at,
+            recordedAt: new Date('2026-01-01T00:00:00Z'),
+            isDuplicate,
           },
         });
       await copy();
-      const onJob = await copy(target.id);
-      await copy();
-
-      // Two copies of the API starting at once must both succeed.
-      await Promise.all([indexes.ensure(), indexes.ensure()]);
-      await expect(indexes.ensure()).resolves.toEqual({
-        claims: 0,
-        pings: 0,
-      });
-
-      const after = await prisma.tracker.findMany({
-        where: { id: { in: claims.map((c) => c.id) } },
-      });
-      for (const claim of after) {
-        expect(claim.imeiConflictAt).not.toBeNull();
-        expect(claim.ownershipConfirmedAt).toBeNull();
-      }
-      const kept = await pingsOf(unit.id);
-      expect(kept).toHaveLength(3);
-      expect(kept.filter((p) => !p.isDuplicate)).toMatchObject([
-        { id: onJob.id },
-      ]);
-      // A third claim is still refused, and the dispute blocks delivery.
-      const third = await workspace();
-      await expect(
-        trackers.create(third.user, { serialNumber: serial }),
-      ).rejects.toMatchObject({ status: 409 });
-      await expect(
-        ingest.ingestBody([message(serial, wholeSecond())]),
-      ).resolves.toMatchObject({ unknown: 1 });
+      await expect(copy()).rejects.toMatchObject({ code: 'P2002' });
+      await expect(copy(true)).resolves.toBeDefined();
     });
 
-    it('stops the start when the indexes cannot be made', async () => {
-      const failing = jest
-        .spyOn(prisma, '$transaction')
-        .mockRejectedValueOnce(new Error('no room for the index'));
+    it('stops the start when an index is missing', async () => {
+      await expect(indexes.onApplicationBootstrap()).resolves.toBeUndefined();
+      const query = jest
+        .spyOn(prisma, '$queryRaw')
+        .mockResolvedValueOnce([{ found: false }])
+        .mockResolvedValueOnce([{ found: true }]);
       await expect(indexes.onApplicationBootstrap()).rejects.toThrow(
-        'no room for the index',
+        `missing ${REAL_IMEI_INDEX}.`,
       );
-      failing.mockRestore();
+      query.mockRestore();
     });
   });
 });

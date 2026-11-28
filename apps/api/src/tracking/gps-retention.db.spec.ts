@@ -2,7 +2,7 @@
  * GPS retention against a real PostgreSQL database. Skipped unless
  * TEST_DATABASE_URL names a scratch database that already has the schema:
  *
- *   DATABASE_URL=<scratch url> pnpm exec prisma db push --skip-generate
+ *   DATABASE_URL=<scratch url> pnpm run db:deploy
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest gps-retention.db
  *
  * The clock is set in 2001, so it only deletes the old rows made here.

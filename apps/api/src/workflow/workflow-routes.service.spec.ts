@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
@@ -243,5 +244,52 @@ describe('editing a route', () => {
     const [route] = await service.list(owner);
     expect(route.activeJobs).toBe(3);
     expect(route.jobsByStatus).toEqual({ BOOKED: 2, AT_SEA: 1 });
+  });
+});
+
+describe('setting up default routes at start', () => {
+  const unfinished = [{ id: 'org-1' }, { id: 'org-2' }, { id: 'org-3' }];
+
+  function starting() {
+    const { service, prisma } = setup();
+    const findMany = jest.fn().mockResolvedValue(unfinished);
+    Object.assign(prisma, { organisation: { findMany } });
+    return { service, findMany };
+  }
+
+  it('tries every workspace, then fails the start if any failed', async () => {
+    const { service } = starting();
+    const ensure = jest
+      .spyOn(service, 'ensureDefault')
+      .mockResolvedValueOnce({} as never)
+      .mockRejectedValueOnce(new Error('locked'))
+      .mockResolvedValueOnce({} as never);
+    const logged = jest
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(service.onApplicationBootstrap()).rejects.toThrow(
+      'failed for 1 of 3 workspaces',
+    );
+    expect(ensure).toHaveBeenCalledTimes(3);
+    expect(logged).toHaveBeenCalledWith(
+      'Could not set up the default route for workspace org-2',
+      expect.any(Error),
+    );
+    logged.mockRestore();
+  });
+
+  it('fails the start when the workspaces cannot be read', async () => {
+    const { service, findMany } = starting();
+    findMany.mockRejectedValue(new Error('no database'));
+    await expect(service.onApplicationBootstrap()).rejects.toThrow(
+      'no database',
+    );
+  });
+
+  it('starts when every workspace is set up', async () => {
+    const { service } = starting();
+    jest.spyOn(service, 'ensureDefault').mockResolvedValue({} as never);
+    await expect(service.onApplicationBootstrap()).resolves.toBeUndefined();
   });
 });
