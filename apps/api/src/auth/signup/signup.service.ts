@@ -24,6 +24,11 @@ import { buildAuthUser } from '../auth-user';
 import { createInviteToken, hashInviteToken } from '../invite-token';
 import type { SignupDto } from './signup.dto';
 import { organisationSlug } from './signup';
+import {
+  assertCurrentVersions,
+  recordAcceptance,
+  TermsChangedError,
+} from '../../organisations/terms';
 
 /** Features every new workspace gets, the same set the demo workspaces have. */
 export const SIGNUP_FEATURES = ['GPS_TRACKING', 'CUSTOMER_PORTAL'] as const;
@@ -126,7 +131,21 @@ export class SignupService {
    * The link proves the mailbox, and its owner chooses the password. Creates a
    * new importer workspace on a trial, with them as its Admin, and signs them in.
    */
-  async confirm(token: string, password: string) {
+  async confirm(
+    token: string,
+    password: string,
+    acceptedTerms: Record<string, string>,
+  ) {
+    try {
+      assertCurrentVersions(acceptedTerms);
+    } catch (error) {
+      if (!(error instanceof TermsChangedError)) throw error;
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'terms_changed',
+        message: error.message,
+      });
+    }
     const request = await this.findUsable(token);
     // Checked again, because the licence may have been used or stopped since the
     // email was sent.
@@ -137,7 +156,12 @@ export class SignupService {
 
     let created: Awaited<ReturnType<SignupService['createWorkspace']>>;
     try {
-      created = await this.createWorkspace(request, passwordHash, licence?.id);
+      created = await this.createWorkspace(
+        request,
+        passwordHash,
+        acceptedTerms,
+        licence?.id,
+      );
     } catch (error) {
       // The account was made by something else at the same moment.
       if (
@@ -192,6 +216,7 @@ export class SignupService {
       name: string;
     },
     passwordHash: string,
+    acceptedTerms: Record<string, string>,
     licenceId?: string,
   ) {
     // One at a time for each email, so two links used at once cannot both
@@ -240,6 +265,16 @@ export class SignupService {
           },
           include: { organisation: { include: { settings: true } } },
         });
+        // In the same transaction, so a workspace never exists without them.
+        await recordAcceptance(
+          tx,
+          {
+            organisationId: organisation.id,
+            user: { id: user.id, name: request.name, email: request.email },
+            versions: acceptedTerms,
+          },
+          now,
+        );
         // Bound before the workspace is kept. If it fails, nothing is saved, so
         // a workspace never exists without its licence.
         if (licenceId) await this.licensing!.bind(licenceId, organisation.id);

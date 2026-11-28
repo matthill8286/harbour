@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { currentLegalVersions, LEGAL_DOCUMENTS, SUB_PROCESSORS } from '@vip/shared';
 import { api, type SessionResponse } from '../lib/api';
 import { homePath, useAuth } from '../lib/auth';
 import { AuthFrame } from '../components/AuthFrame';
@@ -20,6 +21,7 @@ export function SignupConfirmPage() {
   const { user, adopt, logout } = useAuth();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -41,12 +43,16 @@ export function SignupConfirmPage() {
       setError('Passwords do not match');
       return;
     }
+    if (!agreed) {
+      setError('Accept the agreements to create the workspace');
+      return;
+    }
     setPending(true);
     setError(null);
     try {
       const session = await api<SessionResponse>('/auth/signup/confirm', {
         method: 'POST',
-        body: JSON.stringify({ token, password }),
+        body: JSON.stringify({ token, password, acceptedTerms: currentLegalVersions() }),
       });
       adopt(session);
       navigate(homePath(session.user));
@@ -115,6 +121,37 @@ export function SignupConfirmPage() {
               required
             />
           </label>
+          <fieldset className="space-y-2 text-sm">
+            <legend className="font-semibold">Agreements</legend>
+            <ul className="list-disc space-y-1 pl-5 text-ink/70">
+              {LEGAL_DOCUMENTS.map((document) => (
+                <li key={document.key}>
+                  {document.url ? (
+                    <a href={document.url} target="_blank" rel="noreferrer" className="underline">
+                      {document.title}
+                    </a>
+                  ) : (
+                    document.title
+                  )}
+                  , version {document.version}
+                </li>
+              ))}
+            </ul>
+            <details className="text-ink/70">
+              <summary className="cursor-pointer">Sub-processors IMPKT uses</summary>
+              <ul className="mt-1 list-disc space-y-1 pl-5">
+                {SUB_PROCESSORS.map((item) => (
+                  <li key={item.name}>
+                    {item.name}: {item.purpose}
+                  </li>
+                ))}
+              </ul>
+            </details>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" className="mt-1" checked={agreed} onChange={(event) => setAgreed(event.target.checked)} required />
+              <span>I accept these agreements on behalf of {preview.data.organisationName}, and I am authorised to do so.</span>
+            </label>
+          </fieldset>
           {error ? <ErrorBanner message={error} /> : null}
           <button type="submit" disabled={pending} className={`${primaryBtn} w-full py-3`}>
             {pending ? 'Creating…' : 'Create workspace'}

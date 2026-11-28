@@ -13,6 +13,9 @@ import type { EmailTransport } from '../../integrations/email-transport';
 import { RateLimiter } from '../../rate-limit/rate-limiter';
 import { SIGNUP_DAILY_EMAILS, SignupService } from './signup.service';
 import { organisationSlug } from './signup';
+import { currentLegalVersions } from '@vip/shared';
+
+const TERMS = currentLegalVersions();
 
 describe('organisationSlug', () => {
   it('makes a readable, unique slug', () => {
@@ -147,6 +150,14 @@ describe('SignupService', () => {
           },
         }),
       },
+      termsAcceptance: {
+        findUnique: jest.fn().mockResolvedValue(null),
+        create: jest.fn(async (call: { data: object }) => ({
+          id: `terms-${Math.random()}`,
+          ...call.data,
+        })),
+      },
+      auditLog: { create: jest.fn() },
       $executeRaw: jest.fn(),
       $transaction: jest.fn(),
     };
@@ -224,7 +235,7 @@ describe('SignupService', () => {
       name: 'Anna',
     });
 
-    const result = await service.confirm(token, 'a-long-password');
+    const result = await service.confirm(token, 'a-long-password', TERMS);
 
     const org = prisma.organisation.create.mock.calls[0][0].data;
     expect(org.slug).toMatch(/^anna-imports-[0-9a-f]{6}$/);
@@ -244,6 +255,39 @@ describe('SignupService', () => {
       sub: 'user-new',
       membershipId: 'mem-new',
     });
+    expect(
+      prisma.termsAcceptance.create.mock.calls.map(
+        ([call]: [{ data: object }]) => call.data,
+      ),
+    ).toEqual(
+      Object.entries(TERMS).map(([document, version]): unknown =>
+        expect.objectContaining({
+          organisationId: 'org-new',
+          document,
+          version,
+          acceptedById: 'user-new',
+          acceptedByEmail: 'anna@example.com',
+        }),
+      ),
+    );
+    expect(prisma.auditLog.create).toHaveBeenCalledTimes(3);
+  });
+
+  it('creates nothing when the accepted versions are not the current ones', async () => {
+    const { service, prisma, mail } = setup();
+    await service.request(dto);
+    const token = linkIn(mail[0].text);
+    for (const versions of [
+      {},
+      { ...TERMS, TERMS_OF_SERVICE: 'an-old-version' },
+      { ...TERMS, SOMETHING_ELSE: 'x' },
+    ]) {
+      await expect(
+        service.confirm(token, 'a-long-password', versions),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+    expect(prisma.organisation.create).not.toHaveBeenCalled();
+    await expect(service.check(token)).resolves.toBeTruthy();
   });
 
   it('uses each link once, and ends the other links for that email', async () => {
@@ -252,11 +296,11 @@ describe('SignupService', () => {
     await service.request(dto);
     const [first, second] = mail.map((m) => linkIn(m.text));
 
-    await service.confirm(second, 'a-long-password');
+    await service.confirm(second, 'a-long-password', TERMS);
 
     for (const token of [first, second, 'made-up', '']) {
       await expect(
-        service.confirm(token, 'another-password'),
+        service.confirm(token, 'another-password', TERMS),
       ).rejects.toBeInstanceOf(BadRequestException);
     }
   });
@@ -285,7 +329,7 @@ describe('SignupService', () => {
     users.find((u) => u.id === INVITED.id)!.passwordHash = 'chosen-elsewhere';
 
     await expect(
-      service.confirm(linkIn(mail[0].text), 'a-long-password'),
+      service.confirm(linkIn(mail[0].text), 'a-long-password', TERMS),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(users.find((u) => u.id === INVITED.id)!.passwordHash).toBe(
       'chosen-elsewhere',
@@ -296,7 +340,7 @@ describe('SignupService', () => {
   it('lets the owner of an invited, unclaimed email sign up', async () => {
     const { service, mail, users, prisma } = setup();
     await service.request({ ...dto, email: INVITED.email });
-    await service.confirm(linkIn(mail[0].text), 'a-long-password');
+    await service.confirm(linkIn(mail[0].text), 'a-long-password', TERMS);
 
     expect(users.find((u) => u.id === INVITED.id)!.passwordHash).toBeTruthy();
     expect(prisma.organisationMembership.updateMany).toHaveBeenCalledWith({

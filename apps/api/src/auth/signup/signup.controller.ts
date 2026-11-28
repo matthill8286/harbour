@@ -24,6 +24,6 @@ export class SignupController {
   @Post('confirm')
   @RateLimit({ policy: 'signupConfirmIp', by: 'ip' })
   confirm(@Body() dto: ConfirmSignupDto) {
-    return this.signups.confirm(dto.token, dto.password);
+    return this.signups.confirm(dto.token, dto.password, dto.acceptedTerms);
   }
 }

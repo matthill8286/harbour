@@ -12,6 +12,9 @@ import type { Licence } from '../../licensing/licence';
 import { LicensingService } from '../../licensing/licensing.service';
 import { RateLimiter } from '../../rate-limit/rate-limiter';
 import { SignupService } from './signup.service';
+import { currentLegalVersions } from '@vip/shared';
+
+const TERMS = currentLegalVersions();
 
 const url = process.env.TEST_DATABASE_URL;
 const describeWithDatabase = url ? describe : describe.skip;
@@ -57,7 +60,7 @@ describeWithDatabase('sign-up against PostgreSQL', () => {
       const email = `${randomUUID()}@example.test`;
       const links = [await linkFor(email), await linkFor(email)];
       const results = await Promise.allSettled(
-        links.map((token) => signups.confirm(token, 'a-long-password')),
+        links.map((token) => signups.confirm(token, 'a-long-password', TERMS)),
       );
       expect(results.map((r) => r.status).sort()).toEqual([
         'fulfilled',
@@ -74,7 +77,7 @@ describeWithDatabase('sign-up against PostgreSQL', () => {
     const email = `${randomUUID()}@example.test`;
     const token = await linkFor(email);
     const results = await Promise.allSettled(
-      [1, 2].map(() => signups.confirm(token, 'a-long-password')),
+      [1, 2].map(() => signups.confirm(token, 'a-long-password', TERMS)),
     );
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
     await expect(workspacesOf(email)).resolves.toBe(1);
@@ -198,7 +201,7 @@ describeWithDatabase('sign-up where licences are checked', () => {
     const email = `${randomUUID()}@example.test`;
     const licence = issue(email);
     await request(email.toUpperCase(), licence.id);
-    const result = await signups.confirm(lastLink(), 'a-long-password');
+    const result = await signups.confirm(lastLink(), 'a-long-password', TERMS);
     expect(result.user.organisationId).toBe(licence.id);
     expect(licence.tenant).toBe(licence.id);
     const [membership] = await workspacesOf(email);
@@ -215,7 +218,7 @@ describeWithDatabase('sign-up where licences are checked', () => {
     await request(email, licence.id);
     licence.status = 'suspended';
     await expect(
-      signups.confirm(lastLink(), 'a-long-password'),
+      signups.confirm(lastLink(), 'a-long-password', TERMS),
     ).rejects.toMatchObject({ response: { code: 'licence_not_active' } });
     await expect(workspacesOf(email)).resolves.toHaveLength(0);
   });
@@ -228,14 +231,14 @@ describeWithDatabase('sign-up where licences are checked', () => {
     bindFails = true;
     try {
       await expect(
-        signups.confirm(link, 'a-long-password'),
+        signups.confirm(link, 'a-long-password', TERMS),
       ).rejects.toMatchObject({ status: 503 });
     } finally {
       bindFails = false;
     }
     await expect(workspacesOf(email)).resolves.toHaveLength(0);
     expect(licence.tenant).toBeNull();
-    const result = await signups.confirm(link, 'a-long-password');
+    const result = await signups.confirm(link, 'a-long-password', TERMS);
     expect(result.user.organisationId).toBe(licence.id);
   });
 });
