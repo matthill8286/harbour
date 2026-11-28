@@ -13,8 +13,8 @@
     "format:check": "prettier --check . --ignore-path ../../.prettierignore"
   },
   "dependencies": {
-    "@atomic-ui/ui": "^0.7.2",
-    "@atomic-ui/ui-react": "^0.7.2",
+    "@atomic-ui/ui": "^0.12.1",
+    "@atomic-ui/ui-react": "^0.12.1",
     "@tanstack/react-query": "^5.85.5",
     "@vip/shared": "workspace:*",
     "html5-qrcode": "^2.3.8",
@@ -28,7 +28,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
-    "@atomic-ui/design-tokens": "^0.7.2",
+    "@atomic-ui/design-tokens": "^0.12.1",
     "@tailwindcss/vite": "^4.1.12",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^24.13.3",
