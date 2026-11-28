@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { STAFF_ROLES } from '@vip/shared';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -8,8 +16,11 @@ import type { AuthUser } from '../auth/auth.types';
 import { TrackersService } from './trackers.service';
 import {
   AssignTrackerDto,
+  ConfirmRemovalDto,
   CreateLocationDto,
   CreateTrackerDto,
+  UnassignTrackerDto,
+  UpdateTrackerDto,
 } from './dto/tracker.dto';
 import { FlespiIngestService } from '../integrations/flespi-ingest.service';
 
@@ -42,12 +53,31 @@ export class TrackersController {
     return this.trackers.assign(user, jobId, dto);
   }
 
+  @Patch(':id')
+  update(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() dto: UpdateTrackerDto,
+  ) {
+    return this.trackers.update(user, id, dto);
+  }
+
   @Post('assignments/:assignmentId/unassign')
   unassign(
     @CurrentUser() user: AuthUser,
     @Param('assignmentId') assignmentId: string,
+    @Body() dto: UnassignTrackerDto,
   ) {
-    return this.trackers.unassign(user, assignmentId);
+    return this.trackers.unassign(user, assignmentId, dto);
+  }
+
+  @Post('assignments/:assignmentId/confirm-removal')
+  confirmRemoval(
+    @CurrentUser() user: AuthUser,
+    @Param('assignmentId') assignmentId: string,
+    @Body() dto: ConfirmRemovalDto,
+  ) {
+    return this.trackers.confirmRemoval(user, assignmentId, dto);
   }
 
   @Post(':id/sync')

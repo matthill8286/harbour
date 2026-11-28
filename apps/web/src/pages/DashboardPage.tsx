@@ -10,6 +10,18 @@ import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import './DashboardPage.css';
 
+type AlertKind = 'STALE_TRACKER' | 'NEAR_DESTINATION' | 'LOW_BATTERY' | 'LOW_VEHICLE_BATTERY' | 'REMOVAL_UNCONFIRMED' | 'REPORTING_AFTER_JOB';
+
+/** The badge each GPS alert carries, in words, so it never rests on colour alone. */
+const ALERT_BADGES: Record<AlertKind, { label: string; tone: 'danger' | 'warning' | 'solid' }> = {
+  STALE_TRACKER: { label: 'No signal', tone: 'danger' },
+  NEAR_DESTINATION: { label: 'Arriving', tone: 'solid' },
+  LOW_BATTERY: { label: 'Battery low', tone: 'warning' },
+  LOW_VEHICLE_BATTERY: { label: 'Vehicle battery', tone: 'warning' },
+  REMOVAL_UNCONFIRMED: { label: 'Not removed', tone: 'danger' },
+  REPORTING_AFTER_JOB: { label: 'Left in vehicle', tone: 'danger' },
+};
+
 type Dashboard = {
   activeJobs: number;
   byRoute: {
@@ -40,7 +52,7 @@ type Dashboard = {
     vehicle: { make: string | null; model: string | null; ukRegistration?: string | null };
   }[];
   opsAlerts: {
-    kind: 'STALE_TRACKER' | 'NEAR_DESTINATION';
+    kind: AlertKind;
     importJobId: string;
     reference: string;
     title: string;
@@ -275,7 +287,7 @@ export function DashboardPage() {
                     GPS alerts
                   </Heading>
                   <Text size="sm" tone="muted">
-                    Trackers that went silent and vehicles close to their destination
+                    Trackers that went silent, ran low or were left in a vehicle, and vehicles close to their destination
                   </Text>
                 </div>
                 <Button variant="secondary" href="/tracking">
@@ -284,12 +296,12 @@ export function DashboardPage() {
               </div>
               <ul className="board-alerts" role="list">
                 {data.opsAlerts.map((alert) => (
-                  <li key={`${alert.kind}-${alert.importJobId}`} className="board-alert">
+                  <li key={`${alert.kind}-${alert.importJobId}-${alert.trackerSerial ?? ''}`} className="board-alert">
                     <div className="board-alert-head">
                       <strong>
                         {alert.title} · {alert.reference}
                       </strong>
-                      {alert.kind === 'STALE_TRACKER' ? <Badge tone="danger">No signal</Badge> : <Badge tone="solid">Arriving</Badge>}
+                      <Badge tone={ALERT_BADGES[alert.kind].tone}>{ALERT_BADGES[alert.kind].label}</Badge>
                     </div>
                     <Text size="sm" tone="muted">
                       {alert.aiSummary ?? alert.detail}

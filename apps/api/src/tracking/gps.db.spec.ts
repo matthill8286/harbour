@@ -6,6 +6,7 @@
  *   TEST_DATABASE_URL=<scratch url> pnpm exec jest gps.db
  */
 import { randomUUID } from 'node:crypto';
+import { TRACKER_STATEMENT_VERSION } from '@vip/shared';
 import { AuditService } from '../audit/audit.service';
 import type { AuthUser } from '../auth/auth.types';
 import { FlespiIngestService } from '../integrations/flespi-ingest.service';
@@ -21,6 +22,13 @@ const describeWithDatabase = url ? describe : describe.skip;
 
 const HOUR = 60 * 60 * 1000;
 
+/** A real unit is registered with the lawful-use statement confirmed. */
+const real = (serialNumber: string) => ({
+  serialNumber,
+  statementConfirmed: true,
+  statementVersion: TRACKER_STATEMENT_VERSION,
+});
+
 describeWithDatabase('GPS against PostgreSQL', () => {
   let prisma: PrismaService;
   let indexes: GpsIndexesService;
@@ -28,6 +36,7 @@ describeWithDatabase('GPS against PostgreSQL', () => {
   let ingest: FlespiIngestService;
   let tracking: TrackingService;
   let gateway: jest.Mock;
+  let lowBattery: jest.Mock;
 
   beforeAll(async () => {
     process.env.DATABASE_URL = url;
@@ -36,10 +45,13 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     indexes = new GpsIndexesService(prisma);
     trackers = new TrackersService(prisma, new AuditService(prisma));
     gateway = jest.fn();
-    ingest = new FlespiIngestService(prisma, {
-      configured: () => true,
-      latestForImei: gateway,
-    } as never);
+    lowBattery = jest.fn();
+    ingest = new FlespiIngestService(
+      prisma,
+      { configured: () => true, latestForImei: gateway } as never,
+      { get: () => undefined } as never,
+      { sendLowBattery: lowBattery } as never,
+    );
     tracking = new TrackingService(prisma, new GpsProviderService(), {
       getConfig: () => ({}),
     } as never);
@@ -99,7 +111,12 @@ describeWithDatabase('GPS against PostgreSQL', () => {
 
   /** A confirmed unit, owned since a day ago. */
   async function ownedUnit(w: Workspace, serial = imei()) {
-    const { tracker } = await confirmDeviceOwner(prisma, serial, w.slug);
+    const { tracker } = await confirmDeviceOwner(
+      prisma,
+      serial,
+      w.slug,
+      'invoice',
+    );
     return prisma.tracker.update({
       where: { id: tracker.id },
       data: { ownershipConfirmedAt: new Date(Date.now() - 24 * HOUR) },
@@ -152,7 +169,7 @@ describeWithDatabase('GPS against PostgreSQL', () => {
       );
       const results = await Promise.allSettled(
         all.map((w, i) =>
-          trackers.create(w.user, { serialNumber: i % 2 ? spaced : serial }),
+          trackers.create(w.user, real(i % 2 ? spaced : serial)),
         ),
       );
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
@@ -171,7 +188,7 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     it('refuses a second claim in the database itself', async () => {
       const serial = imei();
       const [a, b] = [await workspace(), await workspace()];
-      await trackers.create(a.user, { serialNumber: serial });
+      await trackers.create(a.user, real(serial));
       await expect(
         prisma.tracker.create({
           data: {
@@ -196,7 +213,7 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     it('gives nothing to a claim until the operator confirms it', async () => {
       const serial = imei();
       const w = await workspace();
-      const claim = await trackers.create(w.user, { serialNumber: serial });
+      const claim = await trackers.create(w.user, real(serial));
       await assignment(w, claim.id, Date.now() - HOUR);
       await expect(
         ingest.ingestBody([message(serial, wholeSecond())]),
@@ -232,12 +249,15 @@ describeWithDatabase('GPS against PostgreSQL', () => {
     it('moves a unit to the proven owner and holds back earlier positions', async () => {
       const serial = imei();
       const [squatter, owner] = [await workspace(), await workspace()];
-      const claim = await trackers.create(squatter.user, {
-        serialNumber: serial,
-      });
+      const claim = await trackers.create(squatter.user, real(serial));
       await assignment(squatter, claim.id, Date.now() - HOUR);
-      await confirmDeviceOwner(prisma, serial, squatter.slug);
-      const confirmed = await confirmDeviceOwner(prisma, serial, owner.slug);
+      await confirmDeviceOwner(prisma, serial, squatter.slug, 'invoice');
+      const confirmed = await confirmDeviceOwner(
+        prisma,
+        serial,
+        owner.slug,
+        'invoice',
+      );
       expect(confirmed.disputed).toBe(1);
       await assignment(owner, confirmed.tracker.id, Date.now() - HOUR);
       const since = confirmed.tracker.ownershipConfirmedAt!.getTime();
@@ -261,7 +281,12 @@ describeWithDatabase('GPS against PostgreSQL', () => {
         ingest.syncTracker(squatter.organisationId, claim.id),
       ).rejects.toMatchObject({ status: 403 });
       // Running it again changes nothing.
-      const again = await confirmDeviceOwner(prisma, serial, owner.slug);
+      const again = await confirmDeviceOwner(
+        prisma,
+        serial,
+        owner.slug,
+        'invoice',
+      );
       expect(again.tracker.ownershipConfirmedAt).toEqual(
         confirmed.tracker.ownershipConfirmedAt,
       );

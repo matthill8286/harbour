@@ -5,9 +5,13 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { savePings } from '../tracking/location-writes';
+import { claimLowBatteries } from '../tracking/low-battery';
+import { trackerThresholds } from '../tracking/tracker-thresholds';
+import { NotificationsService } from './notifications.service';
 import { FlespiGpsClient } from './flespi-gps.client';
 import { parseFlespiBatch, type FlespiPing } from './flespi-message';
 import { imeiKey, imeiKeySql, realProviderSql } from './gps-device';
@@ -29,10 +33,17 @@ export class FlespiIngestService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly flespi: FlespiGpsClient,
+    private readonly config: ConfigService,
+    private readonly notifications: NotificationsService,
   ) {}
 
-  ingestBody(body: unknown) {
-    return this.deliver(parseFlespiBatch(body));
+  /**
+   * Positions from the platform's gateway account, or, with `organisationId`,
+   * from one workspace's own account. A workspace's own account can deliver
+   * only to that workspace's units.
+   */
+  ingestBody(body: unknown, organisationId?: string) {
+    return this.deliver(parseFlespiBatch(body), undefined, organisationId);
   }
 
   async syncTracker(organisationId: string, trackerId: string) {
@@ -71,8 +82,12 @@ export class FlespiIngestService {
    * when there is no such tracker. With `onlyTrackerId`, no other tracker can
    * receive anything.
    */
-  private async deliver(pings: FlespiPing[], onlyTrackerId?: string) {
-    const devices = await this.owners(pings, onlyTrackerId);
+  private async deliver(
+    pings: FlespiPing[],
+    onlyTrackerId?: string,
+    onlyOrganisationId?: string,
+  ) {
+    const devices = await this.owners(pings, onlyTrackerId, onlyOrganisationId);
     const suspensions = devices.size
       ? await this.prisma.workspaceSuspension.findMany({
           where: {
@@ -130,6 +145,7 @@ export class FlespiIngestService {
     const result = await savePings(this.prisma, [...deliveries.values()], {
       keepUnassigned: false,
     });
+    await this.reportLowBatteries([...deliveries.keys()]);
     return {
       received: pings.length,
       // A ping from outside every assignment still counts: it is a heartbeat.
@@ -139,7 +155,29 @@ export class FlespiIngestService {
     };
   }
 
-  private async owners(pings: FlespiPing[], onlyTrackerId?: string) {
+  /** Tells each team once when a battery unit on one of its jobs runs low. */
+  private async reportLowBatteries(trackerIds: string[]) {
+    try {
+      const { lowBatteryPercent } = trackerThresholds((key) =>
+        this.config.get<string>(key),
+      );
+      const low = await claimLowBatteries(
+        this.prisma,
+        trackerIds,
+        lowBatteryPercent,
+      );
+      for (const alert of low) this.notifications.sendLowBattery(alert);
+    } catch (error) {
+      // The positions are saved. A failed check must not fail the delivery.
+      this.logger.warn(`Could not check tracker batteries: ${String(error)}`);
+    }
+  }
+
+  private async owners(
+    pings: FlespiPing[],
+    onlyTrackerId?: string,
+    onlyOrganisationId?: string,
+  ) {
     const keys = [...new Set(pings.map((ping) => imeiKey(ping.ident)))];
     if (keys.length === 0) return new Map<string, Device>();
     const rows = await this.prisma.$queryRaw<Device[]>`
@@ -151,6 +189,7 @@ export class FlespiIngestService {
         AND "organisationId" IN (
           SELECT "id" FROM "Organisation" WHERE "status" = 'ACTIVE'
         )
+        ${onlyOrganisationId ? Prisma.sql`AND "organisationId" = ${onlyOrganisationId}` : Prisma.empty}
         AND ${imeiKeySql} IN (${Prisma.join(keys)})`;
     const owners = new Map<string, Device>();
     for (const row of rows) {

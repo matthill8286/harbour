@@ -189,6 +189,12 @@ model OrganisationSettings {
   primaryContact          String?
   notificationSettings    Json?
   customerPortalSettings  Json?
+  /// How long GPS points are kept, in days. Null uses GPS_RETENTION_DAYS.
+  gpsRetentionDays        Int?
+  /// The workspace's own secret for posting positions from its own Flespi
+  /// account. Only its SHA-256 hash is stored. Null means it has none.
+  gpsWebhookSecretHash    String?
+  gpsWebhookSecretSetAt   DateTime?
   updatedAt               DateTime     @updatedAt
 }
 
@@ -653,6 +659,22 @@ model Tracker {
   ownershipConfirmedAt DateTime?
   /// Set while this claim on a real IMEI is disputed. It receives nothing.
   imeiConflictAt       DateTime?
+  /// How the unit is powered. A battery unit is the recommended kind.
+  powerSource           TrackerPowerSource @default(BATTERY)
+  /// How often the unit is set to report. Missing two reports counts as no signal.
+  reportIntervalMinutes Int                @default(60)
+  /// The vehicle's supply voltage, from a hard-wired or diagnostic-port unit.
+  supplyVoltage         Float?
+  /// Who fitted a hard-wired or diagnostic-port unit, and when.
+  fittedBy              String?
+  fittedAt              DateTime?
+  /// That the vehicle owner's written permission to fit the unit is held.
+  ownerPermissionHeld   Boolean            @default(false)
+  /// Who confirmed the lawful-use statement when the unit was registered, when,
+  /// and which version of the words they saw.
+  statementConfirmedAt   DateTime?
+  statementConfirmedById String?
+  statementVersion       String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -662,6 +684,17 @@ model Tracker {
   /// A real IMEI is also unique across all workspaces. GpsIndexesService makes
   /// that partial index, because adding it here would stop `db push`.
   @@unique([organisationId, serialNumber])
+}
+
+enum TrackerPowerSource {
+  BATTERY
+  HARD_WIRED
+  OBD
+}
+
+enum LocationSource {
+  GATEWAY
+  MANUAL
 }
 
 model TrackerAssignment {
@@ -676,6 +709,16 @@ model TrackerAssignment {
   importJob      ImportJob?   @relation(fields: [importJobId], references: [id], onDelete: SetNull)
   assignedAt     DateTime     @default(now())
   removedAt      DateTime?
+  /// True when the unit must be confirmed as taken out of the vehicle: a real
+  /// unit that came off a job.
+  removalRequired      Boolean   @default(false)
+  removalConfirmedAt   DateTime?
+  removalConfirmedById String?
+  /// The fitter who took out a hard-wired or diagnostic-port unit.
+  removalFitter        String?
+  /// Set when staff were told the unit's battery was low, and cleared once it
+  /// is charged again, so they are told once per drop.
+  lowBatteryAlertedAt  DateTime?
 
   @@index([trackerId])
   @@index([vehicleId])
@@ -701,6 +744,8 @@ model LocationEvent {
   heading        Decimal?      @db.Decimal(6, 2)
   recordedAt     DateTime
   receivedAt     DateTime      @default(now())
+  /// Where the position came from: the GPS gateway, or typed in by staff.
+  source         LocationSource @default(GATEWAY)
   /// A second copy of a tracker's ping, saved before pings were made unique.
   /// It is kept, left out of trails, and left out of the unique index.
   isDuplicate    Boolean       @default(false)

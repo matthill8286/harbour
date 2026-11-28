@@ -28,7 +28,7 @@ export class FlespiWebhookGuard implements CanActivate {
   }
 }
 
-function providedSecret(request: Request) {
+export function providedSecret(request: Request) {
   const header = request.header('x-harbour-gps-secret');
   if (header) return header.trim();
   const authorization = request.header('authorization') ?? '';

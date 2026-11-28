@@ -20,6 +20,7 @@ The owner asked for the safest compliant approach. No law fixes a number of days
 - A job that is reopened before its points are deleted keeps them.
 - Only GPS points are deleted. Jobs, status history, tracker records and other data are not changed.
 - `GPS_RETENTION_DAYS` changes the period. It must be a whole number from 30 to 3650. With any other value the API does not start.
+- An Admin can set the workspace's own period, from 30 to 3650 days, on the Workspace page. It replaces `GPS_RETENTION_DAYS` for that workspace's points only.
 - The API runs the deletion a minute after it starts and then every six hours, in batches of 1,000. It logs counts only.
 
 A closed job's date is its `completedAt`. If that is missing, its last change is used, which keeps the points longer. A unit left assigned to a closed job goes on adding points to it, and those are deleted at the next run once the job's period has passed.

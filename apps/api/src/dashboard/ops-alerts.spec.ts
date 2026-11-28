@@ -1,15 +1,18 @@
 import {
   DEFAULT_DESTINATION,
   DEFAULT_NEAR_DESTINATION_METERS,
-  DEFAULT_STALE_TRACKER_MS,
   buildNearDestinationAlert,
   buildStaleTrackerAlert,
   haversineMeters,
   isNearDestination,
-  isTrackerStale,
   parsePositiveNumber,
   routeDestination,
 } from './ops-alerts';
+import {
+  describeMinutes,
+  noSignalAfterMinutes,
+  trackerSignal,
+} from '@vip/shared';
 
 describe('parsePositiveNumber', () => {
   it('falls back for empty or invalid values', () => {
@@ -21,53 +24,61 @@ describe('parsePositiveNumber', () => {
   });
 
   it('parses positive numbers', () => {
-    expect(parsePositiveNumber('7200000', DEFAULT_STALE_TRACKER_MS)).toBe(
-      7_200_000,
-    );
+    expect(parsePositiveNumber('7200000', 1)).toBe(7_200_000);
     expect(parsePositiveNumber('2500.5', DEFAULT_NEAR_DESTINATION_METERS)).toBe(
       2500.5,
     );
   });
 });
 
-describe('isTrackerStale', () => {
+describe('trackerSignal', () => {
   const now = new Date('2026-08-27T12:00:00Z');
-  const twoHours = DEFAULT_STALE_TRACKER_MS;
+  const at = (iso: string) => new Date(iso);
 
-  it('treats a missing lastSeenAt as stale', () => {
-    expect(
-      isTrackerStale({ lastSeenAt: null, now, thresholdMs: twoHours }),
-    ).toBe(true);
+  it('says a unit that never reported has never reported', () => {
+    expect(trackerSignal({ lastSeenAt: null }, now).state).toBe('NEVER');
   });
 
-  it('is stale when lastSeenAt is older than the threshold', () => {
+  it('allows two missed reports at the unit’s own interval', () => {
+    const hourly = { reportIntervalMinutes: 60 };
     expect(
-      isTrackerStale({
-        lastSeenAt: new Date('2026-08-27T09:59:00Z'),
-        now,
-        thresholdMs: twoHours,
-      }),
-    ).toBe(true);
+      trackerSignal({ ...hourly, lastSeenAt: at('2026-08-27T10:01:00Z') }, now)
+        .state,
+    ).toBe('LIVE');
+    expect(
+      trackerSignal({ ...hourly, lastSeenAt: at('2026-08-27T10:00:00Z') }, now)
+        .state,
+    ).toBe('NO_SIGNAL');
   });
 
-  it('is not stale when lastSeenAt is within the threshold', () => {
-    expect(
-      isTrackerStale({
-        lastSeenAt: new Date('2026-08-27T10:01:00Z'),
-        now,
-        thresholdMs: twoHours,
-      }),
-    ).toBe(false);
+  it('gives a unit that reports twice a day a full day', () => {
+    const signal = trackerSignal(
+      {
+        reportIntervalMinutes: 12 * 60,
+        lastSeenAt: at('2026-08-26T13:00:00Z'),
+      },
+      now,
+    );
+    expect(signal).toEqual({
+      state: 'LIVE',
+      lastSeenAt: '2026-08-26T13:00:00.000Z',
+      noSignalAfterMinutes: 24 * 60,
+    });
+    expect(describeMinutes(signal.noSignalAfterMinutes)).toBe('1 day');
   });
 
-  it('accepts ISO string lastSeenAt', () => {
+  it('never calls a gap under half an hour silence', () => {
+    expect(noSignalAfterMinutes(1)).toBe(30);
+    expect(noSignalAfterMinutes(null)).toBe(120);
+  });
+
+  it('treats a unit marked offline as silent', () => {
     expect(
-      isTrackerStale({
-        lastSeenAt: '2026-08-27T11:30:00Z',
+      trackerSignal(
+        { status: 'OFFLINE', lastSeenAt: at('2026-08-27T11:59:00Z') },
         now,
-        thresholdMs: twoHours,
-      }),
-    ).toBe(false);
+      ).state,
+    ).toBe('NO_SIGNAL');
   });
 });
 

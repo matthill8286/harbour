@@ -7,6 +7,8 @@ export type FlespiPing = {
   heading: number | null;
   accuracy: number | null;
   batteryLevel: number | null;
+  /** The vehicle's supply voltage, sent by a hard-wired or diagnostic-port unit. */
+  supplyVoltage: number | null;
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -62,6 +64,17 @@ function batteryLevel(message: Record<string, unknown>): number | null {
   return Math.max(0, Math.min(100, Math.round(raw)));
 }
 
+/** A vehicle system is 12 or 24 volts. Anything outside 0 to 60 is a bad reading. */
+function supplyVoltage(message: Record<string, unknown>): number | null {
+  const volts = readNumber(
+    message,
+    'external.powersource.voltage',
+    'power.voltage',
+  );
+  if (volts == null || volts < 0 || volts > 60) return null;
+  return Math.round(volts * 100) / 100;
+}
+
 function accuracyMetres(message: Record<string, unknown>): number | null {
   const accuracy = readNumber(message, 'position.accuracy', 'position.hdop');
   if (accuracy == null) return null;
@@ -100,6 +113,7 @@ export function parseFlespiPing(value: unknown): FlespiPing | null {
     heading: heading == null ? null : ((heading % 360) + 360) % 360,
     accuracy: accuracyMetres(message),
     batteryLevel: batteryLevel(message),
+    supplyVoltage: supplyVoltage(message),
   };
 }
 

@@ -32,6 +32,25 @@
   grid-column: 1 / -1;
 }
 
+/* How a real unit is powered, how often it reports, and the statement. */
+.fleet-register-details {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px;
+}
+
+.fleet-register > impakt-button[type='submit'] {
+  grid-column: -2 / -1;
+}
+
+@media (max-width: 48rem) {
+  .fleet-register-details {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* Trackers table */
 .fleet-table::part(caption) {
   position: absolute;

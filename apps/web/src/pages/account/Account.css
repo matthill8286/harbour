@@ -298,3 +298,12 @@
   align-items: center;
   gap: 12px;
 }
+
+/* GPS data: the workspace's own gateway account, below the retention period. */
+.account-gps-gateway {
+  display: grid;
+  gap: 12px;
+  margin-block-start: 24px;
+  padding-block-start: 20px;
+  border-block-start: 1px solid var(--impakt-color-border-default);
+}

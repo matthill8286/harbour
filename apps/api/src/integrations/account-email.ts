@@ -37,6 +37,38 @@ export function composeStaffInviteEmail(invite: StaffInviteEmail): Email {
   };
 }
 
+export type LowBatteryEmail = {
+  brandName: string;
+  reference: string;
+  serialNumber: string;
+  batteryLevel: number;
+  jobUrl: string;
+};
+
+/** Tells a workspace's team that a battery unit on a job is running low. */
+export function composeLowBatteryEmail(alert: LowBatteryEmail): Email {
+  const subject = `Tracker battery low on ${alert.reference}`;
+  const intro = `The tracker ${alert.serialNumber} on job ${alert.reference} reported a battery level of ${alert.batteryLevel}%.`;
+  const next =
+    'A battery unit can run flat between reports. Charge or replace it before the vehicle goes quiet.';
+  return {
+    subject,
+    text: ['Hi,', '', intro, next, '', 'Open the job:', alert.jobUrl].join(
+      '\n',
+    ),
+    html: wrapHtml(
+      alert.brandName,
+      subject,
+      `
+        <p>Hi,</p>
+        <p>${escapeHtml(intro)}</p>
+        <p>${escapeHtml(next)}</p>
+        <p><a href="${escapeHtml(alert.jobUrl)}">Open the job</a></p>
+      `,
+    ),
+  };
+}
+
 /*
  * Anyone can ask for the two emails below to be sent to any address. They carry
  * nothing the person asking typed, so they cannot be used to send a message.

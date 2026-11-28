@@ -13,10 +13,10 @@ import { gpsRetentionDays } from './gps-retention';
 const BATCH = 1000;
 const FIRST_RUN_MS = 60 * 1000;
 const EVERY_MS = 6 * 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Deletes raw GPS points once they are older than the retention period:
+ * Deletes raw GPS points once they are older than the retention period, which
+ * is the workspace's own when it has set one, and GPS_RETENTION_DAYS if not:
  * - on a completed or cancelled job, that long after the job was closed;
  * - on no job, that long after the point was recorded.
  * Points on an open job are kept. Nothing but GPS points is changed.
@@ -64,20 +64,27 @@ export class GpsRetentionService
 
   async purge(now = new Date()) {
     // The columns hold UTC without a time zone, whatever the session's zone is.
-    const cutoff = Prisma.sql`${new Date(now.getTime() - this.days * DAY_MS).toISOString()}::timestamp`;
+    const at = Prisma.sql`${now.toISOString()}::timestamp`;
+    const cutoff = (
+      organisationId: Prisma.Sql,
+    ) => Prisma.sql`(${at} - make_interval(days => COALESCE((
+        SELECT s."gpsRetentionDays" FROM "OrganisationSettings" s
+        WHERE s."organisationId" = ${organisationId}
+      ), ${this.days}::int)))`;
     // The job rows are locked while a batch is deleted. A job reopened at the
     // same moment is checked again after the change, and its points are kept.
     const closedJobs = await this.inBatches(Prisma.sql`
       SELECT e."id" FROM "LocationEvent" e
       JOIN "ImportJob" j ON j."id" = e."importJobId"
       WHERE j."status" IN (${Prisma.join([...TERMINAL_STATUSES])})
-        AND COALESCE(j."completedAt", j."updatedAt") < ${cutoff}
+        AND COALESCE(j."completedAt", j."updatedAt") < ${cutoff(Prisma.sql`j."organisationId"`)}
       LIMIT ${BATCH}
       FOR UPDATE OF e SKIP LOCKED
       FOR SHARE OF j`);
     const noJob = await this.inBatches(Prisma.sql`
       SELECT "id" FROM "LocationEvent"
-      WHERE "importJobId" IS NULL AND "recordedAt" < ${cutoff}
+      WHERE "importJobId" IS NULL
+        AND "recordedAt" < ${cutoff(Prisma.sql`"LocationEvent"."organisationId"`)}
       LIMIT ${BATCH}
       FOR UPDATE SKIP LOCKED`);
     if (closedJobs || noJob) {

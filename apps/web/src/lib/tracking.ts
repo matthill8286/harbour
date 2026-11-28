@@ -1,4 +1,4 @@
-import type { LocationPoint, MapConfig } from '@vip/shared';
+import type { LocationPoint, MapConfig, TrackerPowerSource, TrackerSignal } from '@vip/shared';
 
 export const FALLBACK_MAP: MapConfig = {
   provider: 'osm',
@@ -15,6 +15,7 @@ export function toLocationPoint(raw: {
   speed?: string | number | null;
   heading?: string | number | null;
   recordedAt: string;
+  source?: 'GATEWAY' | 'MANUAL';
 }): LocationPoint {
   return {
     id: raw.id,
@@ -24,6 +25,7 @@ export function toLocationPoint(raw: {
     speed: raw.speed == null || raw.speed === '' ? null : Number(raw.speed),
     heading: raw.heading == null || raw.heading === '' ? null : Number(raw.heading),
     recordedAt: raw.recordedAt,
+    ...(raw.source === 'MANUAL' ? { source: 'MANUAL' as const } : {}),
   };
 }
 
@@ -53,7 +55,15 @@ export type TrackingVehicle = {
     batteryLevel: number | null;
     lastSeenAt: string | null;
     status: string;
+    powerSource: TrackerPowerSource;
+    reportIntervalMinutes: number;
+    supplyVoltage: number | null;
+    fittedBy: string | null;
+    ownerPermissionHeld: boolean;
+    signal: TrackerSignal;
   } | null;
+  /** Whether the job's unit is reporting. Null when the job has no unit. */
+  signal?: TrackerSignal | null;
 };
 
 export type RouteTemplateOption = {
@@ -73,6 +83,16 @@ export type JobTracking = TrackingVehicle & {
     provider: string;
     status: string;
     batteryLevel: number | null;
+    powerSource: TrackerPowerSource;
+    fittedBy: string | null;
+    ownerPermissionHeld: boolean;
+  }>;
+  /** Units that came off this job and are not yet confirmed as taken out. */
+  pendingRemovals?: Array<{
+    assignmentId: string;
+    removedAt: string;
+    serialNumber: string;
+    powerSource: TrackerPowerSource;
   }>;
 };
 

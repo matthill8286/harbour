@@ -29,6 +29,18 @@ describe('parseFlespiPing', () => {
     expect(ping?.accuracy).toBe(3.5);
   });
 
+  it('reads the vehicle supply voltage from a wired unit', () => {
+    expect(
+      parseFlespiPing({ ...sample, 'external.powersource.voltage': 12.634 })
+        ?.supplyVoltage,
+    ).toBe(12.63);
+    expect(parseFlespiPing(sample)?.supplyVoltage).toBeNull();
+    expect(
+      parseFlespiPing({ ...sample, 'external.powersource.voltage': 400 })
+        ?.supplyVoltage,
+    ).toBeNull();
+  });
+
   it('accepts nested position objects', () => {
     const ping = parseFlespiPing({
       ident: '111',

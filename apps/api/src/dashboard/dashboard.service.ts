@@ -11,11 +11,11 @@ import {
   enrichOpsAlertsHeuristic,
   type EnrichedOpsAlert,
 } from './ops-alert-triage';
+import { trackerAlerts } from './tracker-alerts';
+import { trackerThresholds } from '../tracking/tracker-thresholds';
 import {
   buildNearDestinationAlert,
-  buildStaleTrackerAlert,
   DEFAULT_NEAR_DESTINATION_METERS,
-  DEFAULT_STALE_TRACKER_MS,
   haversineMeters,
   isNearDestination,
   parsePositiveNumber,
@@ -149,57 +149,24 @@ export class DashboardService {
     };
   }
 
-  /** Quiet trackers, longest quiet first, then vehicles close to arriving. */
+  /**
+   * Tracker alerts (quiet, low battery, low vehicle battery, not confirmed
+   * removed, still reporting after its job), then vehicles close to arriving.
+   */
   private async gpsAlerts(organisationId: string, now: Date, routeId?: string) {
-    const staleThresholdMs = parsePositiveNumber(
-      this.config.get<string>('GPS_STALE_TRACKER_MS'),
-      DEFAULT_STALE_TRACKER_MS,
-    );
-    const quiet: Prisma.TrackerAssignmentWhereInput = {
-      organisationId,
-      removedAt: null,
-      importJob: {
+    const [trackers, near] = await Promise.all([
+      trackerAlerts(this.prisma, {
         organisationId,
-        status: { notIn: CLOSED },
-        ...(routeId ? { routeId } : {}),
-      },
-      tracker: {
-        OR: [
-          { status: 'OFFLINE' },
-          { lastSeenAt: null },
-          { lastSeenAt: { lte: new Date(now.getTime() - staleThresholdMs) } },
-        ],
-      },
-    };
-    const [stale, staleCount, near] = await Promise.all([
-      this.prisma.trackerAssignment.findMany({
-        where: quiet,
-        select: {
-          importJob: { select: { id: true, reference: true } },
-          tracker: { select: { serialNumber: true, lastSeenAt: true } },
-        },
-        orderBy: [
-          { tracker: { lastSeenAt: { sort: 'asc', nulls: 'first' } } },
-          { id: 'asc' },
-        ],
-        take: ALERTS_PER_KIND,
+        now,
+        routeId,
+        perKind: ALERTS_PER_KIND,
+        ...trackerThresholds((key) => this.config.get<string>(key)),
       }),
-      this.prisma.trackerAssignment.count({ where: quiet }),
       this.nearDestination(organisationId, routeId),
     ]);
     return {
-      shown: [
-        ...stale.map((assignment) =>
-          buildStaleTrackerAlert({
-            importJobId: assignment.importJob!.id,
-            reference: assignment.importJob!.reference,
-            trackerSerial: assignment.tracker.serialNumber,
-            lastSeenAt: assignment.tracker.lastSeenAt,
-          }),
-        ),
-        ...near.slice(0, ALERTS_PER_KIND),
-      ],
-      total: staleCount + near.length,
+      shown: [...trackers.shown, ...near.slice(0, ALERTS_PER_KIND)],
+      total: trackers.total + near.length,
     };
   }
 

@@ -6,6 +6,8 @@ coverage
 dev-dist
 .demo-output
 .vercel
+# Agent worktrees are copies of the repository with their own checks.
+.claude
 pnpm-lock.yaml
 apps/api/uploads
 apps/api/prisma/migrations

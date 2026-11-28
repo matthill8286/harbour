@@ -1,0 +1,12 @@
+.tracker-fields {
+  display: grid;
+  gap: 16px;
+}
+
+.tracker-statement {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--impakt-color-surface-subtle);
+}

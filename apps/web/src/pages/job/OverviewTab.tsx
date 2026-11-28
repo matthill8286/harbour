@@ -25,7 +25,6 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   const [legDialog, setLegDialog] = useState(false);
   const [cancelDialog, setCancelDialog] = useState(false);
   // The time the tab opened, so a tracker's freshness does not change between renders.
-  const [now] = useState(() => Date.now());
 
   const { closed, editable, next, canCancel, move, label, progress } = useJobStatus(job);
   const ending = closedAt(job);
@@ -63,7 +62,8 @@ export function OverviewTab({ job, onTab }: { job: JobDetail; onTab: (tab: strin
   const customer = `${job.customer.firstName} ${job.customer.lastName}`.trim();
   const vehicle = [job.vehicle.make, job.vehicle.model, job.vehicle.variant].filter(Boolean).join(' ') || 'Vehicle';
   const tracker = tracking.data?.tracker ?? null;
-  const live = tracker?.lastSeenAt ? now - new Date(tracker.lastSeenAt).getTime() < 6 * 60 * 60 * 1000 : false;
+  // The server judges silence by the unit's own reporting interval.
+  const live = tracker?.signal.state === 'LIVE';
 
   return (
     <div className="job-overview">

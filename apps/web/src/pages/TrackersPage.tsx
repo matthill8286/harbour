@@ -10,6 +10,9 @@ import { openRowLink } from '../lib/tableRows';
 import { TrackerQrScanButton } from '../components/TrackerQrScanner';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
+import type { TrackerPowerSource, TrackerSignal } from '@vip/shared';
+import { TrackerDetailsFields, TrackerStatement } from '../components/TrackerFields';
+import { detailsBody, EMPTY_DETAILS, powerSourceName, statementBody, type TrackerDetails } from '../lib/trackerDetails';
 import './fleet/Fleet.css';
 
 type TrackerStatus = 'AVAILABLE' | 'ASSIGNED' | 'OFFLINE' | 'RETIRED';
@@ -21,6 +24,8 @@ type InventoryTracker = {
   status: TrackerStatus;
   batteryLevel: number | null;
   lastSeenAt: string | null;
+  powerSource: TrackerPowerSource;
+  signal: TrackerSignal;
   assignments: Array<{ importJob: { id: string; reference: string } | null }>;
 };
 
@@ -53,7 +58,7 @@ const FILTERS = [
   {
     key: 'silent',
     label: 'Silent',
-    match: (t: InventoryTracker) => t.status === 'OFFLINE',
+    match: (t: InventoryTracker) => t.status === 'OFFLINE' || t.signal.state === 'NO_SIGNAL',
   },
 ] as const;
 type FilterKey = (typeof FILTERS)[number]['key'];
@@ -61,6 +66,7 @@ type FilterKey = (typeof FILTERS)[number]['key'];
 const COLUMNS = [
   { key: 'imei', label: 'Unit' },
   { key: 'provider', label: 'Provider' },
+  { key: 'power', label: 'Power' },
   { key: 'status', label: 'Status' },
   { key: 'job', label: 'Assigned to' },
   { key: 'ping', label: 'Last ping' },
@@ -97,7 +103,12 @@ function Battery({ level }: { level: number | null }) {
 function RegisterForm({ onDone }: { onDone?: () => void }) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState({ serialNumber: '', provider: 'flespi' });
+  const [details, setDetails] = useState<TrackerDetails>(EMPTY_DETAILS);
+  const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The demo simulator is not a real unit, so it needs no statement.
+  const real = form.provider !== 'generic';
+  const ready = Boolean(form.serialNumber.trim()) && (!real || confirmed);
   const create = useMutation({
     mutationFn: () =>
       api('/trackers', {
@@ -105,10 +116,12 @@ function RegisterForm({ onDone }: { onDone?: () => void }) {
         body: JSON.stringify({
           serialNumber: form.serialNumber.trim(),
           provider: form.provider,
+          ...(real ? { ...detailsBody(details), ...statementBody(confirmed) } : {}),
         }),
       }),
     onSuccess: async () => {
       setForm((f) => ({ ...f, serialNumber: '' }));
+      setConfirmed(false);
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['trackers'] });
       onDone?.();
@@ -121,7 +134,7 @@ function RegisterForm({ onDone }: { onDone?: () => void }) {
       className="fleet-register"
       onSubmit={(event) => {
         event.preventDefault();
-        if (form.serialNumber.trim()) create.mutate();
+        if (ready) create.mutate();
       }}
     >
       <TextInput
@@ -154,7 +167,13 @@ function RegisterForm({ onDone }: { onDone?: () => void }) {
           setForm((f) => ({ ...f, provider: value }));
         }}
       />
-      <Button type="submit" disabled={!form.serialNumber.trim()} busy={create.isPending} busyLabel="Registering the unit">
+      {real ? (
+        <div className="fleet-register-details">
+          <TrackerDetailsFields value={details} onChange={setDetails} />
+          <TrackerStatement powerSource={details.powerSource} confirmed={confirmed} onChange={setConfirmed} />
+        </div>
+      ) : null}
+      <Button type="submit" disabled={!ready} busy={create.isPending} busyLabel="Registering the unit">
         Register unit
       </Button>
       {error ? (
@@ -250,6 +269,7 @@ export function TrackersPage() {
                   id: t.id,
                   imei: t.serialNumber,
                   provider: trackerKindLabel(t.provider),
+                  power: t.provider === 'generic' ? '—' : powerSourceName(t.powerSource),
                   status: STATUS_LABEL[t.status],
                   job: job?.reference ?? 'Unassigned',
                   ping: lastPing(t),
@@ -310,7 +330,7 @@ export function TrackersPage() {
                       role="listitem"
                       divided={index > 0}
                       heading={job ? `${t.serialNumber} · ${job.reference}` : t.serialNumber}
-                      meta={`${battery} · ${lastPing(t)}`}
+                      meta={`${t.provider === 'generic' ? '' : `${powerSourceName(t.powerSource)} · `}${battery} · ${lastPing(t)}`}
                       href={job ? `/jobs/${job.id}?tab=tracking` : undefined}
                     >
                       <Icon slot="start" name="radio" className={t.status === 'OFFLINE' ? 'fleet-silent' : undefined} />
