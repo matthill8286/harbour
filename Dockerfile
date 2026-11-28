@@ -76,6 +76,6 @@ EXPOSE 3001
 # Nest emits dist/src/main.js because prisma/seed.ts is part of the compilation.
 CMD ["node", "dist/src/main"]
 
-FROM caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d AS web
+FROM caddy:2.11.9-alpine@sha256:003a97808e781aa9f7e75cc2f43d34d461099031faf5e20faefb9f61126836f0 AS web
 COPY --from=build /app/apps/web/dist /srv
 COPY apps/web/Caddyfile /etc/caddy/Caddyfile
