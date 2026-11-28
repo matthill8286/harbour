@@ -1,16 +1,23 @@
 import { useState, type FormEvent } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { homePath, useAuth } from '../lib/auth';
 import { AuthFrame } from '../components/AuthFrame';
 import { ErrorBanner, fieldClass, primaryBtn } from '../components/ui';
 
 /**
- * Self-serve sign-up, first step. We email a link, and the workspace is created
- * from it, so only the owner of the address can create one with it.
+ * Sign-up, first step. We email a link, and the workspace is created from it,
+ * so only the owner of the address can create one with it. On a server that
+ * checks licences, the page is reached from a licence link, /signup?licence=<id>,
+ * and the API refuses anyone the licence does not name.
  */
+const LICENCE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function SignupPage() {
   const { user, ready } = useAuth();
+  const [params] = useSearchParams();
+  const licence = params.get('licence') ?? '';
+  const licenceId = LICENCE_ID.test(licence) ? licence : undefined;
   const [organisationName, setOrganisationName] = useState('');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,7 +36,7 @@ export function SignupPage() {
     try {
       await api('/auth/signup', {
         method: 'POST',
-        body: JSON.stringify({ organisationName, name, email: email.trim() }),
+        body: JSON.stringify({ organisationName, name, email: email.trim(), ...(licenceId ? { licenceId } : {}) }),
       });
       setSentTo(email.trim());
     } catch (err) {
@@ -41,7 +48,7 @@ export function SignupPage() {
 
   return (
     <AuthFrame
-      eyebrow="Start a free trial"
+      eyebrow={licenceId ? 'Set up your workspace' : 'Start a free trial'}
       lead="Create a workspace for your import business. Add jobs, track vehicles and invite your team and customers once you are in."
       note="Your data stays inside your own workspace."
     >

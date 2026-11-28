@@ -15,6 +15,7 @@ import { OrganisationsModule } from './organisations/organisations.module';
 import { WorkflowModule } from './workflow/workflow.module';
 import { RouteTemplatesModule } from './routes/route-templates.module';
 import { TenancyModule } from './tenancy/tenancy.module';
+import { LicensingModule } from './licensing/licensing.module';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { HealthController } from './health.controller';
@@ -28,6 +29,7 @@ import { HealthController } from './health.controller';
     PrismaModule,
     RateLimitModule,
     TenancyModule,
+    LicensingModule,
     AuditModule,
     IntegrationsModule,
     AuthModule,

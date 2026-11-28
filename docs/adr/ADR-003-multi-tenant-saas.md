@@ -153,6 +153,8 @@ Authenticated tenant APIs establish organisation context from membership. Authen
 
 New organisations should eventually self-register. For the initial customer, onboarding may be performed manually by the Provider.
 
+**Amended 28 November 2026.** Self-registration is not open to everyone. On a server that checks licences, an organisation registers itself only from the link of a licence the Provider has issued to it, and works only while that licence allows. The README's Licences section has the rules.
+
 Subscription statuses: TRIAL, ACTIVE, PAST_DUE, SUSPENDED, CANCELLED. Suspension disables access while retaining data for a reasonable recovery period.
 
 ## 32–33. Data Export and Deletion

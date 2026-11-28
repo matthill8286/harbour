@@ -381,6 +381,8 @@ model SignupRequest {
   organisationName String
   name             String
   tokenHash        String    @unique
+  /// The licence the workspace is being set up under, where licences are checked.
+  licenceId        String?
   expiresAt        DateTime
   usedAt           DateTime?
   createdAt        DateTime  @default(now())
