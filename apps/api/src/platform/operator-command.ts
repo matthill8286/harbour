@@ -11,6 +11,7 @@ import {
   cancelClosure,
   deleteClosedWorkspace,
   deletionNoticeDays,
+  deletionReminderDays,
   parseContractEnd,
   scheduleClosure,
   type WorkspaceDeletionDeps,
@@ -67,23 +68,29 @@ export async function runOperatorCommand(
   }
   if (command === 'close') {
     const values = named(rest, ['--by', '--contract-end', '--reason']);
-    const { deleteAfter } = await scheduleClosure(prisma, {
+    const { deleteAfter, remindAt } = await scheduleClosure(prisma, {
       slug: target,
       operatorEmail: values.get('--by')!,
       reason: values.get('--reason')!,
       contractEndsAt: parseContractEnd(values.get('--contract-end')!),
       noticeDays: deletionNoticeDays(),
+      reminderDays: deletionReminderDays(),
     });
-    return `${target} keeps working, and its data can be deleted after ${deleteAfter.toISOString()}. Tell its Admins to export it before then.`;
+    const reminder = remindAt
+      ? `, and reminded on ${remindAt.toISOString()}`
+      : '';
+    return `${target} keeps working, and its data can be deleted after ${deleteAfter.toISOString()}. Its active Admins will be emailed within 15 minutes${reminder}.`;
   }
   if (command === 'cancel-close') {
     const values = named(rest, ['--by', '--reason']);
-    await cancelClosure(prisma, {
+    const { adminsTold } = await cancelClosure(prisma, {
       slug: target,
       operatorEmail: values.get('--by')!,
       reason: values.get('--reason')!,
     });
-    return `${target} is no longer due for deletion.`;
+    return adminsTold
+      ? `${target} is no longer due for deletion. Its active Admins will be emailed that it is cancelled.`
+      : `${target} is no longer due for deletion. Its Admins had not been emailed about it, so they will not be.`;
   }
   if (command === 'delete-closed') {
     const confirm = rest[rest.length - 1] === '--confirm';

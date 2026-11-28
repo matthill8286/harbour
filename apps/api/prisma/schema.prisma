@@ -182,6 +182,7 @@ model Organisation {
   erasures         CustomerErasure[]
   termsAcceptances TermsAcceptance[]
   closure          WorkspaceClosure?
+  closureEmails    ClosureEmail[]
 }
 
 model OrganisationSettings {
@@ -259,6 +260,34 @@ model WorkspaceClosure {
   reason         String
   scheduledById  String
   scheduledAt    DateTime     @default(now())
+}
+
+enum ClosureEmailKind {
+  SCHEDULED
+  REMINDER
+  CANCELLED
+}
+
+/// An email to a workspace's active Admins about the end of its contract. The
+/// operator's commands write these, and the api sends each one once.
+model ClosureEmail {
+  id             String           @id @default(cuid())
+  organisationId String
+  organisation   Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  kind           ClosureEmailKind
+  contractEndsAt DateTime
+  deleteAfter    DateTime
+  /// Not sent before this time.
+  dueAt          DateTime
+  /// When a run of the api took it to send. It stays set once it has gone.
+  claimedAt      DateTime?
+  /// The users it has already gone to, so a retry does not repeat them.
+  sentToUserIds  String[]         @default([])
+  sentAt         DateTime?
+  createdAt      DateTime         @default(now())
+
+  @@index([sentAt, dueAt])
+  @@index([organisationId])
 }
 
 model PlatformAuditLog {

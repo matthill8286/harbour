@@ -8,7 +8,9 @@ import {
 import { EmailTransport } from './email-transport';
 import { EmailRetryQueue } from './email-retry-queue';
 import {
+  composeClosureEmail,
   composeLowBatteryEmail,
+  type ClosureEmailKind,
   composeStaffInviteEmail,
   type StaffInviteEmail,
 } from './account-email';
@@ -149,6 +151,48 @@ export class NotificationsService implements OnApplicationShutdown {
         stillAllowed: this.whileActive(input.organisationId),
       });
     }
+  }
+
+  /**
+   * Emails one Admin about the end of the workspace's contract. It throws when
+   * the email did not go, so the caller can try again later. It counts towards
+   * the workspace's daily limit, and nothing goes while the workspace is
+   * suspended or once `stillWanted` says no.
+   */
+  async sendClosureEmail(input: {
+    organisationId: string;
+    to: string;
+    kind: ClosureEmailKind;
+    workspaceName: string;
+    contractEndsAt: Date;
+    deleteAfter: Date;
+    stillWanted: () => Promise<boolean>;
+  }) {
+    if (
+      !this.limiter.take(
+        `workspace-notifications:${input.organisationId}`,
+        WORKSPACE_DAILY_NOTIFICATIONS,
+        DAY_MS,
+      )
+    ) {
+      throw new Error('This workspace has reached its daily email limit');
+    }
+    const allowed = this.whileActive(input.organisationId);
+    await this.email.deliver({
+      to: input.to,
+      ...composeClosureEmail({
+        kind: input.kind,
+        workspaceName: input.workspaceName,
+        contractEndsAt: input.contractEndsAt,
+        deleteAfter: input.deleteAfter,
+        workspaceUrl: `${this.webOrigin()}/organisation`,
+      }),
+      stillAllowed: async () =>
+        (await allowed()) && (await input.stillWanted()),
+    });
+    this.logger.log(
+      `CLOSURE_${input.kind} organisation=${input.organisationId}`,
+    );
   }
 
   private warn(event: CustomerNotification, error: unknown, later = false) {

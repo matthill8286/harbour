@@ -130,3 +130,95 @@ function accountEmail(input: {
     ),
   };
 }
+
+export type ClosureEmailKind = 'SCHEDULED' | 'REMINDER' | 'CANCELLED';
+
+export type ClosureEmail = {
+  kind: ClosureEmailKind;
+  workspaceName: string;
+  contractEndsAt: Date;
+  deleteAfter: Date;
+  workspaceUrl: string;
+};
+
+/** Such as 31 January 2027, as the date is in UTC. */
+export function formatClosureDate(date: Date): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
+/**
+ * Tells a workspace's Admins that its contract ends and its data will be
+ * deleted, reminds them before the deletion, or says the deletion is cancelled.
+ */
+export function composeClosureEmail(
+  closure: ClosureEmail,
+  now = new Date(),
+): Email {
+  const ends = formatClosureDate(closure.contractEndsAt);
+  const deletes = formatClosureDate(closure.deleteAfter);
+  const contract =
+    closure.contractEndsAt <= now
+      ? `The Harbour contract for ${closure.workspaceName} ended on ${ends}.`
+      : `The Harbour contract for ${closure.workspaceName} ends on ${ends}.`;
+  const deletion = `After ${deletes}, all of the workspace's data and files will be deleted. This cannot be undone.`;
+  const keeps =
+    'The workspace keeps working until then, so you can export everything first.';
+  const how =
+    'An Admin can download all of it as one file from the Workspace page, under Export all workspace data.';
+  const content: Record<
+    ClosureEmailKind,
+    { subject: string; paragraphs: string[]; action?: string }
+  > = {
+    SCHEDULED: {
+      subject: `${closure.workspaceName} will be deleted after ${deletes}`,
+      paragraphs: [contract, deletion, keeps, how],
+      action: 'Open the Workspace page',
+    },
+    REMINDER: {
+      subject: `Reminder: ${closure.workspaceName} will be deleted after ${deletes}`,
+      paragraphs: [
+        contract,
+        deletion,
+        'If you have not exported the workspace yet, do it before then.',
+        how,
+      ],
+      action: 'Open the Workspace page',
+    },
+    CANCELLED: {
+      subject: `${closure.workspaceName} will no longer be deleted`,
+      paragraphs: [
+        `The deletion of ${closure.workspaceName} that was due after ${deletes} is cancelled.`,
+        'The workspace and all of its data stay as they are. You do not need to do anything.',
+      ],
+    },
+  };
+  const { subject, paragraphs, action } = content[closure.kind];
+  const outro =
+    'You get this email because you are an Admin of the workspace. If you have a question about the contract, contact Impakt, who run Harbour.';
+  return {
+    subject,
+    text: [
+      'Hi,',
+      '',
+      ...paragraphs,
+      ...(action ? ['', `${action}: ${closure.workspaceUrl}`] : []),
+      '',
+      outro,
+    ].join('\n'),
+    html: wrapHtml(
+      'Harbour',
+      subject,
+      `
+        <p>Hi,</p>
+        ${paragraphs.map((line) => `<p>${escapeHtml(line)}</p>`).join('\n        ')}
+        ${action ? `<p><a href="${escapeHtml(closure.workspaceUrl)}">${escapeHtml(action)}</a></p>` : ''}
+        <p style="color:#666;font-size:14px">${escapeHtml(outro)}</p>
+      `,
+    ),
+  };
+}
