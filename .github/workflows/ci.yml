@@ -1,17 +1,20 @@
 name: CI
 
-# CI runs on pull requests and by hand only, not again on pushes or when a
-# checked pull request is merged to main.
+# CI checks pull requests. On main it runs again on the merged code, and then publishes the
+# images it checked, which releases use.
 on:
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+# A newer push to a pull request replaces the older run. A run on main always finishes.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build-and-test:
@@ -126,6 +129,25 @@ jobs:
         env:
           IMAGE_TAG: ci
 
+      # Handed to the publish job, so it pushes these very images and builds nothing.
+      - name: Save the checked images
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          mkdir -p checked
+          for target in api migrate web; do
+            echo "$target $(docker image inspect -f '{{.Id}}' "impkt-harbour-$target:ci")" >> checked/ids.txt
+          done
+          docker save impkt-harbour-api:ci impkt-harbour-migrate:ci impkt-harbour-web:ci | gzip -1 > checked/images.tar.gz
+
+      - name: Keep them for the publish job
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: checked-images
+          path: checked/
+          compression-level: 0
+          retention-days: 1
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest
@@ -151,3 +173,44 @@ jobs:
       # Build and test tools do not ship. Their advisories are shown but do not fail the run.
       - name: All dependencies, for information
         run: pnpm audit --audit-level high || echo "::warning::pnpm audit reports high or critical advisories in the full dependency tree."
+
+  # The only job that may write packages. It runs no project code besides its own script, only on
+  # main, and only after every check above has passed.
+  publish:
+    name: Publish the checked images
+    needs: [build-and-test, images, audit]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fetch the checked images
+        uses: actions/download-artifact@v4
+        with:
+          name: checked-images
+          path: checked
+
+      - name: Sign in to the container registry
+        run: echo "$TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push them and write the release manifest
+        run: .github/scripts/publish-images.sh checked
+        env:
+          COMMIT: ${{ github.sha }}
+          OWNER: ${{ github.repository_owner }}
+
+      - name: Keep the release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: release-manifest.json
+          retention-days: 90
+          if-no-files-found: error
