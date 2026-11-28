@@ -11,6 +11,8 @@ import { SwitchWorkspaceDialog } from '../pages/account/SwitchWorkspaceDialog';
 import { useOrganisations } from '../lib/organisations';
 import { PhoneHeaderSlot } from '../lib/phone-header';
 import { LoadingScreen } from './ui';
+import { AcceptAgreements, AgreementsPending } from './Agreements';
+import { useTerms } from '../lib/terms';
 import './AppShell.css';
 
 /** The owner's places, in the order of the Figma sidebar. */
@@ -61,6 +63,9 @@ export function AppShell() {
   const [signingOut, setSigningOut] = useState(false);
   const [switching, setSwitching] = useState(false);
   const canSwitch = (useOrganisations().data?.length ?? 0) > 1;
+  // Staff only. A failure to load lets the workspace through rather than locking anyone out.
+  const terms = useTerms(isStaff);
+  const termsOutstanding = isStaff && (terms.data?.outstanding.length ?? 0) > 0;
   useAppLinks();
 
   const sideItems = useMemo(() => (isPortal ? PORTAL_ITEMS : staffItems(canManage)), [canManage, isPortal]);
@@ -189,9 +194,18 @@ export function AppShell() {
 
       <PhoneHeaderSlot.Provider value={slot}>
         <ErrorBoundary resetKey={here}>
-          <Suspense fallback={<LoadingScreen />}>
-            <Outlet />
-          </Suspense>
+          {isStaff && terms.isLoading ? (
+            <LoadingScreen label="Opening workspace…" />
+          ) : termsOutstanding && canManage && terms.data ? (
+            <AcceptAgreements status={terms.data} workspace={workspace} />
+          ) : (
+            <>
+              {termsOutstanding ? <AgreementsPending /> : null}
+              <Suspense fallback={<LoadingScreen />}>
+                <Outlet />
+              </Suspense>
+            </>
+          )}
         </ErrorBoundary>
       </PhoneHeaderSlot.Provider>
 

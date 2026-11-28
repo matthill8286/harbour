@@ -18,6 +18,7 @@ import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
 import { GpsSettings } from './account/GpsSettings';
+import { AgreementsCard } from '../components/Agreements';
 import './account/Account.css';
 
 type OrganisationView = {
@@ -422,7 +423,7 @@ export function OrganisationPage() {
         <Heading level={1} size="4xl">
           Workspace
         </Heading>
-        <Text tone="muted">Company details, plan and team for this workspace.</Text>
+        <Text tone="muted">Company details, plan, team and agreements for this workspace.</Text>
       </div>
 
       {organisation.isLoading ? (
@@ -444,6 +445,7 @@ export function OrganisationPage() {
           </div>
           <Team />
           <GpsSettings />
+          <AgreementsCard />
         </>
       )}
     </div>

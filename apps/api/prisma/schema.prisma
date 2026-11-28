@@ -180,6 +180,7 @@ model Organisation {
   registrations    VehicleRegistration[]
   suspensions      WorkspaceSuspension[]
   erasures         CustomerErasure[]
+  termsAcceptances TermsAcceptance[]
 }
 
 model OrganisationSettings {
@@ -345,6 +346,7 @@ model User {
   createdPortalInvites PortalInvite[]      @relation("PortalInviteCreator")
   staffInvites         StaffInvite[]
   createdStaffInvites  StaffInvite[]       @relation("StaffInviteCreator")
+  termsAcceptances     TermsAcceptance[]
 }
 
 /// Authenticator (TOTP) secret and backup codes for one user. Both are stored encrypted.
@@ -954,6 +956,28 @@ model ErasureReviewItem {
   decidedAt   DateTime?
 
   @@unique([erasureId, kind, recordId])
+}
+
+/// A workspace's acceptance of one version of one agreement, by one of its
+/// Admins. The documents and their current versions live in @vip/shared.
+model TermsAcceptance {
+  id              String       @id @default(cuid())
+  organisationId  String
+  organisation    Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  /// TERMS_OF_SERVICE, DATA_PROCESSING_AGREEMENT or ACCEPTABLE_USE_POLICY.
+  document        String
+  version         String
+  /// The sub-processor list shown at the time.
+  subProcessorsVersion String
+  acceptedById    String?
+  acceptedBy      User?        @relation(fields: [acceptedById], references: [id], onDelete: SetNull)
+  /// Kept as evidence of who accepted, even if the account is later removed.
+  acceptedByName  String
+  acceptedByEmail String
+  acceptedAt      DateTime     @default(now())
+
+  @@unique([organisationId, document, version])
+  @@index([organisationId, acceptedAt])
 }
 
 model AuditLog {

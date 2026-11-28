@@ -1,4 +1,5 @@
 import {
+  IsObject,
   IsOptional,
   IsString,
   IsUUID,
@@ -38,4 +39,11 @@ export class ConfirmSignupDto {
   @MinLength(10)
   @MaxLength(1024)
   password!: string;
+
+  /**
+   * The version of each agreement the person accepted, by document key. A
+   * workspace is never created without them.
+   */
+  @IsObject()
+  acceptedTerms!: Record<string, string>;
 }

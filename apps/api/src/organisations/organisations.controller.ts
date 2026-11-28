@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Patch,
   Post,
@@ -18,16 +19,37 @@ import { UpdateOrganisationDto } from './dto/organisation.dto';
 import { InviteStaffDto, UpdateMemberDto } from './dto/member.dto';
 import { LimitInviteSending } from '../rate-limit/rate-limit.guard';
 import { AllowWhenReadOnly } from '../auth/allow-when-read-only.decorator';
+import { TermsService } from './terms.service';
+import { AcceptTermsDto } from './dto/terms.dto';
 
 @Controller('organisation')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class OrganisationsController {
-  constructor(private readonly organisations: OrganisationsService) {}
+  constructor(
+    private readonly organisations: OrganisationsService,
+    private readonly terms: TermsService,
+  ) {}
 
   @Get()
   @Roles(...STAFF_ROLES, 'CUSTOMER')
   get(@CurrentUser() user: AuthUser) {
     return this.organisations.get(user);
+  }
+
+  /** The agreements, what this workspace accepted, and the sub-processors. */
+  @Get('terms')
+  @Roles(...STAFF_ROLES)
+  termsStatus(@CurrentUser() user: AuthUser) {
+    return this.terms.status(user);
+  }
+
+  /** An Admin accepts for the workspace. Possible while it is read-only. */
+  @Post('terms/accept')
+  @Roles('ADMIN')
+  @HttpCode(200)
+  @AllowWhenReadOnly()
+  acceptTerms(@CurrentUser() user: AuthUser, @Body() dto: AcceptTermsDto) {
+    return this.terms.accept(user, dto.versions);
   }
 
   @Get('members')

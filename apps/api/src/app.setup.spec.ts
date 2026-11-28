@@ -22,6 +22,7 @@ import { CustomersController } from './customers/customers.controller';
 import { CustomersService } from './customers/customers.service';
 import { OrganisationsController } from './organisations/organisations.controller';
 import { OrganisationsService } from './organisations/organisations.service';
+import { TermsService } from './organisations/terms.service';
 import { RATE_LIMITS, type RateLimitPolicy } from './rate-limit/policies';
 import { RateLimitModule } from './rate-limit/rate-limit.module';
 
@@ -55,6 +56,7 @@ const services = [
   PasswordResetService,
   TwoFactorService,
   OrganisationsService,
+  TermsService,
   CustomersService,
 ];
 const anything = () =>
