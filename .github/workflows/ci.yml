@@ -41,7 +41,7 @@ jobs:
     steps:
       # Two commits, so a pull request can be compared with the branch it targets.
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
@@ -50,13 +50,13 @@ jobs:
         run: .github/scripts/migration-history.sh HEAD^1
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.30.3
 
       # .nvmrc holds the Node major that production runs (see the Dockerfile).
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -116,7 +116,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Build the api, migrate and web images
         run: |
@@ -141,7 +141,7 @@ jobs:
 
       - name: Keep them for the publish job
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: checked-images
           path: checked/
@@ -155,15 +155,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10.30.3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
 
@@ -188,10 +188,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Fetch the checked images
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: checked-images
           path: checked
@@ -208,7 +208,7 @@ jobs:
           OWNER: ${{ github.repository_owner }}
 
       - name: Keep the release manifest
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-manifest
           path: release-manifest.json
