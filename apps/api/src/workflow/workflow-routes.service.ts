@@ -76,15 +76,37 @@ export class WorkflowRoutesService implements OnApplicationBootstrap {
     private readonly audit: AuditService,
   ) {}
 
-  /** Gives every workspace its default route and puts older jobs on it. */
+  /**
+   * Gives each workspace that lacks one its default route and puts older jobs
+   * on it. Every workspace is tried. If any fails, each is logged and the start
+   * fails, so unfinished data cannot go unnoticed behind a healthy API.
+   */
   async onApplicationBootstrap() {
-    try {
-      const orgs = await this.prisma.organisation.findMany({
-        select: { id: true },
-      });
-      for (const org of orgs) await this.ensureDefault(org.id);
-    } catch (error) {
-      this.logger.error('Could not set up default routes', error as Error);
+    const unfinished = await this.prisma.organisation.findMany({
+      where: {
+        OR: [
+          { routes: { none: { isDefault: true } } },
+          { importJobs: { some: { routeId: null } } },
+        ],
+      },
+      select: { id: true },
+    });
+    let failed = 0;
+    for (const org of unfinished) {
+      try {
+        await this.ensureDefault(org.id);
+      } catch (error) {
+        failed++;
+        this.logger.error(
+          `Could not set up the default route for workspace ${org.id}`,
+          error as Error,
+        );
+      }
+    }
+    if (failed) {
+      throw new Error(
+        `Default route setup failed for ${failed} of ${unfinished.length} workspaces`,
+      );
     }
   }
 

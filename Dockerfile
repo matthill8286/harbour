@@ -1,4 +1,4 @@
-# One recipe, three targets: api (NestJS), migrate (prisma db push and the demo seed)
+# One recipe, three targets: api (NestJS), migrate (database migrations and the demo seed)
 # and web (the built SPA, served by Caddy with a fallback to index.html).
 # The api and migrate images are plain Alpine with the Node binary, the api's production
 # dependencies and its build output. migrate is the same files plus one layer holding the
@@ -33,7 +33,7 @@ RUN pnpm --filter @vip/api deploy --prod --legacy /deploy \
  && cp -r packages/shared/dist "$shared/dist" \
  && cp -r apps/api/dist /out/dist \
  && cp -r apps/api/prisma /out/prisma \
- && rm /out/prisma/seed.ts \
+ && rm /out/prisma/seed.ts /out/prisma/check-migrations.cjs \
  && find /out/dist -name '*.d.ts' -delete \
  && find /out/dist -name '*.map' -delete \
  && find /out/dist -name '*.tsbuildinfo' -delete \
@@ -62,9 +62,10 @@ RUN ln -s /app/node_modules/prisma/build/index.js /usr/local/bin/prisma
 # The demo seed writes its sample files here. Mount the uploads volume to keep them.
 ENV STORAGE_LOCAL_DIR=/data/uploads CHECKPOINT_DISABLE=1 PRISMA_HIDE_UPDATE_MESSAGE=1
 USER node
-# Fails rather than drop data: a destructive schema change needs a person to decide.
+# Applies the migrations in prisma/migrations, and refuses a database that is not
+# what its migration history says. See apps/api/prisma/README.md.
 # The demo seed runs with: node dist/prisma/seed.js
-CMD ["prisma", "db", "push", "--skip-generate"]
+CMD ["node", "prisma/migrate.cjs", "deploy"]
 
 # An uploads volume that an earlier, root-run image wrote must be given to uid 1000
 # before this image can write to it. See docker/README.md.
