@@ -1,4 +1,10 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import { TrimmedEmail } from '../../common/trimmed-email';
 
 export class SignupDto {
@@ -14,6 +20,11 @@ export class SignupDto {
 
   @TrimmedEmail()
   email!: string;
+
+  /** The licence the workspace is set up under. Needed wherever licences are checked. */
+  @IsOptional()
+  @IsUUID()
+  licenceId?: string;
 }
 
 export class ConfirmSignupDto {

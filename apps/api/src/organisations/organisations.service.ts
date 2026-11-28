@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
@@ -13,6 +14,7 @@ import {
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
 import { accessLock, lockedTransaction } from '../prisma/locked-transaction';
+import { LicensingService } from '../licensing/licensing.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../integrations/notifications.service';
 import { EmailTransport } from '../integrations/email-transport';
@@ -77,7 +79,13 @@ export class OrganisationsService {
     private readonly config: ConfigService,
     private readonly notifications: NotificationsService,
     private readonly email: EmailTransport,
+    @Optional() private readonly licensing?: LicensingService,
   ) {}
+
+  /** The most team members the workspace's licence allows, or null for no limit. */
+  private async seats(organisationId: string): Promise<number | null> {
+    return (await this.licensing?.limit(organisationId, 'activeStaff')) ?? null;
+  }
 
   async get(user: AuthUser) {
     const organisation = await this.prisma.organisation.findFirst({
@@ -149,6 +157,8 @@ export class OrganisationsService {
 
     const { token, tokenHash } = createInviteToken();
     const expiresAt = inviteExpiresAt();
+    // Read before the transaction, so no network call is made while rows are locked.
+    const seats = await this.seats(user.organisationId);
     const membership = await lockedTransaction(
       this.prisma,
       accessLock(user.organisationId),
@@ -200,8 +210,13 @@ export class OrganisationsService {
         // Someone already invited holds their place. Checked after the write,
         // so a refusal rolls it back.
         if (existing?.status !== 'INVITED') {
-          await assertWithinPlan(tx, user.organisationId, 'activeStaff', () =>
-            countStaffSeats(tx, user.organisationId),
+          await assertWithinPlan(
+            tx,
+            user.organisationId,
+            'activeStaff',
+            () => countStaffSeats(tx, user.organisationId),
+            undefined,
+            seats,
           );
         }
 
@@ -271,10 +286,12 @@ export class OrganisationsService {
       throw new BadRequestException('Nothing to update');
     }
     // Locked, so two Admins cannot each pass the last-Admin check at once.
+    // Read before the transaction, so no network call is made while rows are locked.
+    const seats = await this.seats(user.organisationId);
     const updated = await lockedTransaction(
       this.prisma,
       accessLock(user.organisationId),
-      (tx) => this.applyMemberUpdate(tx, user, membershipId, dto),
+      (tx) => this.applyMemberUpdate(tx, user, membershipId, dto, seats),
     );
     void this.audit.record(user, {
       action: 'STAFF_MEMBERSHIP_UPDATED',
@@ -294,6 +311,7 @@ export class OrganisationsService {
     user: AuthUser,
     membershipId: string,
     dto: UpdateMemberDto,
+    seats: number | null,
   ) {
     const member = await this.requireStaffMembership(user, membershipId, tx);
     if (member.userId === user.id && dto.status === 'DISABLED') {
@@ -366,8 +384,13 @@ export class OrganisationsService {
       select: memberSelect,
     });
     if (dto.status === 'ACTIVE' && member.status === 'DISABLED') {
-      await assertWithinPlan(tx, user.organisationId, 'activeStaff', () =>
-        countStaffSeats(tx, user.organisationId),
+      await assertWithinPlan(
+        tx,
+        user.organisationId,
+        'activeStaff',
+        () => countStaffSeats(tx, user.organisationId),
+        undefined,
+        seats,
       );
     }
     if (dto.status === 'DISABLED') {

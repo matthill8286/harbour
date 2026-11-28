@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  Optional,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,6 +18,7 @@ import {
   composeAccountExistsEmail,
   composeSignupConfirmEmail,
 } from '../../integrations/account-email';
+import { LicensingService } from '../../licensing/licensing.service';
 import { RateLimiter } from '../../rate-limit/rate-limiter';
 import { buildAuthUser } from '../auth-user';
 import { createInviteToken, hashInviteToken } from '../invite-token';
@@ -52,6 +54,7 @@ export class SignupService {
     private readonly email: EmailTransport,
     private readonly config: ConfigService,
     private readonly limiter: RateLimiter,
+    @Optional() private readonly licensing?: LicensingService,
   ) {}
 
   /**
@@ -62,6 +65,11 @@ export class SignupService {
   async request(dto: SignupDto): Promise<void> {
     const email = dto.email.trim().toLowerCase();
     this.limiter.consume('signupEmail', email);
+    // Where licences are checked, Harbour is not open to sign-up: a workspace is
+    // set up only by the person a licence names, from that licence's link.
+    if (this.licensing?.enabled) {
+      await this.licensing.requireSetUp(dto.licenceId, email);
+    }
     if (
       !this.limiter.take(
         'signup-email-total',
@@ -84,6 +92,7 @@ export class SignupService {
         email,
         organisationName: dto.organisationName.trim(),
         name: dto.name.trim(),
+        licenceId: this.licensing?.enabled ? dto.licenceId : null,
         tokenHash,
         expiresAt: new Date(now.getTime() + SIGNUP_LINK_TTL_MS),
       },
@@ -119,11 +128,16 @@ export class SignupService {
    */
   async confirm(token: string, password: string) {
     const request = await this.findUsable(token);
+    // Checked again, because the licence may have been used or stopped since the
+    // email was sent.
+    const licence = this.licensing?.enabled
+      ? await this.licensing.requireSetUp(request.licenceId, request.email)
+      : null;
     const passwordHash = await hash(password);
 
     let created: Awaited<ReturnType<SignupService['createWorkspace']>>;
     try {
-      created = await this.createWorkspace(request, passwordHash);
+      created = await this.createWorkspace(request, passwordHash, licence?.id);
     } catch (error) {
       // The account was made by something else at the same moment.
       if (
@@ -178,6 +192,7 @@ export class SignupService {
       name: string;
     },
     passwordHash: string,
+    licenceId?: string,
   ) {
     // One at a time for each email, so two links used at once cannot both
     // make a workspace, or block each other.
@@ -198,10 +213,18 @@ export class SignupService {
         const user = await claimOrCreateAccount(tx, request, passwordHash);
         const organisation = await tx.organisation.create({
           data: {
+            // A licensed workspace takes its licence's id, so using the link
+            // again after a failure finishes the same workspace.
+            ...(licenceId ? { id: licenceId } : {}),
             name: request.organisationName,
             slug: organisationSlug(request.organisationName),
             settings: { create: { brandName: request.organisationName } },
-            subscription: { create: { plan: 'STARTER', status: 'TRIAL' } },
+            subscription: {
+              create: {
+                plan: 'STARTER',
+                status: licenceId ? 'ACTIVE' : 'TRIAL',
+              },
+            },
             features: {
               create: SIGNUP_FEATURES.map((flag) => ({ flag, enabled: true })),
             },
@@ -217,6 +240,9 @@ export class SignupService {
           },
           include: { organisation: { include: { settings: true } } },
         });
+        // Bound before the workspace is kept. If it fails, nothing is saved, so
+        // a workspace never exists without its licence.
+        if (licenceId) await this.licensing!.bind(licenceId, organisation.id);
         return { user, membership };
       },
     );

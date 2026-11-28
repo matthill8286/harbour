@@ -45,8 +45,9 @@ export function planIsReadOnly(
 }
 
 /**
- * Refuses a change that would take a workspace past its plan. `used` includes
- * the change, and is counted only where the plan has a limit.
+ * Refuses a change that would take a workspace past its plan or its licence.
+ * `used` includes the change, and is counted only where there is a limit.
+ * `licenceLimit` is the licence's own ceiling, and the lower of the two applies.
  */
 export async function assertWithinPlan(
   db: Prisma.TransactionClient,
@@ -54,13 +55,22 @@ export async function assertWithinPlan(
   limit: keyof PlanLimits,
   used: () => number | Promise<number>,
   table: PlanLimitTable = PLAN_LIMITS,
+  licenceLimit: number | null = null,
 ): Promise<void> {
-  if (Object.values(table).every((plan) => plan[limit] === null)) return;
-  const subscription = await db.subscription.findUnique({
-    where: { organisationId },
-    select: { plan: true },
-  });
-  const allowed = subscription ? table[subscription.plan][limit] : null;
+  const planHasLimit = Object.values(table).some(
+    (plan) => plan[limit] !== null,
+  );
+  if (!planHasLimit && licenceLimit === null) return;
+  const subscription = planHasLimit
+    ? await db.subscription.findUnique({
+        where: { organisationId },
+        select: { plan: true },
+      })
+    : null;
+  const allowed = lowest(
+    subscription ? table[subscription.plan][limit] : null,
+    licenceLimit,
+  );
   if (allowed === null || (await used()) <= allowed) return;
   throw new ForbiddenException({
     statusCode: 403,
@@ -71,6 +81,9 @@ export async function assertWithinPlan(
         : `Your plan allows ${allowed} new import jobs a month.`,
   });
 }
+
+const lowest = (a: number | null, b: number | null): number | null =>
+  a === null ? b : b === null ? a : Math.min(a, b);
 
 /** Team members who take up a place on the plan. */
 export function countStaffSeats(

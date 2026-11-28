@@ -131,6 +131,41 @@ lapsed plan (`PAST_DUE`, `SUSPENDED` or `CANCELLED`) restricts nothing unless
 passed. The workspace can then be read and exported, but not changed. Nothing
 sets that date yet. Feature flags are stored and shown, but not enforced.
 
+## Licences
+
+Harbour is not meant to be open to sign-up. With `ACCOUNT_INTERNAL_URL` and
+`ACCOUNT_TOKEN` both set, the API reads each workspace's licence from the Impakt
+account service (`apps/api/src/licensing`), and the log says "Licences are
+checked". With neither set, licences are not checked and sign-up is open, which
+is for local development only.
+
+- **Setting a workspace up.** Issue the licence on the account service's
+  `/operator` page, then send the customer
+  `https://<harbour address>/signup?licence=<licence id>`. Sign-up is refused for
+  anyone the licence does not name, and for a licence that is used or not active.
+  The workspace takes the licence's id and is bound to it as it is made, so a
+  workspace never exists without its licence.
+- **What a licence's status allows.** `active` and `grace` allow everything.
+  `read_only` and `expired` make the workspace read-only, the same as a lapsed
+  plan: it can be read and exported, but not changed. `pending`, `suspended` and
+  no licence refuse every request with `licence_inactive`. This covers team
+  members and portal customers alike.
+- **Limits.** The licence's `seats` cap team members, counting people who are
+  invited, and an empty value means no limit. Its `importJobsPerMonth` limit caps
+  new import jobs in a month. Where a plan in `plan-policy.ts` also sets a limit,
+  the lower one applies.
+- **If the account service is down.** The API uses each workspace's last answer
+  for up to a day. A workspace it has no answer for is refused until the account
+  service is back.
+- **Workspaces that existed before licences**, including the seeded demo
+  workspaces. Issue each one a licence and bind it on the operator page, with the
+  workspace's id from the `Organisation` table, before setting the two variables.
+  A workspace without a licence stops working as soon as they are set.
+
+Background work does not check licences: GPS intake, the retention timers and
+queued email carry on for a workspace whose licence has stopped. Suspending the
+workspace with the operator command stops them.
+
 ## Customer data: export and erasure
 
 An Admin can do both from the customer record. The rules are cautious defaults,
@@ -189,7 +224,7 @@ Status changes, customer-visible notes/files, and portal invites go through `Not
 
 Staff and portal invites go to the invitee's email only. The person inviting sees whether the email went. A copyable link appears only in local development with `EMAIL_PROVIDER=log`.
 
-Sign-up is open and creates nothing until the person opens the emailed link and chooses a password. Sign-in, two-factor, sign-up, password reset and invite routes are rate limited (`apps/api/src/rate-limit/policies.ts`). The counts are held in memory, so they assume one API process and start again after a restart.
+Sign-up is open unless licences are checked (see Licences), and creates nothing until the person opens the emailed link and chooses a password. Sign-in, two-factor, sign-up, password reset and invite routes are rate limited (`apps/api/src/rate-limit/policies.ts`). The counts are held in memory, so they assume one API process and start again after a restart.
 
 ## Harbour AI
 

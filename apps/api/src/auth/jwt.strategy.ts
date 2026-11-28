@@ -1,8 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  Optional,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { accessFor } from '../licensing/licence';
+import { LicensingService } from '../licensing/licensing.service';
 import { planIsReadOnly } from '../tenancy/plan-policy';
 import { buildAuthUser } from './auth-user';
 import { jwtSecret } from './secrets';
@@ -23,6 +30,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     config: ConfigService,
     private readonly prisma: PrismaService,
+    @Optional() private readonly licensing?: LicensingService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -71,7 +79,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       twoFactorEnabled: user.twoFactorEnabled,
       membership,
     });
-    return planIsReadOnly(membership.organisation.subscription)
+    // Where licences are checked, every request of every member and customer of
+    // the workspace passes here. A workspace whose licence does not let it be
+    // used is refused, and one that can only be read is read-only.
+    const access = this.licensing?.enabled
+      ? accessFor(await this.licensing.forWorkspace(membership.organisationId))
+      : 'full';
+    if (access === 'none') {
+      throw new ForbiddenException({
+        statusCode: 403,
+        code: 'licence_inactive',
+        message:
+          'This workspace has no active Harbour licence. Contact us to renew it.',
+      });
+    }
+    return access === 'read' ||
+      planIsReadOnly(membership.organisation.subscription)
       ? { ...authUser, workspaceReadOnly: true }
       : authUser;
   }

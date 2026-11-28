@@ -1,5 +1,11 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  Optional,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import { LicensingService } from '../licensing/licensing.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { monthStartUtc } from './tenant-keys';
 import {
@@ -13,7 +19,10 @@ export class UsageService implements OnApplicationBootstrap {
   private readonly logger = new Logger(UsageService.name);
   planLimits: PlanLimitTable = PLAN_LIMITS;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Optional() private readonly licensing?: LicensingService,
+  ) {}
 
   /**
    * Counts uncounted jobs at every start. A failure stops the start, so it
@@ -58,6 +67,8 @@ export class UsageService implements OnApplicationBootstrap {
       'importJobsPerMonth',
       () => record.quantity,
       this.planLimits,
+      (await this.licensing?.limit(organisationId, 'importJobsPerMonth')) ??
+        null,
     );
     return record;
   }
