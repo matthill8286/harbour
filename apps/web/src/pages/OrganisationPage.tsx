@@ -17,6 +17,7 @@ import { useRoutes } from './routes/routes';
 import { PhoneHeader } from '../components/PhoneHeader';
 import { LoadingScreen } from '../components/ui';
 import { InviteOutcome, type InviteDelivery } from '../components/InviteOutcome';
+import { GpsSettings } from './account/GpsSettings';
 import './account/Account.css';
 
 type OrganisationView = {
@@ -442,6 +443,7 @@ export function OrganisationPage() {
             <PlanAndFeatures org={org} />
           </div>
           <Team />
+          <GpsSettings />
         </>
       )}
     </div>

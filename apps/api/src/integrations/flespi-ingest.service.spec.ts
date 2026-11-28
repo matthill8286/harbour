@@ -30,7 +30,12 @@ function setup(tracker: Record<string, unknown>) {
     configured: () => true,
     latestForImei: jest.fn().mockResolvedValue([]),
   };
-  const service = new FlespiIngestService(prisma as never, flespi as never);
+  const service = new FlespiIngestService(
+    prisma as never,
+    flespi as never,
+    { get: () => undefined } as never,
+    { sendLowBattery: jest.fn() } as never,
+  );
   return { service, prisma, flespi };
 }
 

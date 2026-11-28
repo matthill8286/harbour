@@ -380,7 +380,12 @@ describeWithDatabase('account controls across two workspaces', () => {
         const serial = `35${Math.floor(Math.random() * 1e13)
           .toString()
           .padStart(13, '0')}`;
-        const { tracker } = await confirmDeviceOwner(prisma, serial, org.slug);
+        const { tracker } = await confirmDeviceOwner(
+          prisma,
+          serial,
+          org.slug,
+          'invoice',
+        );
         await prisma.tracker.update({
           where: { id: tracker.id },
           data: { ownershipConfirmedAt: new Date(Date.now() - 24 * HOUR) },

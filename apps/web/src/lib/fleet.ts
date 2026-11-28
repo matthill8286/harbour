@@ -1,13 +1,15 @@
 import type { TrackingVehicle } from './tracking';
 
-/** A tracker that has not pinged for this long counts as having no signal. */
-export const SILENT_AFTER_MS = 6 * 60 * 60 * 1000;
+import { trackerSignal } from '@vip/shared';
 
-/** Whether a vehicle's tracker is reporting: live, or silent (never pinged, offline or quiet too long). */
+/**
+ * Whether a vehicle's tracker is reporting. A unit is silent once it has
+ * missed two of its own expected reports, so a battery unit that reports a few
+ * times a day is not called silent between reports.
+ */
 export function hasSignal(vehicle: Pick<TrackingVehicle, 'current' | 'tracker'>, now = Date.now()) {
-  if (!vehicle.current) return false;
-  if (vehicle.tracker?.status === 'OFFLINE') return false;
-  return now - new Date(vehicle.current.recordedAt).getTime() < SILENT_AFTER_MS;
+  if (!vehicle.current || !vehicle.tracker) return false;
+  return trackerSignal(vehicle.tracker, now).state === 'LIVE';
 }
 
 type Point = { latitude: number; longitude: number };

@@ -12,6 +12,7 @@ import { FlespiGpsClient } from './flespi-gps.client';
 import { FlespiIngestService } from './flespi-ingest.service';
 import { FlespiGpsController } from './flespi-gps.controller';
 import { FlespiWebhookGuard } from './flespi-webhook.guard';
+import { WorkspaceGpsWebhookGuard } from './workspace-gps-webhook.guard';
 
 @Global()
 @Module({
@@ -28,6 +29,7 @@ import { FlespiWebhookGuard } from './flespi-webhook.guard';
     FlespiGpsClient,
     FlespiIngestService,
     FlespiWebhookGuard,
+    WorkspaceGpsWebhookGuard,
   ],
   controllers: [FlespiGpsController],
   exports: [

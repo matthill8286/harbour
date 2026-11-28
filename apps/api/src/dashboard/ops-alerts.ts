@@ -10,10 +10,15 @@ import {
 export const DEFAULT_DESTINATION: GeoPoint =
   ROUTE_UK_BG_GR_CENTRAL[ROUTE_UK_BG_GR_CENTRAL.length - 1];
 
-export const DEFAULT_STALE_TRACKER_MS = 2 * 60 * 60 * 1000;
 export const DEFAULT_NEAR_DESTINATION_METERS = 5_000;
 
-export type OpsAlertKind = 'STALE_TRACKER' | 'NEAR_DESTINATION';
+export type OpsAlertKind =
+  | 'STALE_TRACKER'
+  | 'NEAR_DESTINATION'
+  | 'LOW_BATTERY'
+  | 'LOW_VEHICLE_BATTERY'
+  | 'REMOVAL_UNCONFIRMED'
+  | 'REPORTING_AFTER_JOB';
 
 export type OpsAlert = {
   kind: OpsAlertKind;
@@ -55,21 +60,6 @@ export function haversineMeters(
   return 2 * 6_371_000 * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Assigned tracker with no ping within the threshold (null lastSeenAt counts as stale). */
-export function isTrackerStale(input: {
-  lastSeenAt: Date | string | null | undefined;
-  now?: Date;
-  thresholdMs: number;
-}): boolean {
-  const { thresholdMs } = input;
-  if (!Number.isFinite(thresholdMs) || thresholdMs <= 0) return false;
-  if (input.lastSeenAt == null) return true;
-  const seen = new Date(input.lastSeenAt).getTime();
-  if (!Number.isFinite(seen)) return true;
-  const now = (input.now ?? new Date()).getTime();
-  return now - seen >= thresholdMs;
-}
-
 /** Last ping is within radius of destination while status is not yet ARRIVED_CYPRUS+. */
 export function isNearDestination(input: {
   status: string;
@@ -94,7 +84,12 @@ export function buildStaleTrackerAlert(input: {
   reference: string;
   trackerSerial: string;
   lastSeenAt: Date | string | null;
+  /** How long without a report counts as no signal for this unit. */
+  noSignalAfter?: string;
 }): OpsAlert {
+  const quietFor = input.noSignalAfter
+    ? ` for more than ${input.noSignalAfter}`
+    : ' recently';
   return {
     kind: 'STALE_TRACKER',
     importJobId: input.importJobId,
@@ -104,7 +99,74 @@ export function buildStaleTrackerAlert(input: {
     detail:
       input.lastSeenAt == null
         ? `${input.trackerSerial} has never reported on ${input.reference}`
-        : `${input.trackerSerial} has not reported recently on ${input.reference}`,
+        : `${input.trackerSerial} has not reported${quietFor} on ${input.reference}`,
+  };
+}
+
+export function buildLowBatteryAlert(input: {
+  importJobId: string;
+  reference: string;
+  trackerSerial: string;
+  batteryLevel: number;
+}): OpsAlert {
+  return {
+    kind: 'LOW_BATTERY',
+    importJobId: input.importJobId,
+    reference: input.reference,
+    trackerSerial: input.trackerSerial,
+    title: 'Tracker battery low',
+    detail: `${input.trackerSerial} on ${input.reference} is at ${input.batteryLevel}%`,
+  };
+}
+
+export function buildLowVehicleBatteryAlert(input: {
+  importJobId: string;
+  reference: string;
+  trackerSerial: string;
+  volts: number;
+}): OpsAlert {
+  return {
+    kind: 'LOW_VEHICLE_BATTERY',
+    importJobId: input.importJobId,
+    reference: input.reference,
+    trackerSerial: input.trackerSerial,
+    title: 'Vehicle battery low',
+    detail: `The vehicle on ${input.reference} reads ${input.volts.toFixed(1)} V through the wired tracker ${input.trackerSerial}`,
+  };
+}
+
+export function buildRemovalUnconfirmedAlert(input: {
+  importJobId: string;
+  reference: string;
+  trackerSerial: string;
+  /** True when the job is closed but the unit is still assigned to it. */
+  stillAssigned: boolean;
+}): OpsAlert {
+  return {
+    kind: 'REMOVAL_UNCONFIRMED',
+    importJobId: input.importJobId,
+    reference: input.reference,
+    trackerSerial: input.trackerSerial,
+    title: 'Tracker not confirmed removed',
+    detail: input.stillAssigned
+      ? `${input.reference} is closed but ${input.trackerSerial} is still assigned to it`
+      : `Nobody has confirmed that ${input.trackerSerial} was taken out of the vehicle on ${input.reference}`,
+  };
+}
+
+export function buildReportingAfterJobAlert(input: {
+  importJobId: string;
+  reference: string;
+  trackerSerial: string;
+  lastSeenAt: Date | string;
+}): OpsAlert {
+  return {
+    kind: 'REPORTING_AFTER_JOB',
+    importJobId: input.importJobId,
+    reference: input.reference,
+    trackerSerial: input.trackerSerial,
+    title: 'Tracker still reporting after its job',
+    detail: `${input.trackerSerial} came off ${input.reference} but is still sending positions`,
   };
 }
 

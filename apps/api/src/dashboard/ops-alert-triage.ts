@@ -27,6 +27,38 @@ export function enrichOpsAlertHeuristic(alert: OpsAlert): EnrichedOpsAlert {
     };
   }
 
+  if (alert.kind === 'LOW_BATTERY') {
+    return {
+      ...alert,
+      aiSummary:
+        'Why it matters: a battery unit can run flat between reports and the vehicle goes quiet. Next: charge or swap the unit at the next stop, or raise its reporting interval to last the trip.',
+    };
+  }
+
+  if (alert.kind === 'LOW_VEHICLE_BATTERY') {
+    return {
+      ...alert,
+      aiSummary:
+        'Why it matters: the wired tracker may be draining a parked vehicle, which could arrive with a flat battery. Next: ask the carrier or fitter to check the vehicle and the unit’s sleep setting.',
+    };
+  }
+
+  if (alert.kind === 'REMOVAL_UNCONFIRMED') {
+    return {
+      ...alert,
+      aiSummary:
+        'Why it matters: a unit left in a delivered vehicle tracks its next owner without their knowledge. Next: confirm it was taken out, on the job’s Tracking tab.',
+    };
+  }
+
+  if (alert.kind === 'REPORTING_AFTER_JOB') {
+    return {
+      ...alert,
+      aiSummary:
+        'Why it matters: the unit is still sending positions after its job, so it was probably left in the vehicle. Next: arrange its removal at once and confirm it on the job.',
+    };
+  }
+
   return { ...alert };
 }
 

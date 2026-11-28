@@ -474,6 +474,8 @@ export type LocationPoint = {
   speed: number | null;
   heading: number | null;
   recordedAt: string;
+  /** `MANUAL` when staff typed it in. A gateway position has no label. */
+  source?: 'GATEWAY' | 'MANUAL';
 };
 
 export type MapConfig = {
@@ -673,3 +675,4 @@ export function nearestRouteIndex(
 }
 
 export * from './workflow';
+export * from './trackers';

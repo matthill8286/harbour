@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, Badge, Button, Card, EmptyState, Heading, Select, Text } from '@atomic-ui/ui-react';
-import { nearestRouteIndex, type LocationPoint } from '@vip/shared';
+import { describeMinutes, nearestRouteIndex, needsFitter, type LocationPoint } from '@vip/shared';
 import { hasArrived } from '../../lib/workflows';
 import { api } from '../../lib/api';
 import { formatDate, formatDateTime, relativeTime } from '../../lib/format';
@@ -9,12 +9,10 @@ import { FALLBACK_MAP, trackerKindLabel, type JobTracking, type RouteTemplateOpt
 import { JourneyMap } from '../../components/JourneyMap';
 import { LoadingScreen } from '../../components/ui';
 import { useJobStatus } from './useJobStatus';
-import { RemoveTrackerDialog, TrackerDialog } from './trackerDialogs';
+import { ConfirmRemovalDialog, RemoveTrackerDialog, TrackerDialog, TrackerSettingsDialog } from './trackerDialogs';
+import { everyLabel, powerSourceName } from '../../lib/trackerDetails';
 import type { JobDetail } from './types';
 import './TrackingTab.css';
-
-/** A ping counts as live for six hours; after that the tracker is called silent. */
-const LIVE_FOR_MS = 6 * 60 * 60 * 1000;
 
 type Suggestion = { recommendedTemplateId: string; code: string; name: string; rationale: string; confidence: number };
 
@@ -26,9 +24,9 @@ type Suggestion = { recommendedTemplateId: string; code: string; name: string; r
 export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: LocationPoint | null }) {
   const { editable } = useJobStatus(job);
   const queryClient = useQueryClient();
-  const [dialog, setDialog] = useState<'tracker' | 'remove' | null>(null);
+  const [dialog, setDialog] = useState<'tracker' | 'remove' | 'settings' | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<Suggestion | null>(null);
-  const [now] = useState(() => Date.now());
 
   const trackingQuery = useQuery({
     queryKey: ['tracking', job.id],
@@ -75,7 +73,10 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
   const trail = tracking.trail?.length ? tracking.trail : current ? [current] : [];
   const arrived = hasArrived(job.route, tracking.status);
   const planned = !arrived && tracking.plannedRoute?.length > 1 ? tracking.plannedRoute : [];
-  const live = tracker?.lastSeenAt ? now - new Date(tracker.lastSeenAt).getTime() < LIVE_FOR_MS : false;
+  // The server judges silence by the unit's own reporting interval.
+  const live = tracker?.signal.state === 'LIVE';
+  const pendingRemovals = tracking.pendingRemovals ?? [];
+  const confirmingRemoval = pendingRemovals.find((item) => item.assignmentId === confirming);
   const nextWaypoint = current && planned.length ? planned[Math.min(nearestRouteIndex(planned, current) + 1, planned.length - 1)]?.label : null;
   const vehicle = [job.vehicle.make, job.vehicle.model].filter(Boolean).join(' ') || 'Vehicle';
   const legs = job.journeys.reduce<Record<string, number>>((count, leg) => ({ ...count, [leg.type]: (count[leg.type] ?? 0) + 1 }), {});
@@ -150,6 +151,34 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
     </Card>
   );
 
+  const removalsCard =
+    pendingRemovals.length > 0 ? (
+      <Card className="job-card">
+        <div className="job-card-head">
+          <Heading level={2} size="md">
+            Not confirmed removed
+          </Heading>
+          <Badge tone="danger">{String(pendingRemovals.length)}</Badge>
+        </div>
+        <Text size="sm" tone="muted">
+          A unit left in a delivered vehicle tracks its next owner. Confirm each one once it is out of the vehicle.
+        </Text>
+        <ul className="job-removals" role="list">
+          {pendingRemovals.map((item) => (
+            <li key={item.assignmentId}>
+              <span>
+                <strong>{item.serialNumber}</strong>
+                <Text size="sm" tone="muted">{`${powerSourceName(item.powerSource)} · off the job ${formatDate(item.removedAt)}`}</Text>
+              </span>
+              <Button variant="secondary" size="sm" onClick={() => setConfirming(item.assignmentId)}>
+                Confirm removed
+              </Button>
+            </li>
+          ))}
+        </ul>
+      </Card>
+    ) : null;
+
   if (!tracker && !current) {
     return (
       <div className="job-tracking is-empty">
@@ -164,8 +193,10 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
             </Button>
           ) : null}
         </EmptyState>
+        {removalsCard}
         {corridor}
         {dialog === 'tracker' ? <TrackerDialog jobId={job.id} reference={job.reference} tracking={tracking} onClose={() => setDialog(null)} /> : null}
+        {confirmingRemoval ? <ConfirmRemovalDialog jobId={job.id} removal={confirmingRemoval} onClose={() => setConfirming(null)} /> : null}
       </div>
     );
   }
@@ -184,7 +215,7 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
           </div>
           <div className="job-map-actions">
             {tracker?.lastSeenAt ? (
-              <Badge tone={live ? 'solid' : 'danger'}>{`${live ? 'Live' : 'Silent'} · updated ${relativeTime(tracker.lastSeenAt).toLowerCase()}`}</Badge>
+              <Badge tone={live ? 'solid' : 'danger'}>{`${live ? 'Live' : 'No signal'} · last report ${relativeTime(tracker.lastSeenAt).toLowerCase()}`}</Badge>
             ) : (
               <Badge>No ping yet</Badge>
             )}
@@ -215,11 +246,11 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
         </div>
         <dl className="job-tiles">
           <div>
-            <dt>Last position</dt>
+            <dt>{current && !live ? 'Last known position' : 'Last position'}</dt>
             <dd>{current ? `${Number(current.latitude).toFixed(3)}, ${Number(current.longitude).toFixed(3)}` : 'None yet'}</dd>
             {current ? (
               <Text size="sm" tone="muted">
-                {formatDateTime(current.recordedAt)}
+                {`${live ? '' : 'Recorded '}${formatDateTime(current.recordedAt)}${current.source === 'MANUAL' ? ' · typed in by staff' : ''}`}
               </Text>
             ) : null}
           </div>
@@ -228,8 +259,16 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
             <dd>{current?.speed != null ? `${Math.round(current.speed)} km/h` : 'Unknown'}</dd>
           </div>
           <div>
-            <dt>Battery</dt>
-            <dd>{tracker?.batteryLevel != null ? `${tracker.batteryLevel}%` : 'Unknown'}</dd>
+            <dt>{tracker && needsFitter(tracker.powerSource) ? 'Vehicle battery' : 'Battery'}</dt>
+            <dd>
+              {tracker && needsFitter(tracker.powerSource)
+                ? tracker.supplyVoltage != null
+                  ? `${tracker.supplyVoltage.toFixed(1)} V`
+                  : 'Unknown'
+                : tracker?.batteryLevel != null
+                  ? `${tracker.batteryLevel}%`
+                  : 'Unknown'}
+            </dd>
           </div>
           <div>
             <dt>Next waypoint</dt>
@@ -255,6 +294,20 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
                   <dd>{trackerKindLabel(tracker.provider)}</dd>
                 </div>
                 <div>
+                  <dt>Power</dt>
+                  <dd>{powerSourceName(tracker.powerSource)}</dd>
+                </div>
+                <div>
+                  <dt>Reports</dt>
+                  <dd>{everyLabel(tracker.reportIntervalMinutes)}</dd>
+                </div>
+                {needsFitter(tracker.powerSource) ? (
+                  <div>
+                    <dt>Fitter</dt>
+                    <dd>{tracker.fittedBy ?? 'Not recorded'}</dd>
+                  </div>
+                ) : null}
+                <div>
                   <dt>Assigned</dt>
                   <dd>{formatDate(tracker.assignedAt)}</dd>
                 </div>
@@ -264,7 +317,7 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
                 </div>
               </dl>
               <Text size="sm" tone="muted">
-                The IMEI is never shown in the customer portal.
+                {`No signal after ${describeMinutes(tracker.signal.noSignalAfterMinutes)} without a report. The IMEI is never shown in the customer portal.`}
               </Text>
             </>
           ) : (
@@ -282,12 +335,20 @@ export function TrackingTab({ job, lastKnown }: { job: JobDetail; lastKnown: Loc
               ) : null}
             </div>
           ) : null}
+          {editable && tracker ? (
+            <Button variant="ghost" size="sm" onClick={() => setDialog('settings')}>
+              Tracker settings
+            </Button>
+          ) : null}
         </Card>
+        {removalsCard}
         {corridor}
       </aside>
 
       {dialog === 'tracker' ? <TrackerDialog jobId={job.id} reference={job.reference} tracking={tracking} onClose={() => setDialog(null)} /> : null}
       {dialog === 'remove' && tracker ? <RemoveTrackerDialog jobId={job.id} tracking={tracking} onClose={() => setDialog(null)} /> : null}
+      {dialog === 'settings' && tracker ? <TrackerSettingsDialog jobId={job.id} tracking={tracking} onClose={() => setDialog(null)} /> : null}
+      {confirmingRemoval ? <ConfirmRemovalDialog jobId={job.id} removal={confirmingRemoval} onClose={() => setConfirming(null)} /> : null}
     </div>
   );
 }

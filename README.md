@@ -80,10 +80,12 @@ In the demo workspaces, changing a job's status moves its simulated trail along 
 An IMEI can be registered once on the whole platform. Registering it is only a claim. The unit receives nothing, from the stream or from **Pull from Flespi**, until the platform operator has seen proof that the workspace holds the unit and has confirmed it on the server:
 
 ```bash
-node dist/src/trackers/confirm-device-owner.js <imei> <workspace-slug>
+node dist/src/trackers/confirm-device-owner.js <imei> <workspace-slug> <invoice|delivery-note|label-photo|other>
 ```
 
-Positions recorded before that confirmation are not delivered. Running the command for another workspace moves the unit to it and disputes the earlier claim, which then receives nothing. If an upgrade finds the same IMEI registered more than once, all of those claims are disputed until the operator confirms an owner. Raw GPS points are deleted 90 days after their job is completed or cancelled, or 90 days after they were recorded if they are on no job. `GPS_RETENTION_DAYS` changes the period. See [the retention rule](docs/adr/ADR-004-gps-retention.md).
+The last argument is the kind of proof seen. It goes into the workspace's audit log, without the document itself.
+
+Positions recorded before that confirmation are not delivered. Running the command for another workspace moves the unit to it and disputes the earlier claim, which then receives nothing. If an upgrade finds the same IMEI registered more than once, all of those claims are disputed until the operator confirms an owner. Raw GPS points are deleted 90 days after their job is completed or cancelled, or 90 days after they were recorded if they are on no job. `GPS_RETENTION_DAYS` changes the period, and an Admin can set the workspace's own period on the **Workspace** page. See [the retention rule](docs/adr/ADR-004-gps-retention.md).
 
 Real units:
 
@@ -93,6 +95,18 @@ Real units:
 4. In Harbour, open **Trackers**, register the IMEI with provider Teltonika / Flespi, then **Assign** or **Replace** it on the import job. Do not leave demo tracker `TRK-001` on a job that should use a live TAT140.
 
 The customer portal never receives the IMEI. Unassigned pings only update last-seen/battery; job trails start after assign.
+
+A workspace that runs its own Flespi account makes its own secret on the **Workspace** page and points its stream at `https://<your-api>/api/integrations/gps/flespi/workspaces/<workspace-slug>`. That secret reaches only that workspace's confirmed units, and the platform secret is not accepted there.
+
+### Units that clients bring
+
+Clients bring their own units. Each real unit is registered with:
+
+- **How it is powered.** A self-contained battery unit is recommended. A hard-wired or diagnostic-port (OBD) unit goes on a job only once its fitter and the vehicle owner's written permission are recorded.
+- **How often it reports.** A unit counts as silent after it misses two of its own reports, and never sooner than 30 minutes. The Board, the live map, the job and the customer portal all use this rule, and show a last known position as one.
+- **The lawful-use statement**, confirmed by the person registering it. Who confirmed it, when and which version of the words is stored. The words are in `packages/shared/src/trackers.ts`, and a new wording needs a new `TRACKER_STATEMENT_VERSION`.
+
+When a real unit comes off a job, someone confirms that it was taken out of the vehicle, with the fitter's name for a wired unit. Until then the job is flagged on the Board. The Board also flags a battery unit at or below `GPS_LOW_BATTERY_PERCENT` (20 by default), which is emailed once to the workspace's Admins and Staff, a wired unit reading the vehicle battery below `GPS_LOW_SUPPLY_VOLTS` (11.8 by default), a closed job that still has a real unit on it, and a unit still reporting `GPS_AFTER_JOB_GRACE_HOURS` (24 by default) after its job. A position typed in by staff is labelled as such.
 
 ## Platform operator, suspending a workspace and plans
 

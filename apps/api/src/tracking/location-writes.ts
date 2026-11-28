@@ -1,4 +1,4 @@
-import type { Prisma } from '@prisma/client';
+import type { LocationSource, Prisma } from '@prisma/client';
 import type { PrismaService } from '../prisma/prisma.service';
 
 const BATCH = 500;
@@ -11,6 +11,7 @@ export type Ping = {
   heading?: number | null;
   recordedAt: Date;
   batteryLevel?: number | null;
+  supplyVoltage?: number | null;
 };
 
 export type Delivery = {
@@ -47,7 +48,10 @@ const reading = (value: number | null | undefined, limit: number) =>
 export async function savePings(
   prisma: PrismaService,
   deliveries: Delivery[],
-  { keepUnassigned }: { keepUnassigned: boolean },
+  {
+    keepUnassigned,
+    source = 'GATEWAY',
+  }: { keepUnassigned: boolean; source?: LocationSource },
 ) {
   const result = { saved: 0, duplicates: 0, unassigned: 0 };
   const live = deliveries.filter((d) => d.pings.length > 0);
@@ -98,6 +102,7 @@ export async function savePings(
         speed: reading(ping.speed, 1e6),
         heading: reading(ping.heading, 1e4),
         recordedAt: ping.recordedAt,
+        source,
       });
     }
   }
@@ -137,6 +142,9 @@ async function markSeen(prisma: PrismaService, { tracker, pings }: Delivery) {
       ...(newest.batteryLevel == null
         ? {}
         : { batteryLevel: newest.batteryLevel }),
+      ...(newest.supplyVoltage == null
+        ? {}
+        : { supplyVoltage: newest.supplyVoltage }),
     },
   });
   // A unit that was silent is back. The database decides whether it is on a

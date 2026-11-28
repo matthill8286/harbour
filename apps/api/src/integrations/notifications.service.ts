@@ -8,6 +8,7 @@ import {
 import { EmailTransport } from './email-transport';
 import { EmailRetryQueue } from './email-retry-queue';
 import {
+  composeLowBatteryEmail,
   composeStaffInviteEmail,
   type StaffInviteEmail,
 } from './account-email';
@@ -96,6 +97,57 @@ export class NotificationsService implements OnApplicationShutdown {
     } catch (error) {
       this.logger.warn(`Failed STAFF_INVITE: ${detailOf(error)}`);
       return false;
+    }
+  }
+
+  /**
+   * Emails the workspace's active Admins and Staff that a battery unit on a job
+   * is low. Fire-and-forget: the Board shows the same alert.
+   */
+  sendLowBattery(input: {
+    organisationId: string;
+    importJobId: string;
+    reference: string;
+    serialNumber: string;
+    batteryLevel: number;
+  }) {
+    void this.deliverLowBattery(input).catch((error: unknown) =>
+      this.logger.warn(`Failed LOW_BATTERY: ${detailOf(error)}`),
+    );
+  }
+
+  private async deliverLowBattery(input: {
+    organisationId: string;
+    importJobId: string;
+    reference: string;
+    serialNumber: string;
+    batteryLevel: number;
+  }) {
+    const organisation = await this.prisma.organisation.findUnique({
+      where: { id: input.organisationId },
+      select: {
+        name: true,
+        settings: { select: { brandName: true } },
+        memberships: {
+          where: { status: 'ACTIVE', role: { in: ['ADMIN', 'STAFF'] } },
+          select: { user: { select: { email: true } } },
+        },
+      },
+    });
+    if (!organisation) return;
+    const email = composeLowBatteryEmail({
+      brandName: organisation.settings?.brandName?.trim() || organisation.name,
+      reference: input.reference,
+      serialNumber: input.serialNumber,
+      batteryLevel: input.batteryLevel,
+      jobUrl: `${this.webOrigin()}/jobs/${input.importJobId}?tab=tracking`,
+    });
+    for (const member of organisation.memberships) {
+      await this.email.deliver({
+        to: member.user.email,
+        ...email,
+        stillAllowed: this.whileActive(input.organisationId),
+      });
     }
   }
 

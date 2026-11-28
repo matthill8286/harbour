@@ -1,15 +1,11 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Badge, Card, Heading, Text } from '@atomic-ui/ui-react';
 import { api } from '../../lib/api';
-import { formatDate, relativeTime } from '../../lib/format';
+import { formatDate, formatDateTime, relativeTime } from '../../lib/format';
 import { FALLBACK_MAP, type JobTracking } from '../../lib/tracking';
 import { JourneyMap } from '../../components/JourneyMap';
 import { countryName } from '../job/countries';
 import { hasArrived, place, vehicleName, type PortalJob } from './portal';
-
-/** A ping this recent counts as live. */
-const LIVE_FOR_MS = 6 * 60 * 60 * 1000;
 
 const LEG_LABEL: Record<string, { text: string; tone: 'neutral' | 'solid' | 'inverse' }> = {
   COMPLETED: { text: 'Completed', tone: 'neutral' },
@@ -23,8 +19,6 @@ const LEG_LABEL: Record<string, { text: string; tone: 'neutral' | 'solid' | 'inv
  * where the position comes from. The tracker's own details never reach the customer.
  */
 export function WhereItIs({ job }: { job: PortalJob }) {
-  // When the card opened, so "updated 4 min ago" does not shift between renders.
-  const [now] = useState(() => Date.now());
   const arrived = hasArrived(job);
   const tracking = useQuery({
     queryKey: ['portal-tracking', job.id],
@@ -32,7 +26,8 @@ export function WhereItIs({ job }: { job: PortalJob }) {
     refetchInterval: arrived ? false : 30_000,
   });
   const current = tracking.data?.current ?? null;
-  const live = current ? now - new Date(current.recordedAt).getTime() < LIVE_FOR_MS : false;
+  // The server says whether the unit is reporting, by its own reporting interval.
+  const live = Boolean(current) && tracking.data?.signal?.state === 'LIVE';
   const lastEntry = job.statusHistory.at(-1);
   const destination = countryName(job.destinationCountry);
 
@@ -42,7 +37,7 @@ export function WhereItIs({ job }: { job: PortalJob }) {
     : live && current
       ? `Live position from the tracker in the vehicle, updated ${relativeTime(current.recordedAt)}. The tracker number is never shown to you.`
       : current
-        ? 'Position follows the import status.'
+        ? `Last known position, recorded ${formatDateTime(current.recordedAt)}. The vehicle may have moved since.`
         : null;
 
   return (

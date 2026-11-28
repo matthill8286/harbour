@@ -4,13 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import type { LocationEvent, Prisma } from '@prisma/client';
+import type { LocationEvent, Prisma, Tracker } from '@prisma/client';
 import {
   bearingDegrees,
   journeyStatusesForJob,
   parseRouteWaypoints,
   type JobStatus,
   type LocationPoint,
+  trackerSignal,
   UK_CYPRUS_ROUTE_KEY,
 } from '@vip/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -181,22 +182,49 @@ export class TrackingService {
     if (customerView) {
       return { map: this.maps.getConfig(), ...tracking };
     }
-    const availableTrackers = await this.prisma.tracker.findMany({
-      where: {
-        organisationId: user.organisationId,
-        status: { in: ['AVAILABLE', 'OFFLINE'] },
-      },
-      orderBy: { serialNumber: 'asc' },
-    });
+    const [availableTrackers, pendingRemovals] = await Promise.all([
+      this.prisma.tracker.findMany({
+        where: {
+          organisationId: user.organisationId,
+          status: { in: ['AVAILABLE', 'OFFLINE'] },
+        },
+        orderBy: { serialNumber: 'asc' },
+      }),
+      // Units that came off this job and are not yet confirmed as taken out.
+      this.prisma.trackerAssignment.findMany({
+        where: {
+          organisationId: user.organisationId,
+          importJobId: job.id,
+          removedAt: { not: null },
+          removalRequired: true,
+          removalConfirmedAt: null,
+        },
+        select: {
+          id: true,
+          removedAt: true,
+          tracker: { select: { serialNumber: true, powerSource: true } },
+        },
+        orderBy: { removedAt: 'asc' },
+      }),
+    ]);
     return {
       map: this.maps.getConfig(),
       ...tracking,
+      pendingRemovals: pendingRemovals.map((item) => ({
+        assignmentId: item.id,
+        removedAt: item.removedAt,
+        serialNumber: item.tracker.serialNumber,
+        powerSource: item.tracker.powerSource,
+      })),
       availableTrackers: availableTrackers.map((tracker) => ({
         id: tracker.id,
         serialNumber: tracker.serialNumber,
         provider: tracker.provider,
         status: tracker.status,
         batteryLevel: tracker.batteryLevel,
+        powerSource: tracker.powerSource,
+        fittedBy: tracker.fittedBy,
+        ownerPermissionHeld: tracker.ownerPermissionHeld,
       })),
     };
   }
@@ -495,14 +523,7 @@ export class TrackingService {
       trackerAssignments: Array<{
         id: string;
         assignedAt: Date;
-        tracker: {
-          id: string;
-          serialNumber: string;
-          provider: string;
-          batteryLevel: number | null;
-          lastSeenAt: Date | null;
-          status: string;
-        };
+        tracker: Tracker;
       }>;
       locationEvents: LocationEvent[];
     },
@@ -537,25 +558,15 @@ export class TrackingService {
           }
         : null,
       tracker: includeTracker ? this.assignedTracker(assignment) : null,
+      // Whether the unit is reporting, so a last known position is never shown
+      // as the current one. It carries no device number.
+      signal: assignment ? trackerSignal(assignment.tracker) : null,
     };
   }
 
   private assignedTracker(
     assignment:
-      | {
-          id: string;
-          assignedAt: Date;
-          tracker: {
-            id: string;
-            serialNumber: string;
-            provider: string;
-            batteryLevel: number | null;
-            lastSeenAt: Date | null;
-            status: string;
-          };
-        }
-      | null
-      | undefined,
+      { id: string; assignedAt: Date; tracker: Tracker } | null | undefined,
   ) {
     if (!assignment) return null;
     return {
@@ -567,6 +578,12 @@ export class TrackingService {
       batteryLevel: assignment.tracker.batteryLevel,
       lastSeenAt: assignment.tracker.lastSeenAt,
       status: assignment.tracker.status,
+      powerSource: assignment.tracker.powerSource,
+      reportIntervalMinutes: assignment.tracker.reportIntervalMinutes,
+      supplyVoltage: assignment.tracker.supplyVoltage,
+      fittedBy: assignment.tracker.fittedBy,
+      ownerPermissionHeld: assignment.tracker.ownerPermissionHeld,
+      signal: trackerSignal(assignment.tracker),
     };
   }
 
@@ -579,6 +596,7 @@ export class TrackingService {
       speed: event.speed == null ? null : Number(event.speed),
       heading: event.heading == null ? null : Number(event.heading),
       recordedAt: event.recordedAt.toISOString(),
+      ...(event.source === 'MANUAL' ? { source: 'MANUAL' as const } : {}),
     };
   }
 }
