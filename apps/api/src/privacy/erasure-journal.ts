@@ -33,8 +33,20 @@ export type ReviewRemovalEntry = {
   files: RemovedFile[];
 };
 
+/** A whole workspace deleted at the end of its contract, with all its files. */
+export type WorkspaceDeletionEntry = {
+  type: 'workspace-deletion';
+  organisationId: string;
+  /** The platform operator who ran the deletion. */
+  performedById: string;
+  at: string;
+  /** Its files go with its folder, so none are listed. */
+  files: [];
+};
+
 export type ReviewKind = 'DOCUMENT' | 'PHOTO' | 'COST' | 'CHARGE';
-export type JournalEntry = ErasureEntry | ReviewRemovalEntry;
+export type JournalEntry =
+  ErasureEntry | ReviewRemovalEntry | WorkspaceDeletionEntry;
 
 @Injectable()
 export class ErasureJournal {

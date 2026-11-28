@@ -107,7 +107,7 @@ async function scrubAuditEntries(
  * is being erased uses it. An account another workspace has anything to do with
  * is not changed in any way.
  */
-async function eraseAccountIfOnlyOurs(
+export async function eraseAccountIfOnlyOurs(
   tx: Prisma.TransactionClient,
   organisationId: string,
   userId: string,

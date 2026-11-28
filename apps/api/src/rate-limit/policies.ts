@@ -29,6 +29,8 @@ export const RATE_LIMITS = {
   inviteSendIp: per(40, HOUR),
   inviteSendUser: per(30, HOUR),
   inviteSendOrganisation: per(50, DAY),
+  /** A whole workspace is a large download, so a few an hour is plenty. */
+  workspaceExport: per(5, HOUR),
 } as const;
 
 export type RateLimitPolicy = keyof typeof RATE_LIMITS;
