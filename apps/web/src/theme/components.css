@@ -1,0 +1,186 @@
+/*
+ * Harbour's look for the design system's components.
+ *
+ * @atomic-ui 0.12 draws several components in the Impakt brand's flat, ink-edged
+ * G2 style for every brand: larger buttons, 50px fields with an ink border and
+ * mono labels, ink-edged cards and dialogs, and the G2 summary tile. Harbour keeps
+ * the look it had on 0.7.2, which its Figma file draws, so this sheet puts those
+ * parts back through the parts and custom properties the components expose.
+ * Everything here uses Harbour's own tokens from harbour-tokens.css.
+ */
+
+:root {
+  /* Field labels in the body face, semibold, as before; the field box with Harbour's grey edge and a soft shadow. */
+  --impakt-field-label-font: var(--impakt-font-family-body);
+  --impakt-field-label-weight: var(--impakt-font-weight-semibold);
+  --impakt-color-field-border: var(--impakt-color-border-default);
+  --impakt-shadow-field: var(--impakt-shadow-xs);
+  --impakt-shadow-dialog: var(--impakt-shadow-xl), 0 0 0 1px color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+}
+
+/* Buttons: 40px, the small type in semibold, the words in the middle. */
+impakt-button::part(button) {
+  gap: var(--impakt-space-2);
+  min-block-size: 40px;
+  padding: var(--impakt-space-2) var(--impakt-space-4);
+  font-size: var(--impakt-font-size-sm);
+  line-height: var(--impakt-font-leading-sm);
+  font-weight: var(--impakt-font-weight-semibold);
+}
+impakt-button[size='sm']::part(button) {
+  gap: var(--impakt-space-1-5);
+  min-block-size: 32px;
+  padding: var(--impakt-space-1) var(--impakt-space-3);
+}
+impakt-button[size='lg']::part(button) {
+  min-block-size: 48px;
+  padding: var(--impakt-space-3) var(--impakt-space-6);
+  font-size: var(--impakt-font-size-md);
+  line-height: var(--impakt-font-leading-md);
+}
+impakt-button[full]:not([spread])::part(button) {
+  justify-content: center;
+  text-align: center;
+}
+/* The solid button keeps its hairline highlight, the outline one its soft edge. */
+impakt-button:is(:not([variant]), [variant='primary'])::part(button) {
+  box-shadow:
+    var(--impakt-shadow-xs),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12);
+}
+impakt-button[variant='secondary']::part(button) {
+  border-color: color-mix(in srgb, var(--impakt-color-text-default) 15%, transparent);
+  box-shadow: var(--impakt-shadow-xs);
+}
+/*
+ * An icon alone is a 40px circle. React sets icon and label as properties, so a
+ * button drawn as an icon alone is the one with nothing inside it.
+ */
+impakt-button:empty::part(button) {
+  inline-size: 40px;
+  min-inline-size: 40px;
+  block-size: 40px;
+  min-block-size: 40px;
+  padding: 0;
+}
+impakt-button[size='sm']:empty::part(button) {
+  inline-size: 32px;
+  min-inline-size: 32px;
+  block-size: 32px;
+  min-block-size: 32px;
+}
+impakt-button[size='lg']:empty::part(button) {
+  inline-size: 48px;
+  min-inline-size: 48px;
+  block-size: 48px;
+  min-block-size: 48px;
+}
+
+/* Fields: 44px, rounded, with the brand halo on focus. */
+:is(impakt-text-input, impakt-money-input, impakt-date-input, impakt-select, impakt-textarea)::part(label),
+:is(impakt-file-upload, impakt-segmented-control, impakt-radio-group, impakt-checkbox-group)::part(label) {
+  margin-block-end: var(--impakt-space-1);
+}
+impakt-text-input::part(input),
+impakt-select::part(select),
+impakt-textarea::part(textarea) {
+  /* The start padding is left to the component, which makes room for the search icon. */
+  padding-block: var(--impakt-space-2-5);
+  padding-inline-end: var(--impakt-space-3);
+  line-height: normal;
+  border-radius: var(--impakt-radius-lg);
+}
+impakt-textarea::part(textarea) {
+  padding-inline-start: var(--impakt-space-3);
+}
+impakt-text-input::part(input),
+impakt-select::part(select) {
+  min-block-size: 44px;
+}
+impakt-text-input::part(input):hover,
+impakt-select::part(select):hover,
+impakt-textarea::part(textarea):hover {
+  border-color: var(--impakt-color-border-strong);
+}
+impakt-text-input::part(input):focus-visible,
+impakt-select::part(select):focus-visible,
+impakt-textarea::part(textarea):focus-visible {
+  border-color: var(--impakt-color-brand-default);
+  box-shadow:
+    var(--impakt-focus-ring-shadow),
+    0 0 0 6px color-mix(in srgb, var(--impakt-color-brand-default) 22%, transparent);
+}
+
+/* Cards and dialogs: a hairline edge and a soft shadow rather than an ink edge. */
+impakt-card:not([tone]),
+impakt-card[tone='default'] {
+  border-color: color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+  box-shadow: var(--impakt-shadow-sm);
+}
+impakt-dialog::part(dialog) {
+  border: 0;
+}
+impakt-dialog::part(dialog)::backdrop {
+  background: color-mix(in srgb, var(--impakt-color-text-default) 30%, transparent);
+  backdrop-filter: blur(2px);
+}
+impakt-dialog::part(body) {
+  padding: var(--impakt-space-4) var(--impakt-space-5) var(--impakt-space-5);
+}
+impakt-dialog::part(heading) {
+  font-size: var(--impakt-font-size-xl);
+  line-height: normal;
+  letter-spacing: normal;
+  font-weight: var(--impakt-font-weight-bold);
+}
+
+/* The summary tile: the inset grey with a light figure, as before. */
+impakt-stat-tile::part(tile) {
+  gap: var(--impakt-space-1);
+  align-items: stretch;
+  min-block-size: 84px;
+  padding: var(--impakt-space-3) var(--impakt-space-4);
+  border: 0;
+  border-radius: var(--impakt-radius-lg);
+  background: var(--impakt-color-surface-inset);
+}
+impakt-stat-tile::part(label) {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: var(--impakt-font-weight-medium);
+  letter-spacing: var(--impakt-font-tracking-wide);
+  text-transform: uppercase;
+}
+impakt-stat-tile::part(value) {
+  margin-block-start: auto;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: normal;
+  font-weight: 300;
+}
+impakt-stat-tile[size='lg']::part(tile) {
+  min-block-size: 200px;
+  padding: var(--impakt-space-6);
+  border-radius: var(--impakt-radius-xl);
+}
+impakt-stat-tile[size='lg']::part(label) {
+  font-size: var(--impakt-font-size-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+impakt-stat-tile[size='lg']::part(value) {
+  font-size: 64px;
+  line-height: 1;
+}
+impakt-stat-tile[tone='brand']::part(tile) {
+  background: var(--impakt-color-brand-default);
+}
+
+/* Filter chips: a hairline edge and medium words. */
+impakt-filter-chip::part(button) {
+  min-block-size: 36px;
+  font-weight: var(--impakt-font-weight-medium);
+}
+impakt-filter-chip:not([pressed])::part(button) {
+  border-color: color-mix(in srgb, var(--impakt-color-text-default) 10%, transparent);
+}
