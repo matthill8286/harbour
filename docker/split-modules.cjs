@@ -119,7 +119,7 @@ const edgeEngine = (full) =>
   /[\\/](@prisma[\\/]client[\\/]runtime|\.prisma[\\/]client)[\\/](query_(engine|compiler)_)[^\\/]*$/.test(
     full,
   );
-// db push talks to PostgreSQL through the native schema engine. Prisma Studio's
+// migrate deploy talks to PostgreSQL through the native schema engine. Prisma Studio's
 // files and the CLI's WebAssembly query engines are not part of it.
 const unusedCli = (full) =>
   /[\\/]node_modules[\\/]prisma[\\/](build[\\/](public|query_(engine|compiler)_[^\\/]*)|prisma-client)$/.test(

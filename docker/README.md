@@ -5,6 +5,12 @@ The `Dockerfile` at the repository root builds three targets: `api`, `migrate` a
 and the extra files only the Prisma CLI needs. `migrate` is the api's layers plus that one
 extra layer.
 
+## Database migrations
+
+The `migrate` image runs `node prisma/migrate.cjs deploy`. It applies the migrations and
+refuses a database that does not match them. See
+[the database guide](../apps/api/prisma/README.md).
+
 ## The uploads volume
 
 `api` and `migrate` run as the `node` user, uid and gid 1000. Earlier images ran as root, so

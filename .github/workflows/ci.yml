@@ -36,8 +36,15 @@ jobs:
           --health-retries 20
 
     steps:
+      # Two commits, so a pull request can be compared with the branch it targets.
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check that released migrations were not changed
+        if: github.event_name == 'pull_request'
+        run: .github/scripts/migration-history.sh HEAD^1
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -79,8 +86,14 @@ jobs:
           pnpm --filter @vip/api exec tsc -p tsconfig.json --noEmit --incremental false --lib es2022
           pnpm --filter @vip/web exec tsc -b
 
-      - name: Create the schema in the test database
-        run: pnpm --filter @vip/api exec prisma db push --skip-generate
+      # Fails when schema.prisma changes without a migration, or a snapshot is stale.
+      - name: Check that schema.prisma, the migrations and their snapshots agree
+        run: pnpm db:check-migrations
+        env:
+          DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/harbour_ci?schema=public
+
+      - name: Build the test database from the migrations
+        run: pnpm db:deploy
         env:
           DATABASE_URL: postgresql://ci:ci@127.0.0.1:5432/harbour_ci?schema=public
 

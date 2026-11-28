@@ -21,18 +21,20 @@ cp apps/api/.env.example apps/api/.env
 pnpm install
 pnpm --filter @vip/shared build
 pnpm --filter @vip/api prisma:generate
-pnpm --filter @vip/api prisma:push
+pnpm db:deploy
 pnpm --filter @vip/api prisma:seed
 pnpm dev
 ```
 
-If Prisma cannot add required columns to tables that already have rows:
+The database is built from the migrations in `apps/api/prisma/migrations`. [The database guide](apps/api/prisma/README.md) says how to change the schema.
+
+If `db:deploy` refuses an old local database that you can afford to lose:
 
 ```bash
 pnpm --filter @vip/api prisma:reset
 ```
 
-That drops the local database, reapplies the schema, and reseeds. Do not pass `--accept-data-loss` to `prisma:seed`.
+That drops the local database, applies the migrations, and reseeds.
 
 You can also start the apps separately so a database issue cannot stop the UI:
 
